@@ -371,7 +371,7 @@ label.btn{position:relative}
 <label class="ai-consent"><input id="aiConsent" type="checkbox"> أوافق على إرسال النص المستخرج من المستند إلى خدمة الذكاء الاصطناعي للإجابة عن سؤالي.</label>
 <div id="aiStatus" role="status" aria-live="polite">لن يُرسل أي نص قبل تحديد الموافقة.</div>
 <div id="aiAnswer" dir="auto" aria-live="polite"></div>
-<div class="r"><button id="aiClose" type="button">إغلاق</button><span class="sp"></span><button id="aiAsk" class="p" type="button">تحليل المستند والإجابة</button></div>
+<div class="r"><button id="aiClose" type="button">إغلاق</button><span class="sp"></span><button id="aiExtract" type="button">استخراج بيانات CSV</button><button id="aiAsk" class="p" type="button">تحليل المستند والإجابة</button></div>
 </div></div>
 <div id="cpm" aria-hidden="true"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="cph"><h2 id="cph">ضغط ملف PDF</h2>
 <p class="ai-note">اختر مستوى الضغط. سيبقى النص والرسومات المتجهية قابلة للتحديد؛ قد تنخفض جودة الصور المضمنة قليلًا في الضغط المتوازن أو بشكل أكبر في خيار الحجم الأصغر. ننشئ نسخة جديدة ولا نغيّر الأصل.</p>
@@ -2529,6 +2529,30 @@ $("aiAsk").onclick=async()=>{
     $("aiAnswer").textContent=result.answer||"لم تصل إجابة قابلة للعرض.";
     $("aiStatus").textContent="اكتملت الإجابة. راجع أرقام الصفحات في الاستشهادات.";
   }catch(error){$("aiStatus").textContent=error.message||"حدث خطأ أثناء التحليل."}
+  finally{btn.disabled=false}
+};
+$("aiExtract").onclick=async()=>{
+  const btn=$("aiExtract"),base=apiBase();
+  if(!base)return toast("خادم الفلقي غير متصل بعد. اضبط عنوان API في config.js.");
+  if(!$("aiConsent").checked)return toast("يجب الموافقة صراحةً على إرسال النص المستخرج أولًا.");
+  btn.disabled=true;$("aiAnswer").textContent="";$("aiStatus").textContent="جارٍ استخراج النص محليًا…";
+  try{
+    const documentText=await extractLocalDocumentText();
+    if(!documentText)throw new Error("لم أجد نصًا قابلًا للاستخراج. شغّل OCR للصفحات المصوّرة أولًا.");
+    $("aiStatus").textContent="جارٍ استخراج الأسماء والتواريخ والمبالغ…";
+    const response=await fetch(base+"/api/assistant/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({document_text:documentText})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.detail||"تعذّر استخراج البيانات.");
+    const rows=result.entities||[];
+    if(!rows.length){$("aiAnswer").textContent="لم يعثر المساعد على بيانات موثوقة يمكن استخراجها."; $("aiStatus").textContent="اكتمل التحليل دون نتائج.";return;}
+    const labels={name:"اسم",date:"تاريخ",amount:"مبلغ",organization:"جهة",identifier:"معرّف",other:"أخرى"};
+    $("aiAnswer").textContent=rows.map((x,n)=>(n+1)+". "+(labels[x.type]||x.type)+" — "+x.value+" (ص. "+x.page+")"+(x.evidence?"\n  الدليل: "+x.evidence:"")).join("\n\n");
+    const csvCell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
+    const csv=["النوع,القيمة,رقم الصفحة,الدليل",...rows.map(x=>[labels[x.type]||x.type,x.value,x.page,x.evidence].map(csvCell).join(","))].join("\r\n");
+    const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-extracted-data.csv";a.click();URL.revokeObjectURL(url);
+    $("aiStatus").textContent="اكتمل استخراج "+rows.length+" معلومة. تم تنزيل ملف CSV؛ راجع النتائج وأرقام الصفحات قبل اعتمادها.";
+  }catch(error){$("aiStatus").textContent=error.message||"حدث خطأ أثناء استخراج البيانات."}
   finally{btn.disabled=false}
 };
 async function optimizePdfLocally(bytes){
