@@ -35,7 +35,7 @@ for (const match of html.matchAll(scriptPattern)) {
   try {
     new vm.Script(code, { filename: "index.html:inline-script-" + inlineScripts });
   } catch (error) {
-    failures.push("Inline script " + inlineScripts + ": " + error.message);
+    failures.push("Inline script " + inlineScripts + ": " + error.stack);
   }
 }
 
