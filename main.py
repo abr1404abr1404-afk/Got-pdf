@@ -229,8 +229,15 @@ def _reading_order(rows: list[dict]) -> list[dict]:
 
 def _hybrid(image: np.ndarray, language: str) -> dict:
     prepared = _preprocess(image)
-    paddle_rows, paddle_error = _paddle(prepared, language)
-    tess_rows, tess_error = _tesseract(prepared, language)
+    mode = OCR_MODE if OCR_MODE in {"hybrid", "paddleocr", "tesseract"} else "hybrid"
+    if mode in {"hybrid", "paddleocr"}:
+        paddle_rows, paddle_error = _paddle(prepared, language)
+    else:
+        paddle_rows, paddle_error = [], "disabled by OCR_MODE"
+    if mode in {"hybrid", "tesseract"}:
+        tess_rows, tess_error = _tesseract(prepared, language)
+    else:
+        tess_rows, tess_error = [], "disabled by OCR_MODE"
     if paddle_rows and tess_rows:
         merged = _dedupe(paddle_rows + tess_rows)
         used = "hybrid"
