@@ -56,12 +56,62 @@ def _decode_image(data: bytes) -> np.ndarray:
         raise HTTPException(415, "تعذّر قراءة الصورة. جرّب PNG أو JPG.") from exc
 
 
+def _normalize_line_angle(angle: float) -> float:
+    """Normalize a line angle to the shortest equivalent orientation."""
+    while angle <= -90:
+        angle += 180
+    while angle > 90:
+        angle -= 180
+    return angle
+
+
+def _deskew(image: np.ndarray) -> np.ndarray:
+    """Correct only clearly measurable, mild skew; otherwise preserve the scan."""
+    height, width = image.shape[:2]
+    if min(height, width) < 64:
+        return image
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+    segments = cv2.HoughLinesP(
+        edges, 1, np.pi / 180, threshold=max(25, width // 20),
+        minLineLength=max(40, int(width * 0.12)),
+        maxLineGap=max(10, int(width * 0.02)),
+    )
+    if segments is None:
+        return image
+    angles = []
+    for segment in segments.reshape(-1, 4):
+        x1, y1, x2, y2 = (int(value) for value in segment)
+        angle = _normalize_line_angle(float(np.degrees(np.arctan2(y2 - y1, x2 - x1))))
+        if 0.35 <= abs(angle) <= 10:
+            angles.append(angle)
+    # Several consistent long lines are required to avoid rotating based on glyph edges.
+    if len(angles) < 3:
+        return image
+    skew = float(np.median(angles))
+    if not 0.35 <= abs(skew) <= 7:
+        return image
+    matrix = cv2.getRotationMatrix2D((width / 2.0, height / 2.0), skew, 1.0)
+    return cv2.warpAffine(
+        image, matrix, (width, height), flags=cv2.INTER_CUBIC,
+        borderMode=cv2.BORDER_CONSTANT, borderValue=(255, 255, 255),
+    )
+
+
+def _adaptive_threshold_block_size(height: int, width: int) -> int | None:
+    """OpenCV requires an odd adaptive-threshold block larger than one."""
+    if min(int(height), int(width)) < 31:
+        return None
+    return 31
+
+
 def _preprocess(image: np.ndarray) -> np.ndarray:
     h, w = image.shape[:2]
     # Upscale small scans while limiting memory use.
     scale = min(2.0, max(1.0, 1800.0 / max(h, w)))
     if scale > 1.01:
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    image = _deskew(image)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # Mild contrast normalization; avoid aggressive binarization that destroys Arabic dots.
     clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8))
@@ -278,9 +328,13 @@ def _table_from_grid(bounds: list[int], xs: list[int], ys: list[int], lines: lis
 
 def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
     """Detect ruled tables and populate their cells with OCR text where possible."""
+    height, width = image.shape[:2]
+    block_size = _adaptive_threshold_block_size(height, width)
+    if block_size is None:
+        return []
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                   cv2.THRESH_BINARY_INV, 31, 15)
+                                   cv2.THRESH_BINARY_INV, block_size, 15)
     height, width = binary.shape[:2]
     horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(15, width // 35), 1))
     vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(15, height // 35)))
