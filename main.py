@@ -16,6 +16,7 @@ import fitz
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ImageOps
+from starlette.concurrency import run_in_threadpool
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -198,6 +199,34 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     return kept
 
 
+def _reading_order(rows: list[dict]) -> list[dict]:
+    """Order OCR line boxes top-to-bottom and each line by its writing direction."""
+    if len(rows) < 2:
+        return rows
+    ordered = sorted(rows, key=lambda r: (r["bbox"][1] + r["bbox"][3]) / 2)
+    heights = sorted(max(1, r["bbox"][3] - r["bbox"][1]) for r in ordered)
+    tolerance = max(8.0, heights[len(heights) // 2] * 0.65)
+    bands: list[list[dict]] = []
+    centers: list[float] = []
+    for row in ordered:
+        center = (row["bbox"][1] + row["bbox"][3]) / 2
+        if not bands or abs(center - centers[-1]) > tolerance:
+            bands.append([row])
+            centers.append(center)
+        else:
+            bands[-1].append(row)
+            centers[-1] = sum((item["bbox"][1] + item["bbox"][3]) / 2 for item in bands[-1]) / len(bands[-1])
+
+    result: list[dict] = []
+    for band in bands:
+        text = " ".join(item.get("text", "") for item in band)
+        arabic_chars = sum("\u0600" <= ch <= "\u06ff" for ch in text)
+        latin_chars = sum(("a" <= ch.lower() <= "z") for ch in text)
+        rtl = arabic_chars >= latin_chars
+        result.extend(sorted(band, key=lambda r: r["bbox"][0], reverse=rtl))
+    return result
+
+
 def _hybrid(image: np.ndarray, language: str) -> dict:
     prepared = _preprocess(image)
     paddle_rows, paddle_error = _paddle(prepared, language)
@@ -212,7 +241,7 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     else:
         merged, used = [], "none"
     h, w = prepared.shape[:2]
-    merged.sort(key=lambda r: (round((r["bbox"][1] + r["bbox"][3]) / 2 / 16), r["bbox"][0]))
+    merged = _reading_order(merged)
     return {
         "engine": used,
         "image_width": w,
@@ -234,7 +263,7 @@ async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng"
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     image = _decode_image(data)
-    result = _hybrid(image, language)
+    result = await run_in_threadpool(_hybrid, image, language)
     if not result["lines"]:
         errors = result["engines"]
         raise HTTPException(503, {"message": "لم يتمكن أي محرك من استخراج نص. تحقق من تثبيت نماذج العربية والإنجليزية.", "engines": errors})
@@ -260,7 +289,7 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
             image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
         else:
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        result = _hybrid(image, language)
+        result = await run_in_threadpool(_hybrid, image, language)
         pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                       "ocr": result})
     doc.close()
