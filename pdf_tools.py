@@ -5,19 +5,14 @@ import fitz
 
 
 COMPRESSION_LEVELS = {
-    # Keeps high image quality while downsampling oversized scans/photos.
+    "lossless": None,
     "balanced": {"dpi_threshold": 180, "dpi_target": 144, "quality": 82},
-    # More aggressive image reduction; text and vector elements remain vector/text.
     "small": {"dpi_threshold": 140, "dpi_target": 100, "quality": 65},
 }
 
 
 def compress_pdf_bytes(data: bytes, level: str = "balanced") -> tuple[bytes, bool]:
-    """Optimize PDF structure and optionally recompress embedded images.
-
-    The caller must make the quality trade-off explicit. The original bytes are
-    returned if the optimized version is not smaller than the input.
-    """
+    """Optimize a PDF and return the original if the result is not smaller."""
     if not data:
         raise ValueError("الملف فارغ")
     if level not in COMPRESSION_LEVELS:
@@ -35,15 +30,17 @@ def compress_pdf_bytes(data: bytes, level: str = "balanced") -> tuple[bytes, boo
             raise ValueError("الملف ليس PDF صالحًا")
 
         image_options = COMPRESSION_LEVELS[level]
-        document.rewrite_images(
-            **image_options,
-            lossy=True,
-            lossless=True,
-            bitonal=True,
-            color=True,
-            gray=True,
-            set_to_gray=False,
-        )
+        if image_options:
+            # Only embedded raster images are recompressed; text and vector content stay intact.
+            document.rewrite_images(
+                **image_options,
+                lossy=True,
+                lossless=True,
+                bitonal=True,
+                color=True,
+                gray=True,
+                set_to_gray=False,
+            )
         optimized = document.tobytes(
             garbage=4,
             deflate=True,
