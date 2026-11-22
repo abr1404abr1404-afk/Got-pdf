@@ -56,15 +56,6 @@ def _decode_image(data: bytes) -> np.ndarray:
         raise HTTPException(415, "تعذّر قراءة الصورة. جرّب PNG أو JPG.") from exc
 
 
-def _render_pdf_page(page: fitz.Page, scale: float) -> np.ndarray:
-    """Render one PDF page and convert it to OpenCV's BGR format."""
-    pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-    image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-    if pix.n == 4:
-        return cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
-    return cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-
 def _preprocess(image: np.ndarray) -> np.ndarray:
     h, w = image.shape[:2]
     # Upscale small scans while limiting memory use.
@@ -304,8 +295,13 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
         pages = []
         for index in range(doc.page_count):
             page = doc.load_page(index)
-            # PDF rasterization is CPU-bound too; keep it off the async event loop.
-            image = await run_in_threadpool(_render_pdf_page, page, scale)
+            # PyMuPDF is not thread-safe; keep its document operations on this request thread.
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+            if pix.n == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+            else:
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             result = await run_in_threadpool(_hybrid, image, language)
             pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                           "ocr": result})
