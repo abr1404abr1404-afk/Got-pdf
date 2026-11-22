@@ -19,7 +19,7 @@ Got-pdf/
 
 ## مشاركة PDF عبر Google Drive وQR
 
-هذه الميزة مخططة كخيار مستقل؛ لا تتطلب بقية أدوات البرنامج تسجيلًا، ولا تُرفع الملفات تلقائيًا. قبل تنفيذ واجهة المشاركة وتفعيلها، يجب إكمال إعداد Google Cloud الموضح في [SHARING_AND_ROADMAP.md](./SHARING_AND_ROADMAP.md). عند الإعداد، يوضع OAuth Web Client ID العام فقط في `ALFALQI_GOOGLE_CLIENT_ID` داخل `config.js`. لا تضع Client Secret في الواجهة أو المستودع.
+أُضيفت واجهة مشاركة اختيارية في المحرر. تنشئ نسخة PDF النهائية وترفعها مباشرة من المتصفح إلى مجلد «الفلقي PDF» في Drive، ثم تولّد QR للرابط. تبقى بقية الأدوات متاحة دون تسجيل، ولا يُرفع شيء تلقائيًا. الميزة تتطلب إعداد Google Cloud وكتابة OAuth Web Client ID العام في `ALFALQI_GOOGLE_CLIENT_ID` داخل `config.js`. لا تضع Client Secret في الواجهة أو المستودع. مشاركة «أي شخص لديه الرابط» غير مفعلة افتراضيًا وتحتاج اختيار المستخدم. التفاصيل في [SHARING_AND_ROADMAP.md](./SHARING_AND_ROADMAP.md).
 
 ## نشر واجهة المحرر على GitHub Pages
 
