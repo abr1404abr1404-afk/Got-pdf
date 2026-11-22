@@ -38,5 +38,35 @@ class ReadingOrderTests(unittest.TestCase):
         self.assertEqual(reading_order([item]), [item])
 
 
+
+class OcrModeTests(unittest.TestCase):
+    def run_mode(self, mode):
+        main_tree = ast.parse(SOURCE)
+        hybrid = next(node for node in main_tree.body if isinstance(node, ast.FunctionDef) and node.name == "_hybrid")
+        module = ast.Module(body=[hybrid], type_ignores=[])
+        ast.fix_missing_locations(module)
+        calls = []
+        namespace = {
+            "OCR_MODE": mode,
+            "_preprocess": lambda image: image,
+            "_paddle": lambda image, language: (calls.append("paddle") or [], None),
+            "_tesseract": lambda image, language: (calls.append("tesseract") or [], None),
+            "_dedupe": lambda rows: rows,
+            "_reading_order": lambda rows: rows,
+        }
+        exec(compile(module, "main.py", "exec"), namespace)
+        namespace["_hybrid"]("image", "ara+eng")
+        return calls
+
+    def test_hybrid_runs_both_engines(self):
+        self.assertEqual(self.run_mode("hybrid"), ["paddle", "tesseract"])
+
+    def test_paddle_mode_skips_tesseract(self):
+        self.assertEqual(self.run_mode("paddleocr"), ["paddle"])
+
+    def test_tesseract_mode_skips_paddle(self):
+        self.assertEqual(self.run_mode("tesseract"), ["tesseract"])
+
+
 if __name__ == "__main__":
     unittest.main()
