@@ -2501,16 +2501,16 @@ async function extractLocalDocumentText(){
   const chunks=[];let total=0;
   for(const index of chosen){
     const pg=pages[index];let text="";
-    if(pg.ocr&&pg.ocr.length)text=pg.ocr.map(line=>line.t||"").join("\\n");
+    if(pg.ocr&&pg.ocr.length)text=pg.ocr.map(line=>line.t||"").join("\n");
     if(!text.trim()){
       const page=await docs[pg.d].pdf.getPage(pg.i);
       const content=await page.getTextContent();
       text=content.items.map(item=>item.str||"").filter(Boolean).join(" ");
     }
-    text=text.replace(/[ \\t]+/g," ").trim();
-    if(text){const chunk="[صفحة "+(index+1)+"]\\n"+text;const room=45000-total;if(room<=0)break;chunks.push(chunk.slice(0,room));total+=Math.min(room,chunk.length)}
+    text=text.replace(/[ \t]+/g," ").trim();
+    if(text){const chunk="[صفحة "+(index+1)+"]\n"+text;const room=45000-total;if(room<=0)break;chunks.push(chunk.slice(0,room));total+=Math.min(room,chunk.length)}
   }
-  return chunks.join("\\n\\n");
+  return chunks.join("\n\n");
 }
 $("aiAsk").onclick=async()=>{
   const question=$("aiQuestion").value.trim(),base=apiBase();
