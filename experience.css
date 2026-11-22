@@ -283,3 +283,90 @@ main { min-height: calc(100vh - 105px); }
 @media (prefers-reduced-motion: reduce) {
   #thumbsPanel, .thumb-item { transition: none !important; }
 }
+
+/* Document AI and PDF compression dialogs */
+#aim, #cpm {
+  position: fixed;
+  inset: 0;
+  z-index: 18;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0,0,0,.58);
+}
+#aim.on, #cpm.on { display: flex; }
+#aim .bx, #cpm .bx {
+  width: min(100%, 540px);
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  padding: 18px;
+  color: var(--ink);
+  background: var(--alfalqi-glass);
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 20px;
+  box-shadow: 0 28px 90px rgba(0,0,0,.3);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  backdrop-filter: blur(22px) saturate(135%);
+}
+#aim h2, #cpm h2 { margin: 0 0 8px; font-size: 1.12rem; }
+#aim .ai-note, #cpm .ai-note {
+  margin: 0 0 12px;
+  color: var(--mut);
+  font-size: .9rem;
+  line-height: 1.75;
+}
+#aim textarea {
+  display: block;
+  width: 100%;
+  min-height: 94px;
+  resize: vertical;
+  padding: 11px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.7;
+}
+.ai-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin: 12px 0;
+  color: var(--ink);
+  font-size: .88rem;
+  line-height: 1.65;
+  white-space: normal;
+}
+.ai-consent input { flex: none; margin-top: 5px; accent-color: var(--acc); }
+#aiStatus, #cpStatus {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  color: var(--mut);
+  font-size: .88rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+#aiAnswer {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--acc) 7%, var(--panel));
+  color: var(--ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.85;
+}
+#aiAnswer:empty { display: none; }
+#aim .r, #cpm .r { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+@media (max-width: 640px) {
+  #aim, #cpm { padding: 9px; align-items: flex-end; }
+  #aim .bx, #cpm .bx { width: 100%; max-height: 90vh; border-radius: 18px 18px 12px 12px; padding: 15px; }
+  #aim .r button, #cpm .r button { min-height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #aim .bx, #cpm .bx { animation: none !important; }
+}

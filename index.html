@@ -323,6 +323,8 @@ label.btn{position:relative}
    <button class="hb" id="spl" title="تقسيم الملف"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.1 8.1 12 12"/><path d="M20 4 8.1 15.9"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg><span class="lb">تقسيم</span></button>
    <button class="hb" id="thumbs" type="button" title="معاينة مصغرات الصفحات" aria-label="معاينة مصغرات الصفحات" aria-controls="thumbsPanel" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="8" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/></svg><span class="lb">مصغرات</span></button>
    <button class="hb" id="mrg" title="دمج الملفات وترتيبها"><svg class="ic" viewBox="0 0 24 24"><path d="M6 4v6a4 4 0 0 0 4 4h8M18 4v6a4 4 0 0 1-4 4"/><path d="m15 11 3 3-3 3"/></svg><span class="lb">دمج</span></button>
+   <button class="hb" id="ai" type="button" title="اسأل عن محتوى المستند"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v2a3 3 0 0 0 3 3h1v-5H7a5 5 0 0 1 10 0h-2v5h1a3 3 0 0 0 3-3v-2a7 7 0 0 0-7-7Z"/><path d="M9 19h6"/></svg><span class="lb">مساعد AI</span></button>
+   <button class="hb" id="compress" type="button" title="ضغط نسخة من الملف لتقليل الحجم"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M7 4v6m10-6v6M6 13h12l-2 7H8z"/><path d="M10 16h4"/></svg><span class="lb">ضغط PDF</span></button>
    <button class="hb" id="tls" title="أدوات: علامة مائية، خصائص، عمليات سريعة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="lb">أدوات</span></button>
   </div><span id="info"></span></div>
 </header>
@@ -363,8 +365,23 @@ label.btn{position:relative}
 <div class="tsec bco"><label id="bcll">تصحيح الأخطاء <select id="bcl"><option value="M">متوسط</option><option value="L">منخفض</option><option value="Q">عالٍ</option><option value="H">أعلى</option></select></label><label id="bctxl" style="display:none"><input id="bctx" type="checkbox" checked> أظهر النص تحت الباركود</label><label>اللون <input id="bcc" type="color" value="#000000"></label><label>المكان <select id="bcw"><option value="cur">الصفحة الظاهرة</option><option value="all">كل الصفحات (أسفل اليمين)</option></select></label></div>
 <div id="bcp" class="bcp"></div>
 <div class="r"><button id="bcx">إلغاء</button><span class="sp"></span><button id="bcok" class="p">إدراج</button></div></div></div>
+<div id="aim" aria-hidden="true"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="aih"><h2 id="aih">مساعد المستندات الذكي</h2>
+<p class="ai-note">استخرج النص داخل المتصفح أولًا. عند موافقتك، يُرسل النص المستخرج وسؤالك فقط إلى خادم الذكاء الاصطناعي؛ لا نرسل ملف PDF نفسه.</p>
+<textarea id="aiQuestion" rows="3" placeholder="مثال: لخّص المستند، ما أهم النتائج؟ أو استخرج التواريخ والأسماء..." aria-label="سؤالك عن المستند"></textarea>
+<label class="ai-consent"><input id="aiConsent" type="checkbox"> أوافق على إرسال النص المستخرج من المستند إلى خدمة الذكاء الاصطناعي للإجابة عن سؤالي.</label>
+<div id="aiStatus" role="status" aria-live="polite">لن يُرسل أي نص قبل تحديد الموافقة.</div>
+<div id="aiAnswer" dir="auto" aria-live="polite"></div>
+<div class="r"><button id="aiClose" type="button">إغلاق</button><span class="sp"></span><button id="aiAsk" class="p" type="button">تحليل المستند والإجابة</button></div>
+</div></div>
+<div id="cpm" aria-hidden="true"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="cph"><h2 id="cph">ضغط ملف PDF</h2>
+<p class="ai-note">اختر مستوى الضغط. سيبقى النص والرسومات المتجهية قابلة للتحديد؛ قد تنخفض جودة الصور المضمنة قليلًا في الضغط المتوازن أو بشكل أكبر في خيار الحجم الأصغر. ننشئ نسخة جديدة ولا نغيّر الأصل.</p>
+<div class="tsec"><label for="cpLevel">مستوى الضغط</label> <select id="cpLevel"><option value="lossless">بدون فقد الجودة — ضغط بنيوي</option><option value="balanced" selected>متوازن — جودة صور أفضل</option><option value="small">حجم أصغر — ضغط أقوى للصور</option></select></div>
+<label class="ai-consent"><input id="cpServerConsent" type="checkbox"> أوافق على إرسال نسخة من الملف إلى خادم الفلقي لضغط الصور وتقليل حجم الملف.</label>
+<div id="cpStatus" role="status" aria-live="polite">بدون تحديد الموافقة، ستتم محاولة التحسين محليًا في المتصفح.</div>
+<div class="r"><button id="cpClose" type="button">إغلاق</button><span class="sp"></span><button id="cpGo" class="p" type="button">ضغط وتنزيل النسخة</button></div>
+</div></div>
 <div id="rdm"><div class="bx" role="dialog" aria-label="الملف جاهز"><h2>الملف جاهز ✔</h2><p id="rdn"></p><div class="rdb"><button id="rds" class="p">مشاركة / حفظ في «الملفات»</button><a id="rdd" class="rda p" href="#" download>تنزيل الملف</a><a id="rdo" class="rda" href="#" target="_blank" rel="noopener">فتح الملف</a><button id="rdx">إغلاق</button></div></div></div>
-<div id="hlp"><div class="bx" role="dialog" aria-label="دليل الاستخدام"><h2>دليل سريع</h2><ul class="hl"><li><b>فتح:</b> ملف PDF واحد أو عدة ملفات تُدمج. <b>صورة:</b> تحويل الصور إلى PDF بحجم الصفحة الذي تختاره.</li><li><b>تعديل النص:</b> فعّله ثم اضغط أي سطر في الملف. الضغط على النص المضاف يحدّده، والسحب يحرّكه، والضغط مرة ثانية يفتح الكتابة. الضغط بعيدًا ينهي التعديل.</li><li><b>شريط النص:</b> ✥ للنقل، A−/A+ للحجم، B للعريض، «Aa» للخطوط والألوان وتكرار النص ونسخه.</li><li><b>تعليق:</b> تظليل، قلم، وحجب (مربع أسود يخفي ما تحته في الملف المنزَّل).</li><li><b>باركود:</b> رمز QR أو Code128 على الصفحة أو على كل الصفحات.</li><li><b>دمج / تقسيم / أدوات:</b> ترتيب الملفات، التقسيم بالنطاق، علامة مائية، خصائص الملف.</li><li><b>القرص بإصبعين:</b> يكبّر الملف فقط. <b>تراجع / إعادة:</b> من الشريط العلوي أو Ctrl+Z / Ctrl+Y.</li><li>تتم معالجة ملفات PDF محليًا في المتصفح. عند تفعيل خادم OCR، تُرسل الصفحة المراد تحليلها إلى خادم الخدمة؛ لا ترسل مستندات حساسة إلى خادم لا تثق به.</li><li><b>على iPhone:</b> إذا لم يستجب اختيار الملف داخل معاينة التطبيق، افتح ملف HTML في Safari ثم اختر «فتح PDF» أو «صورة→PDF». تأكد من اكتمال تنزيل الملف قبل اختياره.</li><li><b>اقتراحات تطوير:</b> صور مصغّرة للصفحات، حفظ تلقائي واستعادة آخر جلسة، سجل للملفات الأخيرة، بحث داخل النص، واختصارات قابلة للتخصيص.</li></ul><div class="r"><span class="sp"></span><button id="hlx" class="p">حسنًا</button></div></div></div>
+<div id="hlp"><div class="bx" role="dialog" aria-label="دليل الاستخدام"><h2>دليل سريع</h2><ul class="hl"><li><b>فتح:</b> ملف PDF واحد أو عدة ملفات تُدمج. <b>صورة:</b> تحويل الصور إلى PDF بحجم الصفحة الذي تختاره.</li><li><b>تعديل النص:</b> فعّله ثم اضغط أي سطر في الملف. الضغط على النص المضاف يحدّده، والسحب يحرّكه، والضغط مرة ثانية يفتح الكتابة. الضغط بعيدًا ينهي التعديل.</li><li><b>شريط النص:</b> ✥ للنقل، A−/A+ للحجم، B للعريض، «Aa» للخطوط والألوان وتكرار النص ونسخه.</li><li><b>تعليق:</b> تظليل، قلم، وحجب (مربع أسود يخفي ما تحته في الملف المنزَّل).</li><li><b>باركود:</b> رمز QR أو Code128 على الصفحة أو على كل الصفحات.</li><li><b>مساعد AI:</b> يجيب عن أسئلتك من نص المستند بعد موافقتك على إرسال النص المستخرج فقط إلى خدمة الذكاء الاصطناعي.</li><li><b>ضغط PDF:</b> ينشئ نسخة محسّنة مع الحفاظ على النص والصفحات قدر الإمكان.</li><li><b>دمج / تقسيم / أدوات:</b> ترتيب الملفات، التقسيم بالنطاق، علامة مائية، خصائص الملف.</li><li><b>القرص بإصبعين:</b> يكبّر الملف فقط. <b>تراجع / إعادة:</b> من الشريط العلوي أو Ctrl+Z / Ctrl+Y.</li><li>تتم معالجة ملفات PDF محليًا في المتصفح. عند تفعيل خادم OCR، تُرسل الصفحة المراد تحليلها إلى خادم الخدمة؛ لا ترسل مستندات حساسة إلى خادم لا تثق به.</li><li><b>على iPhone:</b> إذا لم يستجب اختيار الملف داخل معاينة التطبيق، افتح ملف HTML في Safari ثم اختر «فتح PDF» أو «صورة→PDF». تأكد من اكتمال تنزيل الملف قبل اختياره.</li><li><b>اقتراحات تطوير:</b> صور مصغّرة للصفحات، حفظ تلقائي واستعادة آخر جلسة، سجل للملفات الأخيرة، بحث داخل النص، واختصارات قابلة للتخصيص.</li></ul><div class="r"><span class="sp"></span><button id="hlx" class="p">حسنًا</button></div></div></div>
 <div id="anp"><button id="ah" class="on">تظليل</button><button id="ap">قلم</button><button id="ab">حجب</button><input id="ac" type="color" value="#ffd400" aria-label="اللون"><select id="aw" aria-label="السماكة"><option value="2">رفيع</option><option value="4" selected>متوسط</option><option value="8">عريض</option></select><button id="aq" class="p">تم</button></div>
 <div id="sg"><div class="bx" role="dialog" aria-label="التوقيع"><h2>ارسم توقيعك</h2><p>ارسم بإصبعك أو بالفأرة داخل المربع الأبيض.</p><canvas id="sgc"></canvas><div class="r"><input id="sgcol" type="color" value="#111111" aria-label="لون التوقيع"><button id="sgsv" style="display:none">استخدام المحفوظ</button><button id="sgx">مسح</button><span class="sp"></span><button id="sgn">إلغاء</button><button id="sgok" class="p">إدراج</button></div></div></div>
 <div id="toast"></div>
@@ -2472,6 +2489,77 @@ async function buildPdf(list){
   if(META.title)out.setTitle(META.title);if(META.author)out.setAuthor(META.author);out.setCreator("الفلقي لتعديل PDF");out.setProducer("الفلقي لتعديل PDF");
   return await out.save();
 }
+const apiBase=()=>(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
+const fmtBytes=n=>n<1024?(n+" بايت"):n<1048576?((n/1024).toFixed(1)+" كيلوبايت"):((n/1048576).toFixed(2)+" ميجابايت");
+const aiModal=$("aim"),compressModal=$("cpm");
+function openAi(){if(!pages.length)return toast("افتح ملف PDF أولًا.");aiModal.classList.add("on");aiModal.setAttribute("aria-hidden","false");$("aiQuestion").focus()}
+function closeAi(){aiModal.classList.remove("on");aiModal.setAttribute("aria-hidden","true")}
+function openCompress(){if(!pages.length)return toast("افتح ملف PDF أولًا.");compressModal.classList.add("on");compressModal.setAttribute("aria-hidden","false");$("cpStatus").textContent=apiBase()?"يمكنك اختيار الضغط على الخادم أو تركه فارغًا للمعالجة المحلية." :"لا يوجد خادم ضغط متصل؛ ستتم محاولة التحسين المحلي دون فقد جودة. خيارات تقليل جودة الصور تحتاج ربط الخادم."}
+function closeCompress(){compressModal.classList.remove("on");compressModal.setAttribute("aria-hidden","true")}
+$("ai").onclick=openAi;$("aiClose").onclick=closeAi;$("compress").onclick=openCompress;$("cpClose").onclick=closeCompress;
+async function extractLocalDocumentText(){
+  const chosen=pages.some(p=>p.sel)?pages.map((p,i)=>p.sel?i:-1).filter(i=>i>=0):pages.map((p,i)=>i);
+  const chunks=[];let total=0;
+  for(const index of chosen){
+    const pg=pages[index];let text="";
+    if(pg.ocr&&pg.ocr.length)text=pg.ocr.map(line=>line.t||"").join("\n");
+    if(!text.trim()){
+      const page=await docs[pg.d].pdf.getPage(pg.i);
+      const content=await page.getTextContent();
+      text=content.items.map(item=>item.str||"").filter(Boolean).join(" ");
+    }
+    text=text.replace(/[ \t]+/g," ").trim();
+    if(text){const chunk="[صفحة "+(index+1)+"]\n"+text;const room=45000-total;if(room<=0)break;chunks.push(chunk.slice(0,room));total+=Math.min(room,chunk.length)}
+  }
+  return chunks.join("\n\n");
+}
+$("aiAsk").onclick=async()=>{
+  const question=$("aiQuestion").value.trim(),base=apiBase();
+  if(!question)return toast("اكتب سؤالك أولًا.");
+  if(!$("aiConsent").checked)return toast("يجب الموافقة صراحةً على إرسال النص المستخرج قبل استخدام المساعد.");
+  if(!base){$("aiStatus").textContent="خادم الفلقي غير متصل بعد. يلزم نشر API وضبط عنوانه في config.js وإعداد مفتاح الخدمة على الخادم.";return}
+  const btn=$("aiAsk");btn.disabled=true;$("aiAnswer").textContent="";$("aiStatus").textContent="جارٍ استخراج النص محليًا من الصفحات المحددة…";
+  try{
+    const documentText=await extractLocalDocumentText();
+    if(!documentText)throw new Error("لم أجد نصًا قابلًا للاستخراج. إذا كان الملف صورًا ممسوحة، شغّل OCR على صفحاته أولًا.");
+    $("aiStatus").textContent="تم استخراج النص محليًا. جارٍ إرسال النص فقط إلى المساعد…";
+    const response=await fetch(base+"/api/assistant/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({document_text:documentText,question})});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.detail||"تعذّر الاتصال بخدمة الذكاء الاصطناعي.");
+    $("aiAnswer").textContent=result.answer||"لم تصل إجابة قابلة للعرض.";
+    $("aiStatus").textContent="اكتملت الإجابة. راجع أرقام الصفحات في الاستشهادات.";
+  }catch(error){$("aiStatus").textContent=error.message||"حدث خطأ أثناء التحليل."}
+  finally{btn.disabled=false}
+};
+async function optimizePdfLocally(bytes){
+  const document=await PDFLib.PDFDocument.load(bytes,{updateMetadata:false});
+  const optimized=await document.save({useObjectStreams:true,objectsPerTick:100});
+  return optimized.length<bytes.length?optimized:bytes;
+}
+$("cpGo").onclick=async()=>{
+  const btn=$("cpGo");btn.disabled=true;
+  const selected=pages.some(p=>p.sel)?pages.filter(p=>p.sel):pages.slice();
+  const base=apiBase();let source;
+  try{
+    $("cpStatus").textContent="جارٍ تجهيز النسخة الحالية مع التعديلات…";
+    source=await buildPdf(selected);
+    let output=source,method="تحسين محلي";
+    if(base&&$("cpServerConsent").checked){
+      $("cpStatus").textContent="جارٍ إرسال نسخة الضغط إلى خادم الفلقي بموافقتك…";
+      const form=new FormData();form.append("file",new Blob([source],{type:"application/pdf"}),safeName()+".pdf");form.append("level",$("cpLevel").value);
+      const response=await fetch(base+"/api/compress/pdf",{method:"POST",body:form});
+      if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.detail||"تعذّر ضغط الملف على الخادم.")}
+      output=new Uint8Array(await response.arrayBuffer());method="ضغط خادم الفلقي";
+    }else{
+      $("cpStatus").textContent="جارٍ تحسين بنية PDF محليًا دون فقد جودة. مستوى ضغط الصور لا يُطبّق دون الخادم…";
+      output=await optimizePdfLocally(source);
+    }
+    const reduced=source.length-output.length,percent=reduced>0?(reduced/source.length*100).toFixed(1):"0.0";
+    $("cpStatus").textContent=method+" — قبل: "+fmtBytes(source.length)+"، بعد: "+fmtBytes(output.length)+(reduced>0?"، توفير "+percent+"٪":"، لم ينخفض الحجم أكثر؛ الملف مضغوط أصلًا أو لم يجد المحسّن مساحة لتقليلها.");
+    await saveFile(safeName()+"-compressed.pdf",output);
+  }catch(error){$("cpStatus").textContent=error.message||"تعذّر ضغط الملف."}
+  finally{btn.disabled=false}
+};
 const safeName=()=>(($("fn").value.trim().replace(/[\\/:*?"<>|]+/g,"-").replace(/\.pdf$/i,""))||"document");
 $("save").onclick=async()=>{
   const sel=pages.filter(p=>p.sel),list=sel.length?sel:pages;
@@ -2712,7 +2800,7 @@ const bcc=$("bcclean");if(bcc)bcc.onclick=()=>{try{loadBcRead();bcClean()}catch(
 const ICP={"close": "<path d=\"M6 6l12 12M18 6 6 18\"/>", "check": "<path d=\"m5 12 5 5 9-10\"/>", "download": "<path d=\"M12 3v12m0 0-4-4m4 4 4-4M4 21h16\"/>", "open": "<path d=\"M14 4h6v6M20 4l-9 9\"/><path d=\"M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5\"/>", "share": "<path d=\"M12 16V4m0 0-4 4m4-4 4 4\"/><path d=\"M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "trash": "<path d=\"M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3\"/>", "rotate": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "up": "<path d=\"m6 15 6-6 6 6\"/>", "down": "<path d=\"m6 9 6 6 6-6\"/>", "scan": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2\"/><path d=\"M7 8h8M7 12h10M7 16h6\"/>"},DEC={"إغلاق": "close", "إلغاء": "close", "حسنًا": "check", "تطبيق": "check", "حفظ الإعدادات": "check", "إدراج": "plus", "تم": "check", "تنزيل الملف": "download", "فتح الملف": "open", "مشاركة / حفظ في «الملفات»": "share", "مسح": "trash", "حذف": "trash", "تدوير": "rotate", "↑": "up", "↓": "down", "تحليل النص": "scan", "مسح التحليل": "close", "حلّل صفحات الصور": "scan", "تدوير الكل": "rotate", "حذف المحدد": "trash", "إدراج الصورة الأصلية منظّفة (أبيض وأسود)": "plus"};
 function decorate(root){(root||document).querySelectorAll("button").forEach(b=>{if(b.querySelector("svg")||b.dataset.dec)return;const t=(b.textContent||"").trim(),k=DEC[t];if(!k)return;b.dataset.dec="1";const ic='<svg class="ic" viewBox="0 0 24 24">'+ICP[k]+'</svg>';if(t==="↑"||t==="↓"){b.setAttribute("aria-label",t==="↑"?"أعلى":"أسفل");b.innerHTML=ic}else{b.innerHTML=ic+"<span>"+t+"</span>";b.classList.add("ib")}})}
 decorate(document);
-const MENU=[["thumbs","مصغرات الصفحات","تعرض صورًا مصغرة لصفحات الملف وتتيح الانتقال مباشرة إلى أي صفحة."],["file","فتح","يفتح ملف PDF أو عدة ملفات في آن واحد، وتُدمج تلقائيًا في ملف واحد."],["fimg","صورة → PDF","يحوّل صورة أو أكثر إلى ملف PDF. حجم الصفحة (A4 وغيره) من القائمة المجاورة."],["ocb","قراءة نص صورة","يقرأ الكلام الموجود في صورة ويحوّله إلى أسطر تعدّلها مباشرة (يحتاج إنترنت)."],["txt","إضافة نص","اضغط على مكان في الصفحة واكتب. بعدها غيّر الخط واللون والحجم من الشريط."],["edt","تعديل النص","اضغط على أي سطر موجود في الملف لتعدّله أو تحذفه، مع الحفاظ على الخلفية."],["img","إدراج صورة","تضع صورة داخل الصفحة (شعار، ختم، باركود) ثم تحرّكها وتغيّر حجمها."],["sig","توقيع","ارسم توقيعك بإصبعك ثم ضعه في الصفحة، ويمكن حفظه لاستخدامه لاحقًا."],["bcb","باركود","ينشئ QR أو Code128، أو يقرأ باركود من صورة ويعيد رسمه نظيفًا."],["ann","تعليق","تظليل وقلم حر وحجب (مربع أسود يخفي ما تحته)."],["pn","ترقيم","يضيف أرقام الصفحات بالأرقام العربية أسفل كل صفحة."],["spl","تقسيم","يستخرج صفحات بنطاق تحدده، أو يقسّم الملف إلى عدة ملفات."],["mrg","دمج","يرتّب الملفات المفتوحة بالأسهم أو يحذف بعضها ثم يدمجها."],["tls","أدوات","علامة مائية، خصائص الملف، تدوير الكل، عكس الترتيب، تاريخ اليوم، حفظ المشروع وفتحه."],["ud","تراجع / إعادة","يلغي آخر تعديل أو يعيده (حتى 100 خطوة)."],["save","تنزيل","يجهّز الملف النهائي بالاسم الذي كتبته في خانة اسم الملف."]];
+const MENU=[["ai","مساعد المستندات الذكي","اسأل عن محتوى الملف، لخّصه، واستخرج المعلومات مع الإشارة إلى أرقام الصفحات."],["compress","ضغط PDF","أنشئ نسخة أصغر قدر الإمكان دون تغيير الملف الأصلي أو تحويل النص إلى صورة."],["thumbs","مصغرات الصفحات","تعرض صورًا مصغرة لصفحات الملف وتتيح الانتقال مباشرة إلى أي صفحة."],["file","فتح","يفتح ملف PDF أو عدة ملفات في آن واحد، وتُدمج تلقائيًا في ملف واحد."],["fimg","صورة → PDF","يحوّل صورة أو أكثر إلى ملف PDF. حجم الصفحة (A4 وغيره) من القائمة المجاورة."],["ocb","قراءة نص صورة","يقرأ الكلام الموجود في صورة ويحوّله إلى أسطر تعدّلها مباشرة (يحتاج إنترنت)."],["txt","إضافة نص","اضغط على مكان في الصفحة واكتب. بعدها غيّر الخط واللون والحجم من الشريط."],["edt","تعديل النص","اضغط على أي سطر موجود في الملف لتعدّله أو تحذفه، مع الحفاظ على الخلفية."],["img","إدراج صورة","تضع صورة داخل الصفحة (شعار، ختم، باركود) ثم تحرّكها وتغيّر حجمها."],["sig","توقيع","ارسم توقيعك بإصبعك ثم ضعه في الصفحة، ويمكن حفظه لاستخدامه لاحقًا."],["bcb","باركود","ينشئ QR أو Code128، أو يقرأ باركود من صورة ويعيد رسمه نظيفًا."],["ann","تعليق","تظليل وقلم حر وحجب (مربع أسود يخفي ما تحته)."],["pn","ترقيم","يضيف أرقام الصفحات بالأرقام العربية أسفل كل صفحة."],["spl","تقسيم","يستخرج صفحات بنطاق تحدده، أو يقسّم الملف إلى عدة ملفات."],["mrg","دمج","يرتّب الملفات المفتوحة بالأسهم أو يحذف بعضها ثم يدمجها."],["tls","أدوات","علامة مائية، خصائص الملف، تدوير الكل، عكس الترتيب، تاريخ اليوم، حفظ المشروع وفتحه."],["ud","تراجع / إعادة","يلغي آخر تعديل أو يعيده (حتى 100 خطوة)."],["save","تنزيل","يجهّز الملف النهائي بالاسم الذي كتبته في خانة اسم الملف."]];
 function buildMenu(){const box=document.getElementById("mnl");if(box.dataset.built)return;box.dataset.built="1";MENU.forEach(([id,t,d])=>{let el=document.getElementById(id);if(el&&el.tagName==="INPUT")el=el.closest("label")||el;const sv=el&&el.querySelector("svg"),row=document.createElement("div");row.className="mrow2";const mi=document.createElement("span");mi.className="mi";if(sv)mi.append(sv.cloneNode(true));const bd=document.createElement("div"),b=document.createElement("b"),de=document.createElement("div");b.textContent=t;de.className="mdesc";de.textContent=d;bd.append(b,de);row.append(mi,bd);box.append(row)});const z=document.createElement("div");z.className="mrow2";z.innerHTML='<span class="mi">±</span><div><b>تكبير / تصغير</b><div class="mdesc">زرّا + و − أو القرص بإصبعين على الملف فقط (دون تكبير البرنامج).</div></div>';box.append(z)}
 $("mnb").onclick=()=>{buildMenu();$("mnm").classList.add("on")};
 $("mnx").onclick=()=>$("mnm").classList.remove("on");

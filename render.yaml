@@ -15,3 +15,7 @@ services:
         value: hybrid
       - key: CORS_ORIGINS
         value: https://abr1404abr1404-afk.github.io
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-4.1-mini
