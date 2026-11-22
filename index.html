@@ -406,6 +406,21 @@ window.imgLoad=async function(files,opt){
     }catch(e){console.error(e);toast("تعذّر تحويل «"+f.name+"»: "+((e&&e.message)||e))}
   }
 };
+function downloadOcrTables(pg){
+  const tables=pg.tables||[];
+  if(!tables.length)return toast("لا توجد جداول مكتشفة لتصديرها.");
+  const rows=[];
+  tables.forEach((table,index)=>{
+    rows.push(["جدول "+(index+1)]);
+    (table.rows||[]).forEach(row=>rows.push(row));
+    rows.push([]);
+  });
+  const csv="\uFEFF"+rows.map(row=>row.map(value=>'"'+String(value??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
+  const url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download="alfalqi-tables.csv";document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
 async function prep(blob){
   const d0=await decode(blob),W=d0.w,H=d0.h,sc=Math.min(2.5,Math.max(1,2200/Math.max(W,H))),c=document.createElement("canvas");
   c.width=Math.round(W*sc);c.height=Math.round(H*sc);
@@ -452,7 +467,8 @@ window.imgOcr=async function(pg,lang,auto){
         const result=await response.json();
         if(!response.ok)throw new Error(result.detail?.message||result.detail||"تعذّر تحليل الصفحة على الخادم");
         const mx=dw/Math.max(1,result.image_width),my=dh/Math.max(1,result.image_height);
-        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine}));
+        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine}));
+        pg.tables=(result.tables||[]).map(table=>({rows:table.rows||[],row_count:table.row_count||0,column_count:table.column_count||0,direction:table.direction||"ltr"}));
         backendUsed=true;
         toast("اكتمل التحليل باستخدام "+(result.engine||"المحرك الهجين")+"…");
       }catch(serverError){
@@ -469,6 +485,7 @@ window.imgOcr=async function(pg,lang,auto){
       const {data}=await w.recognize(c);await w.terminate();
       const mx=dw/c.width,my=dh/c.height;
       raw=(data.lines||[]).map(l=>({t:l.text.trim().replace(/\s+/g," "),c:l.confidence,x0:ox+l.bbox.x0*mx,x1:ox+l.bbox.x1*mx,y0:oy+l.bbox.y0*my,y1:oy+l.bbox.y1*my}));
+      pg.tables=[];
     }
     raw=raw.filter(o=>o.t.length>=2&&o.c>28&&(o.t.match(/[\p{L}\p{N}]/gu)||[]).length>=2&&(o.y1-o.y0)<110&&(o.x1-o.x0)>8);
     raw.sort((a,b)=>b.c-a.c);const keep=[];
@@ -476,7 +493,8 @@ window.imgOcr=async function(pg,lang,auto){
     pg.ocr=keep;
     render();
     if(auto&&keep.length&&!document.body.classList.contains("editing"))document.getElementById("edt").click();
-    toast(keep.length?"تم التعرّف على "+keep.length+" سطرًا. فعّل «تعديل النص» واضغط أي سطر لمراجعته.":"لم أجد نصًا واضحًا في الصورة. جرّب لغة أخرى أو ارفع الدقة.");
+    const tableCount=(pg.tables||[]).length;
+    toast(keep.length?"تم التعرّف على "+keep.length+" سطرًا"+(tableCount?" واكتشاف "+tableCount+" جدول. يمكنك تصديرها CSV من شريط الصفحة.":"")+". فعّل «تعديل النص» واضغط أي سطر لمراجعته.":"لم أجد نصًا واضحًا في الصورة. جرّب لغة أخرى أو ارفع الدقة.");
   }catch(e){console.error(e);toast("تعذّر تحليل النص: يحتاج إنترنت ولا يعمل داخل تطبيق Claude، افتح الملف مباشرة من Safari. ("+((e&&e.message)||e)+")")}
   finally{window.ocrBusy=false}
 };
@@ -1989,7 +2007,7 @@ async function render(){
       mk("تدوير",()=>{if(pg.ov.length||(pg.img||[]).length||(pg.an||[]).length)return toast("احذف النص أو الصور أو التعليقات المضافة قبل تدوير هذه الصفحة.");pg.rot=(pg.rot+90)%360;render()}),
       mk("↑",()=>{if(n>0){[pages[n-1],pages[n]]=[pages[n],pages[n-1]];render()}}),
       mk("↓",()=>{if(n<pages.length-1){[pages[n+1],pages[n]]=[pages[n],pages[n+1]];render()}}),
-      mk("حذف",()=>{pages.splice(n,1);render()},"x"));if(window.__clip)bar.append(mk("لصق نص",()=>{pg.ov.push({...window.__clip});render()}));if(!pg.ocr){const ls=document.createElement("select");ls.setAttribute("aria-label","لغة النص");[["ara","عربي"],["eng","English"],["ara+eng","عربي + English"]].forEach(([v,t])=>ls.add(new Option(t,v)));bar.append(ls,mk(pg.src?"إعادة تحليل النص":"OCR / تحليل النص",()=>window.imgOcr&&imgOcr(pg,ls.value)))}else bar.append(mk("مسح التحليل",()=>{pg.ocr=null;if(pg.src&&pg.src.fromPdf)pg.src=null;pg.ov=pg.ov.filter(o=>!o.cover);render()}))
+      mk("حذف",()=>{pages.splice(n,1);render()},"x"));if(window.__clip)bar.append(mk("لصق نص",()=>{pg.ov.push({...window.__clip});render()}));if(!pg.ocr){const ls=document.createElement("select");ls.setAttribute("aria-label","لغة النص");[["ara","عربي"],["eng","English"],["ara+eng","عربي + English"]].forEach(([v,t])=>ls.add(new Option(t,v)));bar.append(ls,mk(pg.src?"إعادة تحليل النص":"OCR / تحليل النص",()=>window.imgOcr&&imgOcr(pg,ls.value)))}else{if(pg.tables&&pg.tables.length)bar.append(mk("تصدير الجداول CSV",()=>downloadOcrTables(pg)));bar.append(mk("مسح التحليل",()=>{pg.ocr=null;pg.tables=null;if(pg.src&&pg.src.fromPdf)pg.src=null;pg.ov=pg.ov.filter(o=>!o.cover);render()}))}
     const wrap=document.createElement("div");wrap.className="wrap"+(pg.sel?" sel":"")+(addMode?" add":"");
     const cv=document.createElement("canvas");cv.width=vp.width;cv.height=vp.height;cv.style.width=vp.width/1.3+"px";cv.style.height=vp.height/1.3+"px";
     wrap.style.width=vp.width/1.3+"px";wrap.style.height=vp.height/1.3+"px";wrap.append(cv);annLayer(pg,wrap,vp.width/1.3,vp.height/1.3);

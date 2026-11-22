@@ -39,6 +39,48 @@ class ReadingOrderTests(unittest.TestCase):
 
 
 
+TABLE_TREE = ast.parse(SOURCE)
+TABLE_FUNCTIONS = [
+    node for node in TABLE_TREE.body
+    if isinstance(node, ast.FunctionDef) and node.name in {"_group_positions", "_table_from_grid"}
+]
+TABLE_MODULE = ast.Module(body=TABLE_FUNCTIONS, type_ignores=[])
+ast.fix_missing_locations(TABLE_MODULE)
+TABLE_NAMESPACE = {}
+exec(compile(TABLE_MODULE, "main.py", "exec"), TABLE_NAMESPACE)
+group_positions = TABLE_NAMESPACE["_group_positions"]
+table_from_grid = TABLE_NAMESPACE["_table_from_grid"]
+
+
+class TableExtractionTests(unittest.TestCase):
+    def test_group_positions_collapses_thick_rules(self):
+        self.assertEqual(group_positions([10, 11, 12, 40, 41, 90]), [11, 40, 90])
+
+    def test_arabic_table_cells_are_returned_right_to_left(self):
+        lines = [
+            {"text": "يمين", "bbox": [120, 10, 180, 30]},
+            {"text": "يسار", "bbox": [20, 10, 80, 30]},
+            {"text": "قيمة", "bbox": [20, 60, 80, 80]},
+        ]
+        table = table_from_grid([0, 0, 200, 100], [0, 100, 200], [0, 50, 100], lines)
+        self.assertEqual(table["direction"], "rtl")
+        self.assertEqual(table["rows"], [["يمين", "يسار"], ["", "قيمة"]])
+        self.assertEqual(table["row_count"], 2)
+        self.assertEqual(table["column_count"], 2)
+
+    def test_english_table_cells_are_left_to_right(self):
+        lines = [
+            {"text": "Name", "bbox": [10, 10, 80, 30]},
+            {"text": "Score", "bbox": [120, 10, 180, 30]},
+        ]
+        table = table_from_grid([0, 0, 200, 100], [0, 100, 200], [0, 50, 100], lines)
+        self.assertEqual(table["direction"], "ltr")
+        self.assertEqual(table["rows"][0], ["Name", "Score"])
+
+    def test_grid_without_enough_rows_or_columns_is_ignored(self):
+        self.assertIsNone(table_from_grid([0, 0, 100, 100], [0, 100], [0, 50, 100], []))
+
+
 class OcrModeTests(unittest.TestCase):
     def run_mode(self, mode):
         main_tree = ast.parse(SOURCE)

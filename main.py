@@ -227,6 +227,88 @@ def _reading_order(rows: list[dict]) -> list[dict]:
     return result
 
 
+
+def _group_positions(values: list[int], gap: int = 3) -> list[int]:
+    """Collapse thick detected rule lines into one coordinate each."""
+    groups: list[list[int]] = []
+    for value in sorted(int(v) for v in values):
+        if not groups or value - groups[-1][-1] > gap:
+            groups.append([value])
+        else:
+            groups[-1].append(value)
+    return [round(sum(group) / len(group)) for group in groups]
+
+
+def _table_from_grid(bounds: list[int], xs: list[int], ys: list[int], lines: list[dict]) -> dict | None:
+    """Build a cell grid from detected rule coordinates and OCR line boxes."""
+    xs, ys = sorted(xs), sorted(ys)
+    if len(xs) < 3 or len(ys) < 3:
+        return None
+    x0, y0, x1, y1 = bounds
+    relevant = []
+    for line in lines:
+        box = line.get("bbox", [])
+        if len(box) != 4:
+            continue
+        cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+        if x0 <= cx <= x1 and y0 <= cy <= y1:
+            relevant.append(line)
+    all_text = " ".join(item.get("text", "") for item in relevant)
+    arabic = sum(chr(0x0600) <= ch <= chr(0x06ff) for ch in all_text)
+    latin = sum("a" <= ch.lower() <= "z" for ch in all_text)
+    rtl = arabic > latin
+    cells, rows = [], []
+    for ri, (top, bottom) in enumerate(zip(ys, ys[1:])):
+        row_cells = []
+        for ci, (left, right) in enumerate(zip(xs, xs[1:])):
+            inside = []
+            for line in relevant:
+                box = line["bbox"]
+                cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
+                if left <= cx <= right and top <= cy <= bottom:
+                    inside.append(line)
+            inside.sort(key=lambda item: (item["bbox"][1], -item["bbox"][0] if rtl else item["bbox"][0]))
+            value = " ".join(item.get("text", "").strip() for item in inside if item.get("text", "").strip())
+            cells.append({"row": ri, "column": ci, "bbox": [left, top, right, bottom], "text": value})
+            row_cells.append(value)
+        rows.append(list(reversed(row_cells)) if rtl else row_cells)
+    return {"bbox": bounds, "row_count": len(ys) - 1, "column_count": len(xs) - 1,
+            "direction": "rtl" if rtl else "ltr", "rows": rows, "cells": cells}
+
+
+def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
+    """Detect ruled tables and populate their cells with OCR text where possible."""
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 31, 15)
+    height, width = binary.shape[:2]
+    horizontal_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(15, width // 35), 1))
+    vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(15, height // 35)))
+    horizontal = cv2.morphologyEx(binary, cv2.MORPH_OPEN, horizontal_kernel)
+    vertical = cv2.morphologyEx(binary, cv2.MORPH_OPEN, vertical_kernel)
+    grid = cv2.add(horizontal, vertical)
+    grid = cv2.dilate(grid, cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3)), iterations=1)
+    contours_info = cv2.findContours(grid, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours = contours_info[0] if len(contours_info) == 2 else contours_info[1]
+    found = []
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        if w < width * 0.12 or h < height * 0.035 or w * h < width * height * 0.002:
+            continue
+        horizontal_crop = horizontal[y:y + h, x:x + w]
+        vertical_crop = vertical[y:y + h, x:x + w]
+        x_projection = np.count_nonzero(vertical_crop, axis=0)
+        y_projection = np.count_nonzero(horizontal_crop, axis=1)
+        x_threshold = max(2, int(h * 0.20))
+        y_threshold = max(2, int(w * 0.20))
+        xs = [x + v for v in _group_positions(np.where(x_projection >= x_threshold)[0].tolist())]
+        ys = [y + v for v in _group_positions(np.where(y_projection >= y_threshold)[0].tolist())]
+        table = _table_from_grid([x, y, x + w, y + h], xs, ys, lines)
+        if table and not any(_iou(table["bbox"], old["bbox"]) > 0.70 for old in found):
+            found.append(table)
+    return sorted(found, key=lambda item: (item["bbox"][1], item["bbox"][0]))
+
+
 def _hybrid(image: np.ndarray, language: str) -> dict:
     prepared = _preprocess(image)
     mode = OCR_MODE if OCR_MODE in {"hybrid", "paddleocr", "tesseract"} else "hybrid"
@@ -271,6 +353,7 @@ async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng"
     _check_size(data)
     image = _decode_image(data)
     result = await run_in_threadpool(_hybrid, image, language)
+    result["tables"] = await run_in_threadpool(_detect_tables, image, result["lines"])
     if not result["lines"]:
         errors = result["engines"]
         raise HTTPException(503, {"message": "لم يتمكن أي محرك من استخراج نص. تحقق من تثبيت نماذج العربية والإنجليزية.", "engines": errors})
@@ -303,6 +386,7 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
             else:
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             result = await run_in_threadpool(_hybrid, image, language)
+            result["tables"] = await run_in_threadpool(_detect_tables, image, result["lines"])
             pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                           "ocr": result})
         return {"pages": pages, "page_count": len(pages)}
