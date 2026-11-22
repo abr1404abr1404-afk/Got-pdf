@@ -2068,7 +2068,6 @@ function buildThumbs(){
   thumbsList.replaceChildren();
   $("thumbsCount").textContent=pages.length+" صفحة";
   if(!pages.length){const empty=document.createElement("p");empty.className="thumbs-empty";empty.textContent="افتح ملف PDF لعرض صفحاته هنا.";thumbsList.append(empty);return}
-  const cards=document.querySelectorAll("#main .card");
   pages.forEach((pg,index)=>{
     const item=document.createElement("button");item.type="button";item.className="thumb-item";item.dataset.index=String(index);
     item.setAttribute("role","listitem");item.setAttribute("aria-label","الانتقال إلى الصفحة "+(index+1));
@@ -2084,12 +2083,13 @@ function buildThumbs(){
     thumbsList.append(item);
   });
   if("IntersectionObserver" in window){
-    thumbsObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
+    const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{
       if(!entry.isIntersecting)return;
       const item=entry.target,index=Number(item.dataset.index),pg=pages[index];
-      thumbsObserver.unobserve(item);if(pg)drawPageThumb(pg,item,token);
+      observer.unobserve(item);if(pg)drawPageThumb(pg,item,token);
     }),{root:thumbsList,rootMargin:"180px 0px",threshold:.01});
-    thumbsList.querySelectorAll(".thumb-item").forEach(item=>thumbsObserver.observe(item));
+    thumbsObserver=observer;
+    thumbsList.querySelectorAll(".thumb-item").forEach(item=>observer.observe(item));
   }else{
     thumbsList.querySelectorAll(".thumb-item").forEach(item=>{const pg=pages[Number(item.dataset.index)];if(pg)drawPageThumb(pg,item,token)});
   }
