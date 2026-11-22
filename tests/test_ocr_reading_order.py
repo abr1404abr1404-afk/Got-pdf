@@ -42,7 +42,7 @@ class ReadingOrderTests(unittest.TestCase):
 TABLE_TREE = ast.parse(SOURCE)
 TABLE_FUNCTIONS = [
     node for node in TABLE_TREE.body
-    if isinstance(node, ast.FunctionDef) and node.name in {"_group_positions", "_table_from_grid"}
+    if isinstance(node, ast.FunctionDef) and node.name in {"_group_positions", "_table_from_grid", "_normalize_line_angle", "_adaptive_threshold_block_size"}
 ]
 TABLE_MODULE = ast.Module(body=TABLE_FUNCTIONS, type_ignores=[])
 ast.fix_missing_locations(TABLE_MODULE)
@@ -50,6 +50,8 @@ TABLE_NAMESPACE = {}
 exec(compile(TABLE_MODULE, "main.py", "exec"), TABLE_NAMESPACE)
 group_positions = TABLE_NAMESPACE["_group_positions"]
 table_from_grid = TABLE_NAMESPACE["_table_from_grid"]
+normalize_line_angle = TABLE_NAMESPACE["_normalize_line_angle"]
+adaptive_threshold_block_size = TABLE_NAMESPACE["_adaptive_threshold_block_size"]
 
 
 class TableExtractionTests(unittest.TestCase):
@@ -79,6 +81,21 @@ class TableExtractionTests(unittest.TestCase):
 
     def test_grid_without_enough_rows_or_columns_is_ignored(self):
         self.assertIsNone(table_from_grid([0, 0, 100, 100], [0, 100], [0, 50, 100], []))
+
+
+class ImagePreprocessingSafetyTests(unittest.TestCase):
+    def test_angle_normalization_uses_shortest_orientation(self):
+        self.assertEqual(normalize_line_angle(179), -1)
+        self.assertEqual(normalize_line_angle(-179), 1)
+        self.assertEqual(normalize_line_angle(8), 8)
+
+    def test_tiny_images_skip_adaptive_table_threshold(self):
+        self.assertIsNone(adaptive_threshold_block_size(20, 200))
+        self.assertIsNone(adaptive_threshold_block_size(200, 30))
+
+    def test_normal_images_use_valid_odd_threshold_block(self):
+        self.assertEqual(adaptive_threshold_block_size(31, 31), 31)
+        self.assertEqual(adaptive_threshold_block_size(1200, 800), 31)
 
 
 class OcrModeTests(unittest.TestCase):
