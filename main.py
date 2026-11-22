@@ -254,7 +254,7 @@ def _table_from_grid(bounds: list[int], xs: list[int], ys: list[int], lines: lis
         if x0 <= cx <= x1 and y0 <= cy <= y1:
             relevant.append(line)
     all_text = " ".join(item.get("text", "") for item in relevant)
-    arabic = sum("\\u0600" <= ch <= "\\u06ff" for ch in all_text)
+    arabic = sum(chr(0x0600) <= ch <= chr(0x06ff) for ch in all_text)
     latin = sum("a" <= ch.lower() <= "z" for ch in all_text)
     rtl = arabic > latin
     cells, rows = [], []
