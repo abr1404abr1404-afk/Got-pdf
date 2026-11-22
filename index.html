@@ -374,8 +374,8 @@ label.btn{position:relative}
 <div class="r"><button id="aiClose" type="button">إغلاق</button><span class="sp"></span><button id="aiAsk" class="p" type="button">تحليل المستند والإجابة</button></div>
 </div></div>
 <div id="cpm" aria-hidden="true"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="cph"><h2 id="cph">ضغط ملف PDF</h2>
-<p class="ai-note">سننشئ نسخة جديدة مع محاولة تقليل الحجم دون تحويل الصفحات إلى صور أو فقدان قابلية تحديد النص. سيبقى الملف الأصلي كما هو. قد لا ينخفض حجم بعض الملفات إذا كانت مضغوطة مسبقًا.</p>
-<label class="ai-consent"><input id="cpServerConsent" type="checkbox"> أوافق على إرسال نسخة من الملف إلى خادم الفلقي لإجراء ضغط إضافي دون فقد الجودة.</label>
+<p class="ai-note">اختر مستوى الضغط. سيبقى النص والرسومات المتجهية قابلة للتحديد؛ قد تنخفض جودة الصور المضمنة قليلًا في الضغط المتوازن أو بشكل أكبر في خيار الحجم الأصغر. ننشئ نسخة جديدة ولا نغيّر الأصل.</p>
+<div class="tsec"><label for="cpLevel">مستوى الضغط</label> <select id="cpLevel"><option value="balanced">متوازن — جودة صور أفضل</option><option value="small">حجم أصغر — ضغط أقوى للصور</option></select></div>\n<label class="ai-consent"><input id="cpServerConsent" type="checkbox"> أوافق على إرسال نسخة من الملف إلى خادم الفلقي لضغط الصور وتقليل حجم الملف.</label>
 <div id="cpStatus" role="status" aria-live="polite">بدون تحديد الموافقة، ستتم محاولة التحسين محليًا في المتصفح.</div>
 <div class="r"><button id="cpClose" type="button">إغلاق</button><span class="sp"></span><button id="cpGo" class="p" type="button">ضغط وتنزيل النسخة</button></div>
 </div></div>
@@ -2493,7 +2493,7 @@ const fmtBytes=n=>n<1024?(n+" بايت"):n<1048576?((n/1024).toFixed(1)+" كيل
 const aiModal=$("aim"),compressModal=$("cpm");
 function openAi(){if(!pages.length)return toast("افتح ملف PDF أولًا.");aiModal.classList.add("on");aiModal.setAttribute("aria-hidden","false");$("aiQuestion").focus()}
 function closeAi(){aiModal.classList.remove("on");aiModal.setAttribute("aria-hidden","true")}
-function openCompress(){if(!pages.length)return toast("افتح ملف PDF أولًا.");compressModal.classList.add("on");compressModal.setAttribute("aria-hidden","false");$("cpStatus").textContent=apiBase()?"يمكنك اختيار الضغط على الخادم أو تركه فارغًا للمعالجة المحلية.":"لا يوجد خادم ضغط متصل؛ ستتم محاولة التحسين المحلي دون إرسال الملف."}
+function openCompress(){if(!pages.length)return toast("افتح ملف PDF أولًا.");compressModal.classList.add("on");compressModal.setAttribute("aria-hidden","false");$("cpStatus").textContent=apiBase()?"يمكنك اختيار الضغط على الخادم أو تركه فارغًا للمعالجة المحلية." :"لا يوجد خادم ضغط متصل؛ ستتم محاولة التحسين المحلي دون فقد جودة. خيارات تقليل جودة الصور تحتاج ربط الخادم."}
 function closeCompress(){compressModal.classList.remove("on");compressModal.setAttribute("aria-hidden","true")}
 $("ai").onclick=openAi;$("aiClose").onclick=closeAi;$("compress").onclick=openCompress;$("cpClose").onclick=closeCompress;
 async function extractLocalDocumentText(){
@@ -2545,7 +2545,7 @@ $("cpGo").onclick=async()=>{
     let output=source,method="تحسين محلي";
     if(base&&$("cpServerConsent").checked){
       $("cpStatus").textContent="جارٍ إرسال نسخة الضغط إلى خادم الفلقي بموافقتك…";
-      const form=new FormData();form.append("file",new Blob([source],{type:"application/pdf"}),safeName()+".pdf");
+      const form=new FormData();form.append("file",new Blob([source],{type:"application/pdf"}),safeName()+".pdf");form.append("level",$("cpLevel").value);
       const response=await fetch(base+"/api/compress/pdf",{method:"POST",body:form});
       if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.detail||"تعذّر ضغط الملف على الخادم.")}
       output=new Uint8Array(await response.arrayBuffer());method="ضغط خادم الفلقي";
