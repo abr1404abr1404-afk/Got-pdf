@@ -1,0 +1,170 @@
+/* Alfalqi PDF — premium experience layer
+   Additive visual system: no editor logic is changed by this stylesheet. */
+:root {
+  --alfalqi-glow: color-mix(in srgb, var(--acc) 22%, transparent);
+  --alfalqi-shadow: 0 18px 55px rgba(9, 20, 38, .13);
+  --alfalqi-glass: color-mix(in srgb, var(--panel) 84%, transparent);
+}
+html { scroll-behavior: smooth; }
+body {
+  background:
+    radial-gradient(ellipse at 8% 4%, var(--alfalqi-glow), transparent 34rem),
+    radial-gradient(ellipse at 92% 26%, color-mix(in srgb, #6366f1 10%, transparent), transparent 38rem),
+    var(--bg);
+  background-attachment: fixed;
+}
+header {
+  background: var(--alfalqi-glass);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  backdrop-filter: blur(18px) saturate(145%);
+  border-bottom-color: color-mix(in srgb, var(--line) 70%, transparent);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, .07);
+}
+.brand { gap: 12px; }
+.logo {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accfg) 20%, transparent);
+  border-radius: 13px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--acc) 90%, white), var(--acc));
+  box-shadow: 0 8px 24px var(--alfalqi-glow), inset 0 1px 0 rgba(255,255,255,.3);
+  transform: translateZ(0);
+}
+.logo::after {
+  content: "";
+  position: absolute;
+  inset: -60% auto -60% -55%;
+  width: 42%;
+  transform: rotate(28deg);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.36), transparent);
+  animation: alfalqi-shimmer 7s ease-in-out infinite;
+}
+.nm { letter-spacing: -.02em; }
+#fn {
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+#fn:focus {
+  border-color: var(--acc);
+  box-shadow: 0 0 0 4px var(--alfalqi-glow);
+}
+button, label.btn, select, input, textarea { transition: border-color .18s, background .18s, box-shadow .18s, transform .18s; }
+button:not(:disabled):active, label.btn:active { transform: translateY(1px) scale(.985); }
+.hb { border: 1px solid transparent; }
+.hb:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--acc) 24%, var(--line));
+  box-shadow: 0 5px 16px rgba(15, 23, 42, .07);
+}
+button.p, .cta {
+  background-image: linear-gradient(135deg, color-mix(in srgb, var(--acc) 85%, white), var(--acc) 68%);
+  box-shadow: 0 8px 22px var(--alfalqi-glow), inset 0 1px 0 rgba(255,255,255,.22);
+}
+button.p:hover:not(:disabled), .cta:hover {
+  box-shadow: 0 12px 28px var(--alfalqi-glow), inset 0 1px 0 rgba(255,255,255,.28);
+  transform: translateY(-2px);
+}
+.grp {
+  border: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
+  background: color-mix(in srgb, var(--bg) 76%, transparent);
+}
+main { min-height: calc(100vh - 105px); }
+#empty {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: min(100% - 20px, 760px);
+  margin-top: clamp(32px, 9vh, 100px);
+  padding: clamp(28px, 5vw, 58px) clamp(18px, 5vw, 56px);
+  border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--panel) 91%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  box-shadow: var(--alfalqi-shadow), inset 0 1px 0 rgba(255,255,255,.28);
+  animation: alfalqi-rise .65s cubic-bezier(.2,.75,.25,1) both;
+}
+#empty::before, #empty::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: 50%;
+  filter: blur(2px);
+}
+#empty::before {
+  width: 250px; height: 250px; inset: -150px auto auto -100px;
+  background: radial-gradient(circle, var(--alfalqi-glow), transparent 70%);
+}
+#empty::after {
+  width: 210px; height: 210px; inset: auto -120px -140px auto;
+  background: radial-gradient(circle, color-mix(in srgb, #818cf8 16%, transparent), transparent 70%);
+}
+#empty .lg {
+  width: 76px; height: 76px; border-radius: 23px;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--acc) 82%, white), var(--acc));
+  box-shadow: 0 14px 34px var(--alfalqi-glow), inset 0 1px 0 rgba(255,255,255,.3);
+  transform: perspective(500px) rotateX(7deg) rotateY(-8deg);
+  animation: alfalqi-float 5s ease-in-out infinite;
+}
+#empty h1 { letter-spacing: -.035em; }
+#empty .chips span {
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+  padding: 6px 14px;
+  transition: transform .2s, border-color .2s, background .2s;
+}
+#empty .chips span:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--acc) 42%, var(--line));
+  background: color-mix(in srgb, var(--acc) 8%, var(--panel));
+}
+.card { animation: alfalqi-rise .35s ease both; }
+.bar {
+  border-color: color-mix(in srgb, var(--line) 75%, transparent);
+  box-shadow: 0 4px 15px rgba(15,23,42,.045);
+}
+.wrap {
+  border-radius: 7px;
+  box-shadow: 0 14px 34px rgba(8, 18, 34, .19), 0 2px 8px rgba(8,18,34,.09);
+  transition: box-shadow .2s, transform .2s;
+}
+.wrap.sel {
+  outline: 2px solid var(--acc);
+  outline-offset: 3px;
+  box-shadow: 0 16px 38px rgba(8,18,34,.2), 0 0 0 5px var(--alfalqi-glow);
+}
+#sg .bx, #spm .bx, #dsm .bx, #mnm .bx, #rdm .bx, #tlm .bx {
+  border: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+  border-radius: 22px;
+  background: var(--alfalqi-glass);
+  -webkit-backdrop-filter: blur(22px) saturate(135%);
+  backdrop-filter: blur(22px) saturate(135%);
+  box-shadow: 0 28px 90px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.2);
+  animation: alfalqi-modal-in .22s cubic-bezier(.2,.8,.2,1) both;
+}
+#toast {
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.18);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 3px; }
+@keyframes alfalqi-rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes alfalqi-modal-in { from { opacity: 0; transform: translateY(12px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes alfalqi-float { 0%,100% { transform: perspective(500px) translateY(0) rotateX(7deg) rotateY(-8deg); } 50% { transform: perspective(500px) translateY(-7px) rotateX(3deg) rotateY(-3deg); } }
+@keyframes alfalqi-shimmer { 0%,72%,100% { left: -55%; } 84% { left: 125%; } }
+@media (hover:hover) and (pointer:fine) {
+  .logo:hover { transform: perspective(500px) rotateY(-9deg) rotateX(5deg) translateY(-1px); }
+  .bar button:hover { transform: translateY(-1px); }
+}
+@media (max-width: 640px) {
+  header { box-shadow: 0 5px 22px rgba(15,23,42,.08); }
+  #empty { width: min(100% - 8px, 760px); margin-top: 24px; border-radius: 22px; }
+  #empty .lg { width: 66px; height: 66px; border-radius: 19px; }
+  .wrap { border-radius: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
