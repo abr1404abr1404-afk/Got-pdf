@@ -2521,15 +2521,21 @@ async function dsUpload(){
   });
   dsFileId=uploaded.id;dsPermissionId=null;
   let publicLink=false;
+  const url=uploaded.webViewLink||("https://drive.google.com/file/d/"+dsFileId+"/view");
   if($("dspub").checked){
     dsStatus("تم الرفع. جارٍ تفعيل الرابط العام بناءً على اختيارك…");
-    const permission=await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(dsFileId)+"/permissions?fields=id",{
-      method:"POST",headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({type:"anyone",role:"reader"})
-    });
-    dsPermissionId=permission.id;publicLink=true;
+    try{
+      const permission=await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(dsFileId)+"/permissions?fields=id",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({type:"anyone",role:"reader"})
+      });
+      dsPermissionId=permission.id;publicLink=true;
+    }catch(permissionError){
+      dsShowResult(url,false);
+      dsStatus("رُفع الملف بنجاح، لكن Google لم يسمح بتفعيل الرابط العام. بقي الملف خاصًا في Drive. يمكنك مراجعة إعدادات المشاركة في حسابك. التفاصيل: "+permissionError.message);
+      return;
+    }
   }
-  const url=uploaded.webViewLink||("https://drive.google.com/file/d/"+dsFileId+"/view");
   dsShowResult(url,publicLink);
   dsStatus(publicLink?"تم رفع الملف وإنشاء رابط عام. أي شخص يحصل على الرابط أو QR يمكنه عرض الملف.":"تم رفع الملف بنجاح. الرابط خاص بحسابك وصلاحيات Drive الحالية؛ لن يستطيع الآخرون فتحه إلا إذا منحتهم صلاحية.");
 }
