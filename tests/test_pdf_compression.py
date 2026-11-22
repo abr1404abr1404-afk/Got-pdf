@@ -28,6 +28,18 @@ class PdfCompressionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compress_pdf_bytes(b"not a pdf")
 
+    def test_password_protected_pdf_is_rejected(self):
+        document = fitz.open()
+        document.new_page()
+        encrypted = document.tobytes(
+            encryption=fitz.PDF_ENCRYPT_AES_256,
+            owner_pw="owner",
+            user_pw="user",
+        )
+        document.close()
+        with self.assertRaisesRegex(ValueError, "كلمة مرور"):
+            compress_pdf_bytes(encrypted)
+
     def test_empty_pdf_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "فارغ"):
             compress_pdf_bytes(b"")
