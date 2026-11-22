@@ -7,6 +7,8 @@ import re
 import shutil
 import tempfile
 import threading
+import time
+from collections import deque
 from typing import Any
 
 import httpx
@@ -15,7 +17,7 @@ import cv2
 import numpy as np
 import pytesseract
 import fitz
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +54,24 @@ app.add_middleware(
 
 _paddle_lock = threading.Lock()
 _paddle_instances: dict[str, Any] = {}
+_assistant_rate_lock = threading.Lock()
+_assistant_requests: dict[str, deque[float]] = {}
+
+
+def _assistant_rate_limited(client_ip: str, limit: int = 10, window_seconds: int = 60) -> bool:
+    now = time.monotonic()
+    with _assistant_rate_lock:
+        recent = _assistant_requests.setdefault(client_ip, deque())
+        while recent and now - recent[0] >= window_seconds:
+            recent.popleft()
+        if len(recent) >= limit:
+            return True
+        recent.append(now)
+        if len(_assistant_requests) > 2048:
+            stale = [ip for ip, events in _assistant_requests.items() if not events or now - events[-1] >= window_seconds]
+            for ip in stale:
+                _assistant_requests.pop(ip, None)
+        return False
 
 
 def _check_size(data: bytes) -> None:
@@ -441,13 +461,17 @@ async def compress_pdf(file: UploadFile = File(...)):
 
 
 @app.post("/api/assistant/chat")
-async def assistant_chat(payload: AssistantRequest):
+async def assistant_chat(payload: AssistantRequest, request: Request):
     """Send extracted text only after explicit user consent in the browser."""
     if not OPENAI_API_KEY:
         raise HTTPException(
             503,
             "مساعد الذكاء الاصطناعي غير مفعّل على الخادم بعد. يلزم إعداد OPENAI_API_KEY في إعدادات الخادم.",
         )
+
+    client_ip = request.client.host if request.client else "unknown"
+    if _assistant_rate_limited(client_ip):
+        raise HTTPException(429, "تم تجاوز عدد الطلبات المسموح به مؤقتًا. حاول بعد دقيقة.")
 
     system_prompt = (
         "أنت مساعد مستندات داخل تطبيق الفلقي PDF. أجب باللغة التي يستخدمها السائل. "
