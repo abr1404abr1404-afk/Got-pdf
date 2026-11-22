@@ -47,6 +47,7 @@ class OcrModeTests(unittest.TestCase):
         ast.fix_missing_locations(module)
         calls = []
         namespace = {
+            "np": type("NumpyStub", (), {"ndarray": object}),
             "OCR_MODE": mode,
             "_preprocess": lambda image: image,
             "_paddle": lambda image, language: (calls.append("paddle") or [], None),
