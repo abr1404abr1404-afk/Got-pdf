@@ -2550,7 +2550,7 @@ $("aiExtract").onclick=async()=>{
     const csvCell=v=>'"'+String(v??"").replace(/"/g,'""')+'"';
     const csv=["النوع,القيمة,رقم الصفحة,الدليل",...rows.map(x=>[labels[x.type]||x.type,x.value,x.page,x.evidence].map(csvCell).join(","))].join("\r\n");
     const blob=new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8"});
-    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-extracted-data.csv";a.click();URL.revokeObjectURL(url);
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-extracted-data.csv";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     $("aiStatus").textContent="اكتمل استخراج "+rows.length+" معلومة. تم تنزيل ملف CSV؛ راجع النتائج وأرقام الصفحات قبل اعتمادها.";
   }catch(error){$("aiStatus").textContent=error.message||"حدث خطأ أثناء استخراج البيانات."}
   finally{btn.disabled=false}
