@@ -415,7 +415,7 @@ function downloadOcrTables(pg){
     (table.rows||[]).forEach(row=>rows.push(row));
     rows.push([]);
   });
-  const csv="\\uFEFF"+rows.map(row=>row.map(value=>'"'+String(value??"").replace(/"/g,'""')+'"').join(",")).join("\\r\\n");
+  const csv="\uFEFF"+rows.map(row=>row.map(value=>'"'+String(value??"").replace(/"/g,'""')+'"').join(",")).join("\r\n");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"});
   const url=URL.createObjectURL(blob),a=document.createElement("a");
   a.href=url;a.download="alfalqi-tables.csv";document.body.append(a);a.click();a.remove();
