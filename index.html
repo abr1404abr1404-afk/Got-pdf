@@ -2581,7 +2581,8 @@ $("dsdelete").onclick=async()=>{
   catch(error){dsStatus("تعذّر حذف النسخة: "+error.message)}
   finally{$("dsdelete").disabled=false}
 };
-\n// ===== تعليقات =====
+
+// ===== تعليقات =====
 let annMode=null,annColor="#ffd400",annW=4;
 const annNS="http://www.w3.org/2000/svg";
 function annNode(a,W,H,svg){let n;if(a.t==="pn"){n=document.createElementNS(annNS,"polyline");n.setAttribute("points",a.pts.map(p=>p[0]*W+","+p[1]*H).join(" "));n.setAttribute("fill","none");n.setAttribute("stroke",a.c);n.setAttribute("stroke-width",a.s*zoom);n.setAttribute("stroke-linecap","round");n.setAttribute("stroke-linejoin","round")}else{n=document.createElementNS(annNS,"rect");n.setAttribute("x",a.x*W);n.setAttribute("y",a.y*H);n.setAttribute("width",a.w*W);n.setAttribute("height",a.h*H);n.setAttribute("fill",a.t==="bk"?"#000":a.c);if(a.t==="hl")n.setAttribute("opacity",".38")}svg.append(n);return n}
