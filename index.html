@@ -321,6 +321,7 @@ label.btn{position:relative}
    <button class="hb" id="hlpb" title="دليل الاستخدام"><span class="lb">؟</span><span class="q">؟</span></button>
    <button class="hb" id="pn" title="ترقيم الصفحات بأرقام عربية"><svg class="ic" viewBox="0 0 24 24"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg><span class="lb">ترقيم</span></button>
    <button class="hb" id="spl" title="تقسيم الملف"><svg class="ic" viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><path d="M8.1 8.1 12 12"/><path d="M20 4 8.1 15.9"/><circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/></svg><span class="lb">تقسيم</span></button>
+   <button class="hb" id="thumbs" type="button" title="معاينة مصغرات الصفحات" aria-label="معاينة مصغرات الصفحات" aria-controls="thumbsPanel" aria-expanded="false"><svg class="ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1"/><rect x="14" y="3" width="7" height="8" rx="1"/><rect x="3" y="15" width="7" height="6" rx="1"/><rect x="14" y="15" width="7" height="6" rx="1"/></svg><span class="lb">مصغرات</span></button>
    <button class="hb" id="mrg" title="دمج الملفات وترتيبها"><svg class="ic" viewBox="0 0 24 24"><path d="M6 4v6a4 4 0 0 0 4 4h8M18 4v6a4 4 0 0 1-4 4"/><path d="m15 11 3 3-3 3"/></svg><span class="lb">دمج</span></button>
    <button class="hb" id="tls" title="أدوات: علامة مائية، خصائص، عمليات سريعة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="lb">أدوات</span></button>
   </div><span id="info"></span></div>
@@ -328,6 +329,10 @@ label.btn{position:relative}
 <main id="main">
   <div id="empty"><div class="lg"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg></div><h1>الفلقي لتعديل PDF</h1><div>اسحب ملف PDF هنا أو اختره من جهازك. كل شيء يتم داخل المتصفح ولا تُرفع ملفاتك إلى أي مكان.</div><label for="file" class="btn cta">فتح ملف PDF</label><br><label for="fimg" class="btn cta" style="background:var(--bg);color:var(--ink);border-color:var(--line);margin-top:0;box-shadow:none">تحويل صورة إلى PDF</label><br><button class="btn cta" id="ocb2" style="background:var(--bg);color:var(--ink);border-color:var(--line);margin-top:0;box-shadow:none">قراءة نص صورة وتعديله</button><div class="chips"><span>تحويل الصور إلى PDF</span><span>دمج الملفات</span><span>تعديل النص الموجود</span><span>صور وتوقيع</span><span>ترقيم عربي</span><span>ترتيب وتدوير وحذف</span></div></div>
 </main>
+<aside id="thumbsPanel" aria-label="معاينة الصفحات" aria-hidden="true">
+  <div class="thumbs-head"><div><b>معاينة الصفحات</b><small id="thumbsCount">0 صفحة</small></div><button id="thumbsClose" type="button" aria-label="إغلاق المعاينة">×</button></div>
+  <div id="thumbsList" role="list"></div>
+</aside>
 <div id="spm"><div class="bx" role="dialog" aria-label="تقسيم الملف"><h2>تقسيم الملف</h2><p id="spinfo"></p>
 <label class="opt"><input type="radio" name="spmode" value="each" checked> كل صفحة في ملف مستقل</label>
 <label class="opt"><input type="radio" name="spmode" value="every"> كل <input id="spn" type="number" min="1" value="2"> صفحات في ملف</label>
@@ -2031,8 +2036,72 @@ async function render(){
     wrap._draw=()=>{page.render({canvasContext:cv.getContext("2d"),viewport:vp});if(rot===0)buildDet(wrap,pg,page,dispScale)};
     card.append(bar,wrap);frag.append(card);io.observe(wrap);
   }
-  main.replaceChildren(frag);const pd=window.__pend;window.__pend=null;scrollTo(0,pd?pd.y:sy);main.scrollLeft=pd?pd.x:sx;updateUI();track();decorate(main);
+  main.replaceChildren(frag);const pd=window.__pend;window.__pend=null;scrollTo(0,pd?pd.y:sy);main.scrollLeft=pd?pd.x:sx;updateUI();track();decorate(main);if(thumbsPanel.classList.contains("on"))buildThumbs();
 }
+const thumbsPanel=$("thumbsPanel"),thumbsList=$("thumbsList"),thumbsBtn=$("thumbs");
+let thumbsObserver=null,thumbsGeneration=0;
+function closeThumbs(){
+  thumbsPanel.classList.remove("on");thumbsPanel.setAttribute("aria-hidden","true");
+  thumbsBtn.classList.remove("on");thumbsBtn.setAttribute("aria-expanded","false");
+  thumbsGeneration++;if(thumbsObserver){thumbsObserver.disconnect();thumbsObserver=null}
+}
+async function drawPageThumb(pg,button,token){
+  const canvas=button.querySelector("canvas");
+  try{
+    const page=await docs[pg.d].pdf.getPage(pg.i);
+    if(token!==thumbsGeneration||!button.isConnected)return;
+    const rotation=(pg.nat+pg.rot)%360;
+    const base=page.getViewport({scale:1,rotation});
+    const scale=Math.min(.28,116/Math.max(base.width,base.height));
+    const viewport=page.getViewport({scale,rotation});
+    canvas.width=Math.max(1,Math.ceil(viewport.width));
+    canvas.height=Math.max(1,Math.ceil(viewport.height));
+    await page.render({canvasContext:canvas.getContext("2d"),viewport}).promise;
+    if(token===thumbsGeneration&&button.isConnected)button.classList.add("ready");
+  }catch(error){
+    if(token===thumbsGeneration&&button.isConnected){button.classList.add("failed");button.title="تعذرت معاينة هذه الصفحة"}
+  }
+}
+function buildThumbs(){
+  const token=++thumbsGeneration;
+  if(thumbsObserver){thumbsObserver.disconnect();thumbsObserver=null}
+  thumbsList.replaceChildren();
+  $("thumbsCount").textContent=pages.length+" صفحة";
+  if(!pages.length){const empty=document.createElement("p");empty.className="thumbs-empty";empty.textContent="افتح ملف PDF لعرض صفحاته هنا.";thumbsList.append(empty);return}
+  const cards=document.querySelectorAll("#main .card");
+  pages.forEach((pg,index)=>{
+    const item=document.createElement("button");item.type="button";item.className="thumb-item";item.dataset.index=String(index);
+    item.setAttribute("role","listitem");item.setAttribute("aria-label","الانتقال إلى الصفحة "+(index+1));
+    const canvas=document.createElement("canvas");canvas.setAttribute("aria-hidden","true");
+    const label=document.createElement("span");label.textContent="صفحة "+(index+1);
+    item.append(canvas,label);
+    item.onclick=()=>{
+      const target=document.querySelectorAll("#main .card")[index];
+      if(target)target.scrollIntoView({behavior:window.matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
+      thumbsList.querySelectorAll(".thumb-item").forEach(el=>el.classList.remove("active"));
+      item.classList.add("active");
+    };
+    thumbsList.append(item);
+  });
+  if("IntersectionObserver" in window){
+    thumbsObserver=new IntersectionObserver(entries=>entries.forEach(entry=>{
+      if(!entry.isIntersecting)return;
+      const item=entry.target,index=Number(item.dataset.index),pg=pages[index];
+      thumbsObserver.unobserve(item);if(pg)drawPageThumb(pg,item,token);
+    }),{root:thumbsList,rootMargin:"180px 0px",threshold:.01});
+    thumbsList.querySelectorAll(".thumb-item").forEach(item=>thumbsObserver.observe(item));
+  }else{
+    thumbsList.querySelectorAll(".thumb-item").forEach(item=>{const pg=pages[Number(item.dataset.index)];if(pg)drawPageThumb(pg,item,token)});
+  }
+}
+thumbsBtn.onclick=()=>{
+  if(!pages.length)return toast("افتح ملف PDF أولًا لعرض مصغرات الصفحات.");
+  if(thumbsPanel.classList.contains("on")){closeThumbs();return}
+  thumbsPanel.classList.add("on");thumbsPanel.setAttribute("aria-hidden","false");
+  thumbsBtn.classList.add("on");thumbsBtn.setAttribute("aria-expanded","true");buildThumbs();
+};
+$("thumbsClose").onclick=closeThumbs;
+
 function dock(el,tb){const vv=window.visualViewport,vw=vv?vv.width:innerWidth,vh=vv?vv.height:innerHeight,ox=vv?vv.offsetLeft:0,oy=vv?vv.offsetTop:0,r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight,t0=Math.max(oy+4,document.querySelector("header").getBoundingClientRect().bottom+4);let y=r.top-h-8;if(y<t0)y=r.bottom+8;y=Math.max(t0,Math.min(y,oy+vh-h-8));tb.style.left=Math.min(Math.max(ox+4,r.left),Math.max(ox+4,ox+vw-w-4))+"px";tb.style.top=y+"px"}
 const redock=()=>document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>dock(x,x.querySelector(".tb")));
 addEventListener("scroll",redock,true);addEventListener("resize",redock);if(window.visualViewport){visualViewport.addEventListener("resize",redock);visualViewport.addEventListener("scroll",redock)}
@@ -2643,7 +2712,7 @@ const bcc=$("bcclean");if(bcc)bcc.onclick=()=>{try{loadBcRead();bcClean()}catch(
 const ICP={"close": "<path d=\"M6 6l12 12M18 6 6 18\"/>", "check": "<path d=\"m5 12 5 5 9-10\"/>", "download": "<path d=\"M12 3v12m0 0-4-4m4 4 4-4M4 21h16\"/>", "open": "<path d=\"M14 4h6v6M20 4l-9 9\"/><path d=\"M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5\"/>", "share": "<path d=\"M12 16V4m0 0-4 4m4-4 4 4\"/><path d=\"M5 12v7a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-7\"/>", "plus": "<path d=\"M12 5v14M5 12h14\"/>", "trash": "<path d=\"M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3\"/>", "rotate": "<path d=\"M20 11a8 8 0 1 0-2.3 5.7\"/><path d=\"M20 4v7h-7\"/>", "up": "<path d=\"m6 15 6-6 6 6\"/>", "down": "<path d=\"m6 9 6 6 6-6\"/>", "scan": "<path d=\"M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2\"/><path d=\"M7 8h8M7 12h10M7 16h6\"/>"},DEC={"إغلاق": "close", "إلغاء": "close", "حسنًا": "check", "تطبيق": "check", "حفظ الإعدادات": "check", "إدراج": "plus", "تم": "check", "تنزيل الملف": "download", "فتح الملف": "open", "مشاركة / حفظ في «الملفات»": "share", "مسح": "trash", "حذف": "trash", "تدوير": "rotate", "↑": "up", "↓": "down", "تحليل النص": "scan", "مسح التحليل": "close", "حلّل صفحات الصور": "scan", "تدوير الكل": "rotate", "حذف المحدد": "trash", "إدراج الصورة الأصلية منظّفة (أبيض وأسود)": "plus"};
 function decorate(root){(root||document).querySelectorAll("button").forEach(b=>{if(b.querySelector("svg")||b.dataset.dec)return;const t=(b.textContent||"").trim(),k=DEC[t];if(!k)return;b.dataset.dec="1";const ic='<svg class="ic" viewBox="0 0 24 24">'+ICP[k]+'</svg>';if(t==="↑"||t==="↓"){b.setAttribute("aria-label",t==="↑"?"أعلى":"أسفل");b.innerHTML=ic}else{b.innerHTML=ic+"<span>"+t+"</span>";b.classList.add("ib")}})}
 decorate(document);
-const MENU=[["file","فتح","يفتح ملف PDF أو عدة ملفات في آن واحد، وتُدمج تلقائيًا في ملف واحد."],["fimg","صورة → PDF","يحوّل صورة أو أكثر إلى ملف PDF. حجم الصفحة (A4 وغيره) من القائمة المجاورة."],["ocb","قراءة نص صورة","يقرأ الكلام الموجود في صورة ويحوّله إلى أسطر تعدّلها مباشرة (يحتاج إنترنت)."],["txt","إضافة نص","اضغط على مكان في الصفحة واكتب. بعدها غيّر الخط واللون والحجم من الشريط."],["edt","تعديل النص","اضغط على أي سطر موجود في الملف لتعدّله أو تحذفه، مع الحفاظ على الخلفية."],["img","إدراج صورة","تضع صورة داخل الصفحة (شعار، ختم، باركود) ثم تحرّكها وتغيّر حجمها."],["sig","توقيع","ارسم توقيعك بإصبعك ثم ضعه في الصفحة، ويمكن حفظه لاستخدامه لاحقًا."],["bcb","باركود","ينشئ QR أو Code128، أو يقرأ باركود من صورة ويعيد رسمه نظيفًا."],["ann","تعليق","تظليل وقلم حر وحجب (مربع أسود يخفي ما تحته)."],["pn","ترقيم","يضيف أرقام الصفحات بالأرقام العربية أسفل كل صفحة."],["spl","تقسيم","يستخرج صفحات بنطاق تحدده، أو يقسّم الملف إلى عدة ملفات."],["mrg","دمج","يرتّب الملفات المفتوحة بالأسهم أو يحذف بعضها ثم يدمجها."],["tls","أدوات","علامة مائية، خصائص الملف، تدوير الكل، عكس الترتيب، تاريخ اليوم، حفظ المشروع وفتحه."],["ud","تراجع / إعادة","يلغي آخر تعديل أو يعيده (حتى 100 خطوة)."],["save","تنزيل","يجهّز الملف النهائي بالاسم الذي كتبته في خانة اسم الملف."]];
+const MENU=[["thumbs","مصغرات الصفحات","تعرض صورًا مصغرة لصفحات الملف وتتيح الانتقال مباشرة إلى أي صفحة."],["file","فتح","يفتح ملف PDF أو عدة ملفات في آن واحد، وتُدمج تلقائيًا في ملف واحد."],["fimg","صورة → PDF","يحوّل صورة أو أكثر إلى ملف PDF. حجم الصفحة (A4 وغيره) من القائمة المجاورة."],["ocb","قراءة نص صورة","يقرأ الكلام الموجود في صورة ويحوّله إلى أسطر تعدّلها مباشرة (يحتاج إنترنت)."],["txt","إضافة نص","اضغط على مكان في الصفحة واكتب. بعدها غيّر الخط واللون والحجم من الشريط."],["edt","تعديل النص","اضغط على أي سطر موجود في الملف لتعدّله أو تحذفه، مع الحفاظ على الخلفية."],["img","إدراج صورة","تضع صورة داخل الصفحة (شعار، ختم، باركود) ثم تحرّكها وتغيّر حجمها."],["sig","توقيع","ارسم توقيعك بإصبعك ثم ضعه في الصفحة، ويمكن حفظه لاستخدامه لاحقًا."],["bcb","باركود","ينشئ QR أو Code128، أو يقرأ باركود من صورة ويعيد رسمه نظيفًا."],["ann","تعليق","تظليل وقلم حر وحجب (مربع أسود يخفي ما تحته)."],["pn","ترقيم","يضيف أرقام الصفحات بالأرقام العربية أسفل كل صفحة."],["spl","تقسيم","يستخرج صفحات بنطاق تحدده، أو يقسّم الملف إلى عدة ملفات."],["mrg","دمج","يرتّب الملفات المفتوحة بالأسهم أو يحذف بعضها ثم يدمجها."],["tls","أدوات","علامة مائية، خصائص الملف، تدوير الكل، عكس الترتيب، تاريخ اليوم، حفظ المشروع وفتحه."],["ud","تراجع / إعادة","يلغي آخر تعديل أو يعيده (حتى 100 خطوة)."],["save","تنزيل","يجهّز الملف النهائي بالاسم الذي كتبته في خانة اسم الملف."]];
 function buildMenu(){const box=document.getElementById("mnl");if(box.dataset.built)return;box.dataset.built="1";MENU.forEach(([id,t,d])=>{let el=document.getElementById(id);if(el&&el.tagName==="INPUT")el=el.closest("label")||el;const sv=el&&el.querySelector("svg"),row=document.createElement("div");row.className="mrow2";const mi=document.createElement("span");mi.className="mi";if(sv)mi.append(sv.cloneNode(true));const bd=document.createElement("div"),b=document.createElement("b"),de=document.createElement("div");b.textContent=t;de.className="mdesc";de.textContent=d;bd.append(b,de);row.append(mi,bd);box.append(row)});const z=document.createElement("div");z.className="mrow2";z.innerHTML='<span class="mi">±</span><div><b>تكبير / تصغير</b><div class="mdesc">زرّا + و − أو القرص بإصبعين على الملف فقط (دون تكبير البرنامج).</div></div>';box.append(z)}
 $("mnb").onclick=()=>{buildMenu();$("mnm").classList.add("on")};
 $("mnx").onclick=()=>$("mnm").classList.remove("on");
