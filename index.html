@@ -348,7 +348,7 @@ label.btn{position:relative}
 <div class="tsec"><label class="dscheck"><input id="dspub" type="checkbox"> أسمح بفتح الملف لأي شخص لديه الرابط (مشاركة عامة)</label><p class="dshint">إذا لم تحدد هذا الخيار، يبقى الملف خاصًا بحساب Google الذي ربطته، ولن يتمكن الآخرون من فتح QR إلا إذا كانوا يملكون صلاحية في Drive.</p></div>
 <div id="dsstatus" role="status" aria-live="polite">الميزة اختيارية. يلزم إعداد Google OAuth Client ID لتفعيلها.</div>
 <div id="dsresult" style="display:none"><img id="dsqr" alt="رمز QR لرابط ملف Google Drive"><input id="dsurl" type="url" readonly aria-label="رابط ملف Google Drive"><div class="r"><button id="dscopy" type="button">نسخ الرابط</button><button id="dsdown" type="button">تنزيل QR</button></div>
-<div class="r"><button id="dsrevoke" type="button">إلغاء المشاركة العامة</button><button id="dsdelete" type="button">حذف نسخة Drive</button></div></div>
+<div class="r"><button id="dsrevoke" type="button">إلغاء المشاركة العامة</button><button id="dsdelete" type="button">حذف نسخة Drive</button><button id="dsdisconnect" type="button">فصل اتصال Google</button></div></div>
 <div class="r"><button id="dsclose" type="button">إغلاق</button><span class="sp"></span><button id="dsupload" class="p" type="button">ربط Google Drive ورفع الملف</button></div>
 </div></div>\n<div id="bcm"><div class="bx" role="dialog" aria-label="باركود"><h2>إضافة باركود / QR</h2>
 <div class="tsec bcimgs"><label class="btn bcl-btn" for="bcimg">📷 عندي صورة باركود — اختيار صورة وقراءتها</label><input id="bcimg" type="file" accept="image/*,.heic,.heif" class="native-picker"><div id="bcst" class="bcst"></div><div class="r" id="bcrow" style="display:none;margin-top:6px"><button id="bcclean" type="button">إدراج الصورة الأصلية منظّفة (أبيض وأسود)</button></div></div>
@@ -2565,6 +2565,12 @@ $("dsrevoke").onclick=async()=>{
   try{await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(dsFileId)+"/permissions/"+encodeURIComponent(dsPermissionId),{method:"DELETE"});dsPermissionId=null;dsShowResult($("dsurl").value,false);dsStatus("أُلغيت المشاركة العامة. أصبح الرابط خاصًا بصلاحيات Drive.");}
   catch(error){dsStatus("تعذّر إلغاء المشاركة: "+error.message)}
   finally{$("dsrevoke").disabled=false}
+};
+$("dsdisconnect").onclick=()=>{
+  if(dsToken&&window.google&&google.accounts&&google.accounts.oauth2){
+    try{google.accounts.oauth2.revoke(dsToken,()=>{})}catch(e){}
+  }
+  dsToken=null;dsTokenExpiry=0;dsStatus("تم فصل جلسة Google من هذه الصفحة. لا يحتفظ الفلقي برمز الدخول بعد إغلاق الصفحة.");
 };
 $("dsdelete").onclick=async()=>{
   if(!dsFileId)return;
