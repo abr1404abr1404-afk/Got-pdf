@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: alfalqi-pdf-ocr
+    runtime: docker
+    rootDir: backend
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: MAX_UPLOAD_MB
+        value: "25"
+      - key: MAX_PDF_PAGES
+        value: "12"
+      - key: OCR_DPI
+        value: "240"
+      - key: OCR_MODE
+        value: hybrid
+      - key: CORS_ORIGINS
+        value: https://YOUR-USERNAME.github.io
