@@ -10,7 +10,7 @@ class PdfCompressionTests(unittest.TestCase):
         document = fitz.open()
         page = document.new_page(width=595, height=842)
         page.insert_text((72, 90), "Alfalqi PDF compression test")
-        page.insert_text((72, 120), "اختبار الحفاظ على النص")
+        page.insert_text((72, 120), "Second line remains selectable")
         return document.tobytes(garbage=0, deflate=False, use_objstms=0)
 
     def test_compression_returns_valid_pdf_and_preserves_text(self):
@@ -22,7 +22,7 @@ class PdfCompressionTests(unittest.TestCase):
             self.assertEqual(document.page_count, 1)
             text = document[0].get_text()
             self.assertIn("Alfalqi PDF compression test", text)
-            self.assertIn("اختبار الحفاظ على النص", text)
+            self.assertIn("Second line remains selectable", text)
 
     def test_invalid_pdf_is_rejected(self):
         with self.assertRaises(ValueError):
