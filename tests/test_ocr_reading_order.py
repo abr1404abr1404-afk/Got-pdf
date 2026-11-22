@@ -47,6 +47,7 @@ class OcrModeTests(unittest.TestCase):
         ast.fix_missing_locations(module)
         calls = []
         namespace = {
+            "np": type("NumpyStub", (), {"ndarray": object}),
             "OCR_MODE": mode,
             "_preprocess": lambda image: image,
             "_paddle": lambda image, language: (calls.append("paddle") or [], None),
@@ -55,7 +56,8 @@ class OcrModeTests(unittest.TestCase):
             "_reading_order": lambda rows: rows,
         }
         exec(compile(module, "main.py", "exec"), namespace)
-        namespace["_hybrid"]("image", "ara+eng")
+        image = type("ImageStub", (), {"shape": (100, 200, 3)})()
+        namespace["_hybrid"](image, "ara+eng")
         return calls
 
     def test_hybrid_runs_both_engines(self):

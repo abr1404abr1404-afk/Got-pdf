@@ -278,26 +278,33 @@ async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng"
 
 
 @app.post("/api/ocr/pdf")
-async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"), dpi: int = Form(OCR_DPI)):
+async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"), dpi: int = Form(OCR_DPI, ge=72, le=288)):
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
         doc = fitz.open(stream=data, filetype="pdf")
     except Exception as exc:
         raise HTTPException(415, "الملف ليس PDF صالحًا أو أنه محمي بكلمة مرور") from exc
-    if doc.page_count > MAX_PDF_PAGES:
-        raise HTTPException(413, f"عدد الصفحات يتجاوز الحد ({MAX_PDF_PAGES})")
-    scale = max(1.0, min(4.0, dpi / 72.0))
-    pages = []
-    for index, page in enumerate(doc):
-        pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
-        image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        if pix.n == 4:
-            image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
-        else:
-            image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        result = await run_in_threadpool(_hybrid, image, language)
-        pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
-                      "ocr": result})
-    doc.close()
-    return {"pages": pages, "page_count": len(pages)}
+
+    try:
+        if doc.needs_pass:
+            raise HTTPException(415, "ملف PDF محمي بكلمة مرور")
+        if doc.page_count > MAX_PDF_PAGES:
+            raise HTTPException(413, f"عدد الصفحات يتجاوز الحد ({MAX_PDF_PAGES})")
+        scale = dpi / 72.0
+        pages = []
+        for index in range(doc.page_count):
+            page = doc.load_page(index)
+            # PyMuPDF is not thread-safe; keep its document operations on this request thread.
+            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+            if pix.n == 4:
+                image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+            else:
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+            result = await run_in_threadpool(_hybrid, image, language)
+            pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
+                          "ocr": result})
+        return {"pages": pages, "page_count": len(pages)}
+    finally:
+        doc.close()
