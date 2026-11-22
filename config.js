@@ -6,4 +6,4 @@ window.ALFALQI_API_BASE = "";
  * Set only the public OAuth Web Client ID here after completing SHARING_AND_ROADMAP.md.
  * Never place a Google OAuth Client Secret in this browser-side file.
  */
-window.ALFALQI_GOOGLE_CLIENT_ID = "";
+window.ALFALQI_GOOGLE_CLIENT_ID = "453331176505-rvfdb61fju5shka1s437j9hrcmgd62jd.apps.googleusercontent.com";
