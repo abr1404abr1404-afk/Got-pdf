@@ -440,12 +440,14 @@ def health():
 
 
 @app.post("/api/compress/pdf")
-async def compress_pdf(file: UploadFile = File(...)):
+async def compress_pdf(file: UploadFile = File(...), level: str = Form("balanced")):
     """Losslessly optimize a PDF without rasterizing text or page content."""
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
+    if level not in {"balanced", "small"}:
+        raise HTTPException(400, "مستوى الضغط غير صالح")
     try:
-        optimized, reduced = await run_in_threadpool(compress_pdf_bytes, data)
+        optimized, reduced = await run_in_threadpool(compress_pdf_bytes, data, level)
     except ValueError as exc:
         raise HTTPException(415, str(exc)) from exc
     return Response(
