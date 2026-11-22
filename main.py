@@ -231,7 +231,7 @@ def health():
 
 @app.post("/api/ocr/image")
 async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng")):
-    data = await file.read()
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     image = _decode_image(data)
     result = _hybrid(image, language)
@@ -243,7 +243,7 @@ async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng"
 
 @app.post("/api/ocr/pdf")
 async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"), dpi: int = Form(OCR_DPI)):
-    data = await file.read()
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
         doc = fitz.open(stream=data, filetype="pdf")
