@@ -2488,7 +2488,7 @@ async function buildPdf(list){
   if(META.title)out.setTitle(META.title);if(META.author)out.setAuthor(META.author);out.setCreator("الفلقي لتعديل PDF");out.setProducer("الفلقي لتعديل PDF");
   return await out.save();
 }
-const apiBase=()=>(window.ALFALQI_API_BASE||"").trim().replace(/\\/$/,"");
+const apiBase=()=>(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
 const fmtBytes=n=>n<1024?(n+" بايت"):n<1048576?((n/1024).toFixed(1)+" كيلوبايت"):((n/1048576).toFixed(2)+" ميجابايت");
 const aiModal=$("aim"),compressModal=$("cpm");
 function openAi(){if(!pages.length)return toast("افتح ملف PDF أولًا.");aiModal.classList.add("on");aiModal.setAttribute("aria-hidden","false");$("aiQuestion").focus()}
