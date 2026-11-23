@@ -111,7 +111,7 @@ class OcrModeTests(unittest.TestCase):
             "_preprocess": lambda image: image,
             "cv2": type("CV2Stub", (), {"COLOR_BGR2GRAY": 1, "COLOR_GRAY2BGR": 2, "ADAPTIVE_THRESH_GAUSSIAN_C": 3, "THRESH_BINARY": 4, "THRESH_OTSU": 5, "cvtColor": staticmethod(lambda image, code: image), "adaptiveThreshold": staticmethod(lambda image, *args: image), "threshold": staticmethod(lambda image, *args: (0, image))})(),
             "_paddle": lambda image, language: (calls.append("paddle") or [], None),
-            "_tesseract": lambda image, language: (calls.append("tesseract") or [], None),
+            "_tesseract": lambda image, language, psm=11: (calls.append("tesseract") or [], None),
             "_dedupe": lambda rows: rows,
             "_reading_order": lambda rows: rows,
         }
