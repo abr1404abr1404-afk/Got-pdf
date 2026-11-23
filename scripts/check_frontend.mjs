@@ -45,12 +45,14 @@ for (const id of ["main", "file", "fn", "info", "toast", "fcam", "camfinish", "c
   }
 }
 
+for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransform", "warpPerspective", "scan-crop-overlay", "reviewScannedPages", "rotateScanImage", "scan-review-overlay"]) {
+  if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature);
+}
+
 if (failures.length) {
   console.error("Frontend checks failed:");
   for (const failure of failures) console.error("- " + failure);
   process.exit(1);
 }
-
-for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransform", "warpPerspective", "scan-crop-overlay"]) { if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature); }
 
 console.log("Frontend checks passed: " + inlineScripts + " inline scripts parsed; local assets resolved.");
