@@ -1,6 +1,6 @@
 import unittest
 
-import fitz
+import pymupdf
 from PIL import Image
 import io
 
@@ -9,7 +9,7 @@ from pdf_tools import compress_pdf_bytes
 
 class PdfCompressionTests(unittest.TestCase):
     def make_pdf(self):
-        document = fitz.open()
+        document = pymupdf.open()
         page = document.new_page(width=595, height=842)
         page.insert_text((72, 90), "Alfalqi PDF compression test")
         page.insert_text((72, 120), "Second line remains selectable")
@@ -20,14 +20,14 @@ class PdfCompressionTests(unittest.TestCase):
         result, reduced = compress_pdf_bytes(source)
         self.assertIsInstance(reduced, bool)
         self.assertLessEqual(len(result), len(source))
-        with fitz.open(stream=result, filetype="pdf") as document:
+        with pymupdf.open(stream=result, filetype="pdf") as document:
             self.assertEqual(document.page_count, 1)
             text = document[0].get_text()
             self.assertIn("Alfalqi PDF compression test", text)
             self.assertIn("Second line remains selectable", text)
 
     def test_small_profile_reduces_embedded_scan_and_preserves_text(self):
-        document = fitz.open()
+        document = pymupdf.open()
         page = document.new_page(width=595, height=842)
         page.insert_text((72, 90), "Searchable text remains available")
         image = Image.effect_noise((1800, 2400), 90).convert("RGB")
@@ -40,7 +40,7 @@ class PdfCompressionTests(unittest.TestCase):
         result, reduced = compress_pdf_bytes(source, "small")
         self.assertTrue(reduced)
         self.assertLess(len(result), len(source))
-        with fitz.open(stream=result, filetype="pdf") as optimized:
+        with pymupdf.open(stream=result, filetype="pdf") as optimized:
             self.assertEqual(optimized.page_count, 1)
             self.assertIn("Searchable text remains available", optimized[0].get_text())
             self.assertTrue(optimized[0].get_images())
@@ -54,10 +54,10 @@ class PdfCompressionTests(unittest.TestCase):
             compress_pdf_bytes(b"not a pdf")
 
     def test_password_protected_pdf_is_rejected(self):
-        document = fitz.open()
+        document = pymupdf.open()
         document.new_page()
         encrypted = document.tobytes(
-            encryption=fitz.PDF_ENCRYPT_AES_256,
+            encryption=pymupdf.PDF_ENCRYPT_AES_256,
             owner_pw="owner",
             user_pw="user",
         )
