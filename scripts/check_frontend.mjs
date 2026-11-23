@@ -51,4 +51,6 @@ if (failures.length) {
   process.exit(1);
 }
 
+for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransform", "warpPerspective", "scan-crop-overlay"]) { if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature); }
+
 console.log("Frontend checks passed: " + inlineScripts + " inline scripts parsed; local assets resolved.");
