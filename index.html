@@ -2080,7 +2080,8 @@ function openScanCropEditor(file,cv){
 }
 
 async function rotateScanImage(file,angle){
- const bitmap=await createImageBitmap(file),swap=Math.abs(angle)%180===90;
+ let bitmap;if(window.createImageBitmap)bitmap=await createImageBitmap(file);else bitmap=await new Promise((resolve,reject)=>{const url=URL.createObjectURL(file),image=new Image();image.onload=()=>{URL.revokeObjectURL(url);resolve(image)};image.onerror=()=>{URL.revokeObjectURL(url);reject(new Error("تعذّر قراءة الصورة"))};image.src=url});
+ const swap=Math.abs(angle)%180===90;
  const canvas=document.createElement("canvas");canvas.width=swap?bitmap.height:bitmap.width;canvas.height=swap?bitmap.width:bitmap.height;
  const ctx=canvas.getContext("2d");ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(angle*Math.PI/180);ctx.drawImage(bitmap,-bitmap.width/2,-bitmap.height/2);bitmap.close&&bitmap.close();
  const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("تعذّر تدوير الصورة")),"image/jpeg",.94));
