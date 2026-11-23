@@ -2,7 +2,7 @@ services:
   - type: web
     name: alfalqi-pdf-ocr
     runtime: docker
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     envVars:
       - key: MAX_UPLOAD_MB
