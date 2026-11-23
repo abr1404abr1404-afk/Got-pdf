@@ -314,6 +314,8 @@ label.btn{position:relative}
 @media(prefers-reduced-motion:reduce){#bcm .bx{animation:none!important}}
 
 .scan-crop-overlay{position:fixed;inset:0;z-index:10050;background:rgba(5,12,22,.78);display:flex;align-items:center;justify-content:center;padding:14px;direction:rtl}.scan-crop-box{width:min(960px,100%);max-height:94dvh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 24px 80px rgba(0,0,0,.4)}.scan-crop-box>header,.scan-crop-box>footer{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}.scan-crop-help,.scan-crop-status{color:var(--mut);font-size:.9rem;margin:10px 0}.scan-crop-canvas{display:block;max-width:100%;max-height:55dvh;margin:0 auto;background:#111;touch-action:none;cursor:crosshair}.scan-crop-box>footer{justify-content:flex-start;margin-top:12px}.scan-crop-box button{padding:8px 12px}.scan-crop-box button.primary{background:var(--acc);color:var(--accfg);border-color:var(--acc)}@media(max-width:600px){.scan-crop-box{padding:12px}.scan-crop-box>footer button{flex:1 1 42%}}
+
+.scan-review-overlay{position:fixed;inset:0;z-index:10060;background:rgba(5,12,22,.82);display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl}.scan-review-box{width:min(760px,100%);max-height:94dvh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 24px 80px rgba(0,0,0,.4)}.scan-review-box>header,.scan-review-box>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.scan-review-box>header small{display:block;color:var(--mut);font-size:.85rem;margin-top:3px}.scan-review-box>p{color:var(--mut);font-size:.9rem}.scan-review-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.scan-review-item{min-width:0;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--bg);display:flex;flex-direction:column;gap:8px}.scan-review-item img{width:100%;height:190px;object-fit:contain;background:#20242a;border-radius:8px}.scan-review-meta{display:flex;flex-direction:column;gap:8px}.scan-review-actions{display:flex;gap:5px;flex-wrap:wrap}.scan-review-actions button,.scan-review-box button{padding:7px 10px}.scan-review-actions button:last-child{color:#c33}.scan-review-box>footer{justify-content:flex-end;margin-top:14px}.scan-review-box button.primary{background:var(--acc);color:var(--accfg);border-color:var(--acc)}.scan-review-box button:disabled{opacity:.4;cursor:not-allowed}.scan-review-empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:24px}@media(max-width:520px){.scan-review-box{padding:12px}.scan-review-list{grid-template-columns:repeat(2,minmax(0,1fr))}.scan-review-item img{height:145px}.scan-review-actions button{flex:1 1 38%}}
 </style>
   <link rel="stylesheet" href="./experience.css">
 </head>
@@ -2076,8 +2078,47 @@ function openScanCropEditor(file,cv){
   view.onpointerdown=e=>{const r=view.getBoundingClientRect(),x=(e.clientX-r.left)*view.width/r.width,y=(e.clientY-r.top)*view.height/r.height;let best=24;drag=-1;points.forEach((p,i)=>{const d=Math.hypot(p.x*ratio-x,p.y*ratio-y);if(d<best){best=d;drag=i}});if(drag>=0){pointer=e.pointerId;view.setPointerCapture(pointer)}};view.onpointermove=e=>{if(drag<0||pointer!==e.pointerId)return;const r=view.getBoundingClientRect();points[drag]={x:Math.max(0,Math.min(canvas.width,(e.clientX-r.left)*view.width/r.width/ratio)),y:Math.max(0,Math.min(canvas.height,(e.clientY-r.top)*view.height/r.height/ratio))};draw()};view.onpointerup=view.onpointercancel=()=>{drag=-1;pointer=-1};draw();try{auto()}catch(e){status.textContent="تعذّر الاكتشاف التلقائي؛ يمكنك ضبط الزوايا يدويًا."}
  });
 }
+
+async function rotateScanImage(file,angle){
+ const bitmap=await createImageBitmap(file),swap=Math.abs(angle)%180===90;
+ const canvas=document.createElement("canvas");canvas.width=swap?bitmap.height:bitmap.width;canvas.height=swap?bitmap.width:bitmap.height;
+ const ctx=canvas.getContext("2d");ctx.translate(canvas.width/2,canvas.height/2);ctx.rotate(angle*Math.PI/180);ctx.drawImage(bitmap,-bitmap.width/2,-bitmap.height/2);bitmap.close&&bitmap.close();
+ const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error("تعذّر تدوير الصورة")),"image/jpeg",.94));
+ return new File([blob],file.name.replace(/\.[^.]+$/,"")+".jpg",{type:"image/jpeg",lastModified:Date.now()});
+}
+function reviewScannedPages(files){
+ return new Promise(resolve=>{
+  const items=files.map(file=>({file,url:URL.createObjectURL(file)}));let closed=false;
+  const overlay=document.createElement("div");overlay.className="scan-review-overlay";
+  overlay.innerHTML='<section class="scan-review-box" role="dialog" aria-modal="true" aria-label="مراجعة صفحات المسح"><header><div><strong>مراجعة صفحات المسح</strong><small class="scan-review-count"></small></div><button type="button" data-action="cancel" aria-label="إغلاق">×</button></header><p>رتّب الصفحات، دوّر الصور أو احذف الصفحات غير المطلوبة قبل إنشاء ملف PDF.</p><div class="scan-review-list"></div><footer><button type="button" data-action="cancel">إلغاء</button><button type="button" class="primary" data-action="confirm">إنشاء PDF بالترتيب الحالي</button></footer></section>';
+  document.body.append(overlay);
+  const list=overlay.querySelector(".scan-review-list"),count=overlay.querySelector(".scan-review-count"),confirm=overlay.querySelector('[data-action="confirm"]');
+  const cleanup=result=>{if(closed)return;closed=true;items.forEach(x=>URL.revokeObjectURL(x.url));overlay.remove();document.removeEventListener("keydown",onKey);resolve(result)};
+  const onKey=e=>{if(e.key==="Escape")cleanup(null)};document.addEventListener("keydown",onKey);
+  const draw=()=>{
+   count.textContent=items.length+" صفحة";
+   list.replaceChildren();
+   items.forEach((item,index)=>{
+    const card=document.createElement("article");card.className="scan-review-item";
+    const image=document.createElement("img");image.src=item.url;image.alt="معاينة الصفحة "+(index+1);
+    const meta=document.createElement("div");meta.className="scan-review-meta";
+    const heading=document.createElement("strong");heading.textContent="الصفحة "+(index+1);
+    const actions=document.createElement("div");actions.className="scan-review-actions";
+    const button=(label,action,disabled=false)=>{const b=document.createElement("button");b.type="button";b.textContent=label;b.disabled=disabled;b.onclick=action;return b};
+    actions.append(button("↑",()=>{[items[index-1],items[index]]=[items[index],items[index-1]];draw()},index===0),button("↓",()=>{[items[index+1],items[index]]=[items[index],items[index+1]];draw()},index===items.length-1),button("تدوير ↻",async()=>{const b=actions.querySelectorAll("button")[2];b.disabled=true;try{const rotated=await rotateScanImage(item.file,90);URL.revokeObjectURL(item.url);item.file=rotated;item.url=URL.createObjectURL(rotated);draw()}catch(e){toast(e.message||"تعذّر تدوير الصفحة")}finally{b.disabled=false}},false),button("حذف",()=>{URL.revokeObjectURL(item.url);items.splice(index,1);draw()}));
+    meta.append(heading,actions);card.append(image,meta);list.append(card);
+   });
+   confirm.disabled=items.length===0;
+   if(!items.length){const empty=document.createElement("p");empty.className="scan-review-empty";empty.textContent="لا توجد صفحات. ألغِ المراجعة ثم التقط الصور من جديد.";list.append(empty)}
+  };
+  overlay.querySelectorAll('[data-action="cancel"]').forEach(b=>b.onclick=()=>cleanup(null));
+  confirm.onclick=()=>cleanup(items.map(x=>x.file));
+  draw();
+ });
+}
+
 if(cameraInput)cameraInput.onchange=e=>{const f=e.target.files&&e.target.files[0];e.target.value="";if(!f)return;if(!/^image\//i.test(f.type)){toast("اختر صورة مدعومة من الكاميرا.");return}cameraBatch.push(new File([f],"scan-"+String(cameraBatch.length+1).padStart(2,"0")+(f.name.match(/\.[^.]+$/)||[".jpg"])[0],{type:f.type||"image/jpeg",lastModified:Date.now()}));updateCameraBatch();toast("تم التقاط الصفحة "+cameraBatch.length+". التقط صفحة أخرى أو اضغط «إنهاء المسح».")}
-if(cameraFinish)cameraFinish.onclick=async()=>{if(!cameraBatch.length)return;const batch=cameraBatch.slice(),before=pages.length;cameraFinish.disabled=true;cameraClear.disabled=true;try{let prepared=[];try{toast("جاري تحميل محرك قص المستندات…");const cv=await loadOpenCV();for(let i=0;i<batch.length;i++){toast("ضبط حدود الصفحة "+(i+1)+" من "+batch.length);prepared.push(await openScanCropEditor(batch[i],cv))}}catch(cropErr){if(cropErr&&String(cropErr.message||"").includes("أُلغي"))throw cropErr;console.warn("Perspective crop unavailable; using original captures",cropErr);prepared=batch;toast("تعذّر تحميل محرك القص؛ سيتم تحويل الصور الأصلية إلى PDF.")}loadImgModule();await imgLoad(prepared,{scanMode:$("cammode").value});const added=pages.slice(before);if(!added.length)throw new Error("لم تُضف أي صفحة من الصور");const bytes=await buildPdf(added),stamp=new Date().toISOString().replace(/[:.]/g,"-");await saveFile("alfalqi-scan-"+stamp+".pdf",bytes,"application/pdf");cameraBatch=[];updateCameraBatch();toast("تم قصّ "+prepared.length+" صفحة وتحويلها إلى PDF.")}catch(err){console.error(err);toast("تعذّر إنهاء المسح: "+((err&&err.message)||err))}finally{cameraFinish.disabled=false;cameraClear.disabled=false}};
+if(cameraFinish)cameraFinish.onclick=async()=>{if(!cameraBatch.length)return;const batch=cameraBatch.slice(),before=pages.length;cameraFinish.disabled=true;cameraClear.disabled=true;try{let prepared=[];try{toast("جاري تحميل محرك قص المستندات…");const cv=await loadOpenCV();for(let i=0;i<batch.length;i++){toast("ضبط حدود الصفحة "+(i+1)+" من "+batch.length);prepared.push(await openScanCropEditor(batch[i],cv))}}catch(cropErr){if(cropErr&&String(cropErr.message||"").includes("أُلغي"))throw cropErr;console.warn("Perspective crop unavailable; using original captures",cropErr);prepared=batch;toast("تعذّر تحميل محرك القص؛ سيتم تحويل الصور الأصلية إلى PDF.")}const reviewed=await reviewScannedPages(prepared);if(!reviewed)throw new Error("أُلغي إعداد المسح");prepared=reviewed;loadImgModule();await imgLoad(prepared,{scanMode:$("cammode").value});const added=pages.slice(before);if(!added.length)throw new Error("لم تُضف أي صفحة من الصور");const bytes=await buildPdf(added),stamp=new Date().toISOString().replace(/[:.]/g,"-");await saveFile("alfalqi-scan-"+stamp+".pdf",bytes,"application/pdf");cameraBatch=[];updateCameraBatch();toast("تم تجهيز "+prepared.length+" صفحة بالترتيب المحدد وتحويلها إلى PDF.")}catch(err){console.error(err);toast("تعذّر إنهاء المسح: "+((err&&err.message)||err))}finally{cameraFinish.disabled=false;cameraClear.disabled=false}};
 if(cameraClear)cameraClear.onclick=()=>{cameraBatch=[];updateCameraBatch();toast("تم إلغاء المسح.")};
 
 addEventListener("dragover",e=>{e.preventDefault();document.body.classList.add("drop")});
