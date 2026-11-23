@@ -1,7 +1,7 @@
 """PDF compression helpers: lossless structure cleanup and opt-in image recompression."""
 from __future__ import annotations
 
-import fitz
+import pymupdf
 
 
 COMPRESSION_LEVELS = {
@@ -19,7 +19,7 @@ def compress_pdf_bytes(data: bytes, level: str = "balanced") -> tuple[bytes, boo
         raise ValueError("مستوى الضغط غير صالح")
 
     try:
-        document = fitz.open(stream=data, filetype="pdf")
+        document = pymupdf.open(stream=data, filetype="pdf")
     except Exception as exc:
         raise ValueError("الملف ليس PDF صالحًا") from exc
 
