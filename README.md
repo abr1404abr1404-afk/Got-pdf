@@ -114,6 +114,7 @@ window.ALFALQI_API_BASE = "http://localhost:8000";
 - `POST /api/ocr/pdf` — تحليل ملف PDF متعدد الصفحات. الحقول: `file` و`language` و`dpi`.
 - `POST /api/compress/pdf` — تحسين PDF دون فقد جودة. الحقول: `file` و`level` (`lossless` أو `balanced` أو `small`).
 - `POST /api/assistant/chat` — إجابة عن سؤال اعتمادًا على النص المستخرج. JSON: `document_text` و`question`؛ يتطلب `OPENAI_API_KEY` وموافقة المستخدم في الواجهة.
+- `POST /api/assistant/extract` — استخراج الأسماء والتواريخ والمبالغ والجهات والمعرّفات من النص المستخرج. JSON: `document_text`؛ يعيد عناصر مع النوع والقيمة ورقم الصفحة ودليل نصي قصير، وتتيح الواجهة تنزيلها CSV بعد الموافقة.
 
 ## كيف يعمل OCR الهجين؟
 
