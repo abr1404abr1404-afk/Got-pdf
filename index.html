@@ -2509,6 +2509,22 @@ async function extractLocalDocumentText(){
       text=content.items.map(item=>item.str||"").filter(Boolean).join(" ");
     }
     text=text.replace(/[ \t]+/g," ").trim();
+
+    // Scanned/image-only PDF pages have no selectable text. Run the same
+    // hybrid OCR flow used by the page reader before giving up on extraction.
+    if(text.length < 30){
+      try{
+        if(typeof window.imgOcr !== "function") loadImgModule();
+        if(typeof window.imgOcr === "function"){
+          $("aiStatus").textContent="الصفحة "+(index+1)+" لا تحتوي نصًا كافيًا؛ جارٍ تشغيل OCR عربي/إنجليزي…";
+          await window.imgOcr(pg,"ara+eng",false);
+          const recognized=(pg.ocr||[]).map(line=>line.t||"").filter(Boolean).join("\n").trim();
+          if(recognized.length>text.length) text=recognized;
+        }
+      }catch(ocrError){
+        console.warn("Automatic OCR fallback failed for PDF page",index+1,ocrError);
+      }
+    }
     if(text){const chunk="[صفحة "+(index+1)+"]\n"+text;const room=45000-total;if(room<=0)break;chunks.push(chunk.slice(0,room));total+=Math.min(room,chunk.length)}
   }
   return chunks.join("\n\n");
