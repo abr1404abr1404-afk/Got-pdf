@@ -1,5 +1,5 @@
 /* Set this to the HTTPS URL of your deployed Python OCR API. Leave empty to use browser OCR fallback. */
-window.ALFALQI_API_BASE = "";
+window.ALFALQI_API_BASE = "https://got-pdf.onrender.com";
 
 /*
  * Google Drive QR sharing is optional and remains unavailable until configured.
