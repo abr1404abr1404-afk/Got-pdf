@@ -28,6 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -41,6 +42,8 @@ OCR_MODE = os.getenv("OCR_MODE", "hybrid").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
+GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
+MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
 
@@ -68,6 +71,7 @@ _paddle_instances: dict[str, Any] = {}
 _request_limiter = SlidingWindowRateLimiter(max_keys=4096)
 _ocr_semaphore = asyncio.Semaphore(OCR_CONCURRENCY)
 _cpu_semaphore = asyncio.Semaphore(1)
+_office_semaphore = asyncio.Semaphore(1)
 
 
 def _guard_expensive_request(
@@ -503,9 +507,61 @@ def health():
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "ai_available": bool(OPENAI_API_KEY),
-            "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None}
+            "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
+            "office_conversion_available": bool(GOTENBERG_URL),
+            "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None}
 
 
+
+
+@app.post("/api/convert/office-to-pdf")
+async def office_to_pdf(request: Request, file: UploadFile = File(...)):
+    """Convert an Office/OpenDocument file through an explicitly configured Gotenberg service."""
+    if not GOTENBERG_URL:
+        raise HTTPException(503, "تحويل ملفات Office غير مفعّل على هذا الخادم حاليًا.")
+    _guard_expensive_request(request, "office-convert", client_limit=4, global_limit=12)
+    filename = (file.filename or "document").replace("\\", "/").split("/")[-1]
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    allowed_extensions = {"doc", "docx", "odt", "rtf", "txt", "xls", "xlsx", "ods", "ppt", "pptx", "odp"}
+    if extension not in allowed_extensions:
+        raise HTTPException(415, "نوع الملف غير مدعوم. استخدم ملف Word أو Excel أو PowerPoint أو OpenDocument.")
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        await asyncio.wait_for(_office_semaphore.acquire(), timeout=1.0)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(503, "خدمة تحويل المستندات مشغولة حاليًا. حاول بعد قليل.") from exc
+    try:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
+                async with client.stream(
+                    "POST",
+                    GOTENBERG_URL + "/forms/libreoffice/convert",
+                    files={"files": (filename, data, file.content_type or "application/octet-stream")},
+                ) as upstream:
+                    if upstream.status_code >= 400:
+                        raise HTTPException(502, "لم تتمكن خدمة التحويل من معالجة هذا الملف.")
+                    try:
+                        converted = await read_limited_pdf_response(
+                            upstream, MAX_CONVERTED_MB * 1024 * 1024
+                        )
+                    except OutputTooLarge as exc:
+                        raise HTTPException(502, "حجم ملف PDF الناتج يتجاوز الحد المسموح.") from exc
+                    except InvalidPdfOutput as exc:
+                        raise HTTPException(502, "أعادت خدمة التحويل ملفًا غير صالح بصيغة PDF.") from exc
+        except httpx.TimeoutException as exc:
+            raise HTTPException(504, "انتهت مهلة تحويل المستند. جرّب ملفًا أصغر.") from exc
+        except httpx.RequestError as exc:
+            raise HTTPException(502, "تعذّر الاتصال بخدمة تحويل المستندات.") from exc
+        safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", filename.rsplit(".", 1)[0]).strip("-._") or "document"
+        return Response(
+            content=converted,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{safe_stem}.pdf"',
+                     "X-Conversion-Engine": "gotenberg-libreoffice"},
+        )
+    finally:
+        _office_semaphore.release()
 
 
 @app.post("/api/compress/pdf")
