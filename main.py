@@ -28,6 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -42,7 +43,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
-MAX_CONVERTED_MB = int(os.getenv("MAX_CONVERTED_MB", "40"))
+MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
 
@@ -533,21 +534,25 @@ async def office_to_pdf(request: Request, file: UploadFile = File(...)):
     try:
         try:
             async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
-                upstream = await client.post(
+                async with client.stream(
+                    "POST",
                     GOTENBERG_URL + "/forms/libreoffice/convert",
                     files={"files": (filename, data, file.content_type or "application/octet-stream")},
-                )
+                ) as upstream:
+                    if upstream.status_code >= 400:
+                        raise HTTPException(502, "لم تتمكن خدمة التحويل من معالجة هذا الملف.")
+                    try:
+                        converted = await read_limited_pdf_response(
+                            upstream, MAX_CONVERTED_MB * 1024 * 1024
+                        )
+                    except OutputTooLarge as exc:
+                        raise HTTPException(502, "حجم ملف PDF الناتج يتجاوز الحد المسموح.") from exc
+                    except InvalidPdfOutput as exc:
+                        raise HTTPException(502, "أعادت خدمة التحويل ملفًا غير صالح بصيغة PDF.") from exc
         except httpx.TimeoutException as exc:
             raise HTTPException(504, "انتهت مهلة تحويل المستند. جرّب ملفًا أصغر.") from exc
         except httpx.RequestError as exc:
             raise HTTPException(502, "تعذّر الاتصال بخدمة تحويل المستندات.") from exc
-        if upstream.status_code >= 400:
-            raise HTTPException(502, "لم تتمكن خدمة التحويل من معالجة هذا الملف.")
-        converted = upstream.content
-        if not converted.startswith(b"%PDF-"):
-            raise HTTPException(502, "أعادت خدمة التحويل ملفًا غير صالح بصيغة PDF.")
-        if len(converted) > MAX_CONVERTED_MB * 1024 * 1024:
-            raise HTTPException(502, "حجم ملف PDF الناتج يتجاوز الحد المسموح.")
         safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "-", filename.rsplit(".", 1)[0]).strip("-._") or "document"
         return Response(
             content=converted,
