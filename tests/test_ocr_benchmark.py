@@ -17,7 +17,7 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
         self.assertAlmostEqual(error_rate("كتاب", "كتا"), 0.25)
 
     def test_word_error_rate(self):
-        self.assertAlmostEqual(error_rate("هذا كتاب مفيد", "هذا مفيد"), 1 / 3)
+        self.assertAlmostEqual(error_rate("هذا كتاب مفيد", "هذا مفيد", "words"), 1 / 3)
 
     def test_empty_reference(self):
         self.assertEqual(error_rate("", ""), 0)
