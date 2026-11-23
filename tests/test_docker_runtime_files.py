@@ -24,7 +24,11 @@ class DockerRuntimeFilesTests(unittest.TestCase):
             copied = set()
             for line in dockerfile.splitlines():
                 if line.strip().startswith("COPY "):
-                    copied.update(Path(token).name for token in line.split()[1:-1])
+                    copied.update(
+                        Path(token).stem
+                        for token in line.split()[1:-1]
+                        if token.endswith(".py")
+                    )
             with self.subTest(dockerfile=dockerfile_name):
                 self.assertTrue(
                     local_modules.issubset(copied),
