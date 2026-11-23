@@ -501,11 +501,23 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     }
 
 
+def _tesseract_languages() -> list[str]:
+    """Return installed OCR language packs without failing the health endpoint."""
+    try:
+        return sorted(pytesseract.get_languages(config=""))
+    except Exception:
+        return []
+
+
 @app.get("/api/health")
 def health():
+    languages = _tesseract_languages()
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
+            "tesseract_languages": languages,
+            "arabic_ocr_ready": "ara" in languages,
+            "english_ocr_ready": "eng" in languages,
             "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
             "office_conversion_available": bool(GOTENBERG_URL),
