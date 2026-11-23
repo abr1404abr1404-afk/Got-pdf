@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -25,11 +27,16 @@ from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
+from request_limits import SlidingWindowRateLimiter
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "12"))
 OCR_DPI = int(os.getenv("OCR_DPI", "240"))
+MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "12000000"))
+MAX_RENDERED_PIXELS = int(os.getenv("MAX_RENDERED_PIXELS", "18000000"))
+MAX_DOCUMENT_RENDERED_PIXELS = int(os.getenv("MAX_DOCUMENT_RENDERED_PIXELS", "45000000"))
+OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
 OCR_MODE = os.getenv("OCR_MODE", "hybrid").lower()
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
@@ -58,24 +65,46 @@ app.add_middleware(
 
 _paddle_lock = threading.Lock()
 _paddle_instances: dict[str, Any] = {}
-_assistant_rate_lock = threading.Lock()
-_assistant_requests: dict[str, deque[float]] = {}
+_request_limiter = SlidingWindowRateLimiter(max_keys=4096)
+_ocr_semaphore = asyncio.Semaphore(OCR_CONCURRENCY)
+_cpu_semaphore = asyncio.Semaphore(1)
 
 
-def _assistant_rate_limited(client_ip: str, limit: int = 10, window_seconds: int = 60) -> bool:
-    now = time.monotonic()
-    with _assistant_rate_lock:
-        recent = _assistant_requests.setdefault(client_ip, deque())
-        while recent and now - recent[0] >= window_seconds:
-            recent.popleft()
-        if len(recent) >= limit:
-            return True
-        recent.append(now)
-        if len(_assistant_requests) > 2048:
-            stale = [ip for ip, events in _assistant_requests.items() if not events or now - events[-1] >= window_seconds]
-            for ip in stale:
-                _assistant_requests.pop(ip, None)
-        return False
+def _guard_expensive_request(
+    request: Request,
+    operation: str,
+    client_limit: int,
+    global_limit: int,
+    window_seconds: int = 60,
+) -> None:
+    """Best-effort in-process limits; never trust caller-supplied forwarding headers."""
+    client_ip = request.client.host if request.client else "unknown"
+    if not _request_limiter.allow(f"{operation}:global", global_limit, window_seconds):
+        raise HTTPException(429, "الخدمة مشغولة حاليًا. انتظر قليلًا ثم حاول مجددًا.")
+    if not _request_limiter.allow(f"{operation}:{client_ip}", client_limit, window_seconds):
+        raise HTTPException(429, "تم تجاوز عدد الطلبات المسموح به مؤقتًا. حاول بعد دقيقة.")
+
+
+async def _run_ocr(function, *args):
+    try:
+        await asyncio.wait_for(_ocr_semaphore.acquire(), timeout=0.5)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(503, "محرك OCR مشغول حاليًا. حاول بعد قليل.") from exc
+    try:
+        return await run_in_threadpool(function, *args)
+    finally:
+        _ocr_semaphore.release()
+
+
+async def _run_cpu(function, *args):
+    try:
+        await asyncio.wait_for(_cpu_semaphore.acquire(), timeout=0.5)
+    except asyncio.TimeoutError as exc:
+        raise HTTPException(503, "الخادم مشغول بمعالجة ملف آخر. حاول بعد قليل.") from exc
+    try:
+        return await run_in_threadpool(function, *args)
+    finally:
+        _cpu_semaphore.release()
 
 
 def _check_size(data: bytes) -> None:
@@ -87,10 +116,21 @@ def _check_size(data: bytes) -> None:
 
 def _decode_image(data: bytes) -> np.ndarray:
     try:
-        pil = Image.open(io.BytesIO(data))
-        pil = ImageOps.exif_transpose(pil).convert("RGB")
+        with Image.open(io.BytesIO(data)) as source:
+            width, height = source.size
+            if width < 1 or height < 1 or width * height > MAX_IMAGE_PIXELS:
+                raise HTTPException(
+                    413,
+                    f"أبعاد الصورة تتجاوز الحد الآمن ({MAX_IMAGE_PIXELS:,} بكسل).",
+                )
+            source.load()
+            pil = ImageOps.exif_transpose(source).convert("RGB")
         arr = np.array(pil)
         return cv2.cvtColor(arr, cv2.COLOR_RGB2BGR)
+    except HTTPException:
+        raise
+    except Image.DecompressionBombError as exc:
+        raise HTTPException(413, "الصورة كبيرة جدًا لفكّها بأمان.") from exc
     except Exception as exc:
         raise HTTPException(415, "تعذّر قراءة الصورة. جرّب PNG أو JPG.") from exc
 
@@ -458,21 +498,24 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
 @app.get("/api/health")
 def health():
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
-            "max_pdf_pages": MAX_PDF_PAGES, "ai_available": bool(OPENAI_API_KEY),
+            "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
+            "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
+            "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None}
 
 
 
 
 @app.post("/api/compress/pdf")
-async def compress_pdf(file: UploadFile = File(...), level: str = Form("balanced")):
+async def compress_pdf(request: Request, file: UploadFile = File(...), level: str = Form("balanced")):
     """Losslessly optimize a PDF without rasterizing text or page content."""
+    _guard_expensive_request(request, "compress", client_limit=10, global_limit=40)
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     if level not in {"lossless", "balanced", "small"}:
         raise HTTPException(400, "مستوى الضغط غير صالح")
     try:
-        optimized, reduced = await run_in_threadpool(compress_pdf_bytes, data, level)
+        optimized, reduced = await _run_cpu(compress_pdf_bytes, data, level)
     except ValueError as exc:
         raise HTTPException(415, str(exc)) from exc
     return Response(
@@ -496,9 +539,7 @@ async def assistant_chat(payload: AssistantRequest, request: Request):
             "مساعد الذكاء الاصطناعي غير مفعّل على الخادم بعد. يلزم إعداد OPENAI_API_KEY في إعدادات الخادم.",
         )
 
-    client_ip = request.client.host if request.client else "unknown"
-    if _assistant_rate_limited(client_ip):
-        raise HTTPException(429, "تم تجاوز عدد الطلبات المسموح به مؤقتًا. حاول بعد دقيقة.")
+    _guard_expensive_request(request, "assistant", client_limit=10, global_limit=40)
 
     system_prompt = (
         "أنت مساعد مستندات داخل تطبيق الفلقي PDF. أجب باللغة التي يستخدمها السائل. "
@@ -552,9 +593,7 @@ async def assistant_extract(payload: ExtractRequest, request: Request):
     """Extract structured facts from locally extracted document text after browser consent."""
     if not OPENAI_API_KEY:
         raise HTTPException(503, "مساعد الذكاء الاصطناعي غير مفعّل على الخادم بعد.")
-    client_ip = request.client.host if request.client else "unknown"
-    if _assistant_rate_limited(client_ip):
-        raise HTTPException(429, "تم تجاوز عدد الطلبات المسموح به مؤقتًا. حاول بعد دقيقة.")
+    _guard_expensive_request(request, "assistant", client_limit=10, global_limit=40)
 
     system_prompt = (
         "أنت محرك استخراج بيانات للمستندات. أعد JSON صالحًا فقط بالشكل "
@@ -614,12 +653,13 @@ async def assistant_extract(payload: ExtractRequest, request: Request):
 
 
 @app.post("/api/ocr/image")
-async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng")):
+async def ocr_image(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng")):
+    _guard_expensive_request(request, "ocr", client_limit=6, global_limit=24)
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     image = _decode_image(data)
-    result = await run_in_threadpool(_hybrid, image, language)
-    result["tables"] = await run_in_threadpool(_detect_tables, image, result["lines"])
+    result = await _run_ocr(_hybrid, image, language)
+    result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
     if not result["lines"]:
         errors = result["engines"]
         raise HTTPException(503, {"message": "لم يتمكن أي محرك من استخراج نص. تحقق من تثبيت نماذج العربية والإنجليزية.", "engines": errors})
@@ -627,7 +667,8 @@ async def ocr_image(file: UploadFile = File(...), language: str = Form("ara+eng"
 
 
 @app.post("/api/ocr/pdf")
-async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"), dpi: int = Form(OCR_DPI, ge=72, le=288)):
+async def ocr_pdf(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng"), dpi: int = Form(OCR_DPI, ge=72, le=288)):
+    _guard_expensive_request(request, "ocr", client_limit=6, global_limit=24)
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
@@ -638,12 +679,23 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
     try:
         if doc.needs_pass:
             raise HTTPException(415, "ملف PDF محمي بكلمة مرور")
+        if doc.page_count < 1:
+            raise HTTPException(415, "ملف PDF لا يحتوي على صفحات.")
         if doc.page_count > MAX_PDF_PAGES:
             raise HTTPException(413, f"عدد الصفحات يتجاوز الحد ({MAX_PDF_PAGES})")
         scale = dpi / 72.0
         pages = []
+        total_rendered_pixels = 0
         for index in range(doc.page_count):
             page = doc.load_page(index)
+            expected_width = max(1, math.ceil(page.rect.width * scale))
+            expected_height = max(1, math.ceil(page.rect.height * scale))
+            page_pixels = expected_width * expected_height
+            total_rendered_pixels += page_pixels
+            if page_pixels > MAX_RENDERED_PIXELS:
+                raise HTTPException(413, "أبعاد إحدى صفحات PDF أكبر من الحد الآمن للمعالجة.")
+            if total_rendered_pixels > MAX_DOCUMENT_RENDERED_PIXELS:
+                raise HTTPException(413, "إجمالي دقة صفحات PDF يتجاوز الحد الآمن للمعالجة.")
             # PyMuPDF is not thread-safe; keep its document operations on this request thread.
             pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
             image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
@@ -651,8 +703,8 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
             else:
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            result = await run_in_threadpool(_hybrid, image, language)
-            result["tables"] = await run_in_threadpool(_detect_tables, image, result["lines"])
+            result = await _run_ocr(_hybrid, image, language)
+            result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
             pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                           "ocr": result})
         return {"pages": pages, "page_count": len(pages)}
