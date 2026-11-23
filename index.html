@@ -305,6 +305,13 @@ button:focus-visible,label.btn:focus-within{
 /* Mobile file-picker compatibility: keep inputs label-activatable in iOS Safari/WebViews. */
 .native-picker{position:absolute!important;width:2px!important;height:2px!important;opacity:.01!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;clip-path:inset(50%)!important;white-space:nowrap!important;pointer-events:none!important}
 label.btn{position:relative}
+/* Barcode dialog: detach from editor layout and always render as a centered floating overlay. */
+#bcm{position:fixed!important;inset:0!important;z-index:10050!important;display:none;align-items:center!important;justify-content:center!important;padding:16px!important;background:rgba(8,18,32,.58)!important;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
+#bcm.on{display:flex!important}
+#bcm .bx{position:relative!important;width:min(100%,480px)!important;max-height:min(88vh,760px)!important;overflow:auto!important;margin:auto!important;border:1px solid var(--line)!important;border-radius:20px!important;background:var(--panel)!important;box-shadow:0 28px 90px rgba(0,0,0,.34)!important;animation:bc-modal-in .2s ease-out both}
+@keyframes bc-modal-in{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(max-width:640px){#bcm{align-items:center!important;padding:12px!important}#bcm .bx{width:min(100%,480px)!important;max-height:88vh!important;border-radius:18px!important;padding:17px!important}}
+@media(prefers-reduced-motion:reduce){#bcm .bx{animation:none!important}}
 </style>
   <link rel="stylesheet" href="./experience.css">
 </head>
@@ -1801,7 +1808,7 @@ function drawC128(text,color,showText){const cs=codes128(text),mod=3,quiet=10*mo
 window.__bcDraw=(type,text,lvl,color,tx)=>type==="qr"?drawQR(text,lvl,color):drawC128(text,color,tx);
 function cur(){return{type:$("bct").value,text:$("bcv").value.trim(),lvl:$("bcl").value,color:$("bcc").value,all:$("bcw").value==="all",tx:$("bctx").checked}}
 function prev(){const o=cur(),box=$("bcp");box.innerHTML="";if(!o.text){box.textContent="اكتب الرابط أو النص لتظهر المعاينة";return}try{const cv=window.__bcDraw(o.type,o.text,o.lvl,o.color,o.tx);cv.style.maxWidth="100%";cv.style.maxHeight="190px";box.append(cv)}catch(e){box.textContent=e.message}}
-window.bcClose=()=>{const modal=$("bcm");modal.classList.remove("on");modal.style.display="none";modal.setAttribute("aria-hidden","true")}; window.bcOpen=()=>{const modal=$("bcm");if(modal.classList.contains("on")||modal.style.display==="flex"){window.bcClose();return}modal.style.display="flex";modal.classList.add("on");modal.setAttribute("aria-hidden","false");prev()}; $("bcm").addEventListener("click",e=>{if(e.target===$("bcm"))window.bcClose()}); document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("bcm").classList.contains("on"))window.bcClose()});
+window.bcClose=()=>{const modal=$("bcm");modal.classList.remove("on");modal.style.display="none";modal.setAttribute("aria-hidden","true");document.body.classList.remove("modal-open")}; window.bcOpen=()=>{const modal=$("bcm");if(modal.classList.contains("on")){window.bcClose();return}if(modal.parentElement!==document.body)document.body.appendChild(modal);modal.style.setProperty("display","flex","important");modal.classList.add("on");modal.setAttribute("aria-hidden","false");document.body.classList.add("modal-open");prev()}; $("bcm").addEventListener("click",e=>{if(e.target===$("bcm"))window.bcClose()}); document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("bcm").classList.contains("on"))window.bcClose()});
 ["bct","bcv","bcl","bcc","bcw","bctx"].forEach(id=>{$(id).addEventListener("input",prev);$(id).addEventListener("change",prev)});
 $("bct").addEventListener("change",()=>{const q=$("bct").value==="qr";$("bcll").style.display=q?"":"none";$("bctxl").style.display=q?"none":""});
 async function insert(blob,wf,all){
