@@ -27,7 +27,7 @@ from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
-from request_limits import SlidingWindowRateLimiter
+from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -79,10 +79,10 @@ def _guard_expensive_request(
 ) -> None:
     """Best-effort in-process limits; never trust caller-supplied forwarding headers."""
     client_ip = request.client.host if request.client else "unknown"
-    if not _request_limiter.allow(f"{operation}:global", global_limit, window_seconds):
-        raise HTTPException(429, "الخدمة مشغولة حاليًا. انتظر قليلًا ثم حاول مجددًا.")
     if not _request_limiter.allow(f"{operation}:{client_ip}", client_limit, window_seconds):
         raise HTTPException(429, "تم تجاوز عدد الطلبات المسموح به مؤقتًا. حاول بعد دقيقة.")
+    if not _request_limiter.allow(f"{operation}:global", global_limit, window_seconds):
+        raise HTTPException(429, "الخدمة مشغولة حاليًا. انتظر قليلًا ثم حاول مجددًا.")
 
 
 async def _run_ocr(function, *args):
@@ -118,11 +118,13 @@ def _decode_image(data: bytes) -> np.ndarray:
     try:
         with Image.open(io.BytesIO(data)) as source:
             width, height = source.size
-            if width < 1 or height < 1 or width * height > MAX_IMAGE_PIXELS:
+            try:
+                validate_pixel_dimensions(width, height, MAX_IMAGE_PIXELS)
+            except ValueError as exc:
                 raise HTTPException(
                     413,
                     f"أبعاد الصورة تتجاوز الحد الآمن ({MAX_IMAGE_PIXELS:,} بكسل).",
-                )
+                ) from exc
             source.load()
             pil = ImageOps.exif_transpose(source).convert("RGB")
         arr = np.array(pil)
@@ -690,10 +692,13 @@ async def ocr_pdf(request: Request, file: UploadFile = File(...), language: str 
             page = doc.load_page(index)
             expected_width = max(1, math.ceil(page.rect.width * scale))
             expected_height = max(1, math.ceil(page.rect.height * scale))
-            page_pixels = expected_width * expected_height
+            try:
+                page_pixels = validate_pixel_dimensions(
+                    expected_width, expected_height, MAX_RENDERED_PIXELS
+                )
+            except ValueError as exc:
+                raise HTTPException(413, "أبعاد إحدى صفحات PDF أكبر من الحد الآمن للمعالجة.") from exc
             total_rendered_pixels += page_pixels
-            if page_pixels > MAX_RENDERED_PIXELS:
-                raise HTTPException(413, "أبعاد إحدى صفحات PDF أكبر من الحد الآمن للمعالجة.")
             if total_rendered_pixels > MAX_DOCUMENT_RENDERED_PIXELS:
                 raise HTTPException(413, "إجمالي دقة صفحات PDF يتجاوز الحد الآمن للمعالجة.")
             # PyMuPDF is not thread-safe; keep its document operations on this request thread.

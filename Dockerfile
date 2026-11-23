@@ -8,6 +8,6 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install paddlepaddle==3.2.0 -i https://www.paddlepaddle.org.cn/packages/stable/cpu/ && \
     pip install -r requirements.txt
-COPY main.py pdf_tools.py ./
+COPY main.py pdf_tools.py request_limits.py ./
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

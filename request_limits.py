@@ -43,3 +43,13 @@ class SlidingWindowRateLimiter:
                 while len(self._events) > self.max_keys:
                     self._events.popitem(last=False)
             return True
+
+
+def validate_pixel_dimensions(width: int, height: int, max_pixels: int) -> int:
+    """Return the decoded pixel count or reject unsafe image dimensions."""
+    if width < 1 or height < 1 or max_pixels < 1:
+        raise ValueError("image dimensions and pixel limit must be positive")
+    pixels = int(width) * int(height)
+    if pixels > max_pixels:
+        raise ValueError("image exceeds the configured pixel limit")
+    return pixels

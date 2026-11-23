@@ -1,6 +1,6 @@
 import unittest
 
-from request_limits import SlidingWindowRateLimiter
+from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 
 
 class SlidingWindowRateLimiterTests(unittest.TestCase):
@@ -31,6 +31,13 @@ class SlidingWindowRateLimiterTests(unittest.TestCase):
         limiter = SlidingWindowRateLimiter()
         with self.assertRaises(ValueError):
             limiter.allow("client", 0, 60, now=1)
+
+    def test_pixel_dimensions_are_checked_before_decoding(self):
+        self.assertEqual(validate_pixel_dimensions(100, 100, 10000), 10000)
+        with self.assertRaises(ValueError):
+            validate_pixel_dimensions(101, 100, 10000)
+        with self.assertRaises(ValueError):
+            validate_pixel_dimensions(0, 100, 10000)
 
 
 if __name__ == "__main__":
