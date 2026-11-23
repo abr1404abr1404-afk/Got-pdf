@@ -16,7 +16,7 @@ import httpx
 import cv2
 import numpy as np
 import pytesseract
-import fitz
+import pymupdf
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
@@ -610,7 +610,7 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
-        doc = fitz.open(stream=data, filetype="pdf")
+        doc = pymupdf.open(stream=data, filetype="pdf")
     except Exception as exc:
         raise HTTPException(415, "الملف ليس PDF صالحًا أو أنه محمي بكلمة مرور") from exc
 
@@ -624,7 +624,7 @@ async def ocr_pdf(file: UploadFile = File(...), language: str = Form("ara+eng"),
         for index in range(doc.page_count):
             page = doc.load_page(index)
             # PyMuPDF is not thread-safe; keep its document operations on this request thread.
-            pix = page.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+            pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
             image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
             if pix.n == 4:
                 image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
