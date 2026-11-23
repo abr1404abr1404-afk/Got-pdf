@@ -39,7 +39,7 @@ for (const match of html.matchAll(scriptPattern)) {
   }
 }
 
-for (const id of ["main", "file", "fn", "info", "toast"]) {
+for (const id of ["main", "file", "fn", "info", "toast", "fcam", "camfinish", "camclear"]) {
   if (!html.includes('id="' + id + '"') && !html.includes("id='" + id + "'")) {
     failures.push("Required application element is missing: #" + id);
   }

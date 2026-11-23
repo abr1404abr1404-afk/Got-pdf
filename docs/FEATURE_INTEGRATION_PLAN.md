@@ -33,7 +33,9 @@ This document is the engineering decision record for expanding Alfalqi PDF into 
 | Advanced OCR and layout | PaddleOCR 3.x | Arabic-capable document OCR/layout family; can run as an optional worker | Existing optional backend code; benchmark and deployment verification required |
 | Searchable scanned PDF | OCRmyPDF | Adds a searchable text layer and provides scan cleanup workflows | Planned worker integration |
 | Document structure, tables and reading order | Docling, benchmarked against PaddleOCR PP-Structure | Structured extraction and document understanding; use only after Arabic benchmark and model-license review | Planned |
-| Office-to-PDF | Gotenberg 9 + LibreOffice | Stable HTTP boundary for Office conversion and PDF processing | API adapter added in this branch; requires separately configured Gotenberg service |
+| Office-to-PDF | Gotenberg 9 + LibreOffice | Stable HTTP boundary for Office conversion and PDF processing | API adapter merged; requires separately configured Gotenberg service |
+| Camera document capture | Browser camera capture + existing pdf-lib image pipeline | Local multi-page capture without uploading photos to the app server | Added in PR #27; device testing required |
+| OCR quality measurement | Project OCR functions + ground-truth manifest + CER/WER | Compare actual deployed engine configurations on identical labeled samples | Benchmark harness added in PR #27; no scores until a labeled dataset is supplied |
 | PDF/A and PDF/UA validation | veraPDF plus Gotenberg validation/remediation where appropriate | Standards validation must be explicit and report residual issues | Planned |
 | AI assistant | Provider-neutral adapter; local model option later | Avoid hard dependency on one paid API; retain explicit consent | Existing optional external-provider path |
 | QR and cloud sharing | Browser-side QR + Google Drive API with explicit OAuth consent | Avoid storing users' files on Alfalqi servers | Existing UI; live integration remains configuration-dependent |
@@ -59,7 +61,7 @@ Added optional endpoint:
 - Add API contract tests and browser smoke tests.
 
 ### P1 — Arabic OCR quality
-- Build a private, consented benchmark set with ground-truth text and page layout.
+- Populate the new `tools/ocr_benchmark.py` manifest with a private, consented benchmark set and ground-truth text/page layout; run it on a machine with the required OCR engines.
 - Compare Tesseract, PaddleOCR, and hybrid output on printed Arabic, mixed Arabic/English, low-resolution scans, skewed photos, tables, and multi-column pages.
 - Measure CER, WER, reading-order accuracy, table-cell accuracy, latency and peak memory.
 - Add a review/correction UI with confidence and source bounding boxes.
