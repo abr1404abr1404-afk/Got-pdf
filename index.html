@@ -358,7 +358,7 @@ label.btn{position:relative}
 <div id="dsresult" style="display:none"><img id="dsqr" alt="رمز QR لرابط ملف Google Drive"><input id="dsurl" type="url" readonly aria-label="رابط ملف Google Drive"><div class="r"><button id="dscopy" type="button">نسخ الرابط</button><button id="dsdown" type="button">تنزيل QR</button></div>
 <div class="r"><button id="dsrevoke" type="button">إلغاء المشاركة العامة</button><button id="dsdelete" type="button">حذف نسخة Drive</button><button id="dsdisconnect" type="button">فصل اتصال Google</button></div></div>
 <div class="r"><button id="dsclose" type="button">إغلاق</button><span class="sp"></span><button id="dsupload" class="p" type="button">ربط Google Drive ورفع الملف</button></div>
-</div></div>\n<div id="bcm"><div class="bx" role="dialog" aria-label="باركود"><h2>إضافة باركود / QR</h2>
+</div></div>\n<div id="bcm" aria-hidden="true" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-label="باركود"><h2>إضافة باركود / QR</h2>
 <div class="tsec bcimgs"><label class="btn bcl-btn" for="bcimg">📷 عندي صورة باركود — اختيار صورة وقراءتها</label><input id="bcimg" type="file" accept="image/*,.heic,.heif" class="native-picker"><div id="bcst" class="bcst"></div><div class="r" id="bcrow" style="display:none;margin-top:6px"><button id="bcclean" type="button">إدراج الصورة الأصلية منظّفة (أبيض وأسود)</button></div></div>
 <div class="tsec"><select id="bct"><option value="qr">رمز QR (رابط أو نص، يدعم العربية)</option><option value="c128">باركود Code128 (أرقام وإنجليزي)</option></select></div>
 <div class="tsec"><input id="bcv" type="text" dir="auto" placeholder="الرابط أو النص أو الرقم"></div>
@@ -1801,7 +1801,7 @@ function drawC128(text,color,showText){const cs=codes128(text),mod=3,quiet=10*mo
 window.__bcDraw=(type,text,lvl,color,tx)=>type==="qr"?drawQR(text,lvl,color):drawC128(text,color,tx);
 function cur(){return{type:$("bct").value,text:$("bcv").value.trim(),lvl:$("bcl").value,color:$("bcc").value,all:$("bcw").value==="all",tx:$("bctx").checked}}
 function prev(){const o=cur(),box=$("bcp");box.innerHTML="";if(!o.text){box.textContent="اكتب الرابط أو النص لتظهر المعاينة";return}try{const cv=window.__bcDraw(o.type,o.text,o.lvl,o.color,o.tx);cv.style.maxWidth="100%";cv.style.maxHeight="190px";box.append(cv)}catch(e){box.textContent=e.message}}
-window.bcOpen=()=>{$("bcm").classList.add("on");prev()};
+window.bcClose=()=>{const modal=$("bcm");modal.classList.remove("on");modal.style.display="none";modal.setAttribute("aria-hidden","true")}; window.bcOpen=()=>{const modal=$("bcm");if(modal.classList.contains("on")||modal.style.display==="flex"){window.bcClose();return}modal.style.display="flex";modal.classList.add("on");modal.setAttribute("aria-hidden","false");prev()}; $("bcm").addEventListener("click",e=>{if(e.target===$("bcm"))window.bcClose()}); document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("bcm").classList.contains("on"))window.bcClose()});
 ["bct","bcv","bcl","bcc","bcw","bctx"].forEach(id=>{$(id).addEventListener("input",prev);$(id).addEventListener("change",prev)});
 $("bct").addEventListener("change",()=>{const q=$("bct").value==="qr";$("bcll").style.display=q?"":"none";$("bctxl").style.display=q?"none":""});
 async function insert(blob,wf,all){
@@ -1813,8 +1813,8 @@ async function insert(blob,wf,all){
   else{const ws=[...document.querySelectorAll(".wrap")],mid=innerHeight/2;let bi=0,bd=1e9;ws.forEach((w,i)=>{const q=w.getBoundingClientRect(),d=q.top<=mid&&q.bottom>=mid?0:Math.min(Math.abs(q.top-mid),Math.abs(q.bottom-mid));if(d<bd){bd=d;bi=i}});const q=ws[bi].getBoundingClientRect(),y=Math.min(.7,Math.max(.02,(mid-q.top)/q.height-.1));(pages[bi].img??=[]).push({x:.35,y,w:wf,u,b:bytes,m:"image/png",r,fresh:1})}
   render();
 }
-$("bcok").onclick=async()=>{const o=cur();if(!o.text)return toast("اكتب الرابط أو النص أولًا.");try{const cv=window.__bcDraw(o.type,o.text,o.lvl,o.color,o.tx),blob=await new Promise(r=>cv.toBlob(r,"image/png"));await insert(blob,o.type==="qr"?.24:.5,o.all);$("bcm").classList.remove("on");toast(o.all?"أُضيف الباركود على كل الصفحات.":"أُضيف الباركود. اسحبه لمكانه وغيّر حجمه من المقابض.")}catch(e){toast("تعذّر إنشاء الباركود: "+((e&&e.message)||e))}};
-$("bcx").onclick=()=>$("bcm").classList.remove("on");
+$("bcok").onclick=async()=>{const o=cur();if(!o.text)return toast("اكتب الرابط أو النص أولًا.");try{const cv=window.__bcDraw(o.type,o.text,o.lvl,o.color,o.tx),blob=await new Promise(r=>cv.toBlob(r,"image/png"));await insert(blob,o.type==="qr"?.24:.5,o.all);window.bcClose();toast(o.all?"أُضيف الباركود على كل الصفحات.":"أُضيف الباركود. اسحبه لمكانه وغيّر حجمه من المقابض.")}catch(e){toast("تعذّر إنشاء الباركود: "+((e&&e.message)||e))}};
+$("bcx").onclick=()=>window.bcClose();
 })();
 
 </script>
