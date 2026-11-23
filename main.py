@@ -168,15 +168,15 @@ def _lang_pair(language: str) -> tuple[str, str]:
     return "ara+eng", "ar"
 
 
-def _tesseract(image: np.ndarray, language: str) -> tuple[list[dict], str | None]:
+def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) -> tuple[list[dict], str | None]:
     tess_lang, _ = _lang_pair(language)
     try:
-        # PSM 11 is useful for mixed page layouts; PSM 6 is retained as a second pass.
+        # PSM 11 handles scattered text; PSM 6 is useful for compact blocks.
         outputs: list[dict] = []
         data = pytesseract.image_to_data(
             image,
             lang=tess_lang,
-            config="--oem 1 --psm 11 -c preserve_interword_spaces=1",
+            config=f"--oem 1 --psm {page_segmentation} -c preserve_interword_spaces=1",
             output_type=pytesseract.Output.DICT,
         )
         groups: dict[tuple, list[int]] = {}
@@ -410,7 +410,28 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     else:
         paddle_rows, paddle_error = [], "disabled by OCR_MODE"
     if mode in {"hybrid", "tesseract"}:
-        tess_rows, tess_error = _tesseract(prepared, language)
+        # Decorative, low-contrast, or textured lettering often benefits from
+        # more than one view of the same scan. Keep variants at identical
+        # dimensions so OCR bounding boxes remain aligned with the page.
+        gray = cv2.cvtColor(prepared, cv2.COLOR_BGR2GRAY)
+        adaptive = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
+        )
+        _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        variants = [
+            (prepared, 11),
+            (cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR), 11),
+            (cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR), 6),
+        ]
+        tess_rows: list[dict] = []
+        tess_errors: list[str] = []
+        for variant, psm in variants:
+            rows, error = _tesseract(variant, language, psm)
+            tess_rows.extend(rows)
+            if error:
+                tess_errors.append(error)
+        tess_rows = _dedupe(tess_rows)
+        tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
         tess_rows, tess_error = [], "disabled by OCR_MODE"
     if paddle_rows and tess_rows:
