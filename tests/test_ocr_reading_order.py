@@ -109,6 +109,7 @@ class OcrModeTests(unittest.TestCase):
             "np": type("NumpyStub", (), {"ndarray": object}),
             "OCR_MODE": mode,
             "_preprocess": lambda image: image,
+            "cv2": type("CV2Stub", (), {"COLOR_BGR2GRAY": 1, "COLOR_GRAY2BGR": 2, "ADAPTIVE_THRESH_GAUSSIAN_C": 3, "THRESH_BINARY": 4, "THRESH_OTSU": 5, "cvtColor": staticmethod(lambda image, code: image), "adaptiveThreshold": staticmethod(lambda image, *args: image), "threshold": staticmethod(lambda image, *args: (0, image))})(),
             "_paddle": lambda image, language: (calls.append("paddle") or [], None),
             "_tesseract": lambda image, language: (calls.append("tesseract") or [], None),
             "_dedupe": lambda rows: rows,
@@ -120,13 +121,13 @@ class OcrModeTests(unittest.TestCase):
         return calls
 
     def test_hybrid_runs_both_engines(self):
-        self.assertEqual(self.run_mode("hybrid"), ["paddle", "tesseract"])
+        self.assertEqual(self.run_mode("hybrid"), ["paddle", "tesseract", "tesseract", "tesseract"])
 
     def test_paddle_mode_skips_tesseract(self):
         self.assertEqual(self.run_mode("paddleocr"), ["paddle"])
 
     def test_tesseract_mode_skips_paddle(self):
-        self.assertEqual(self.run_mode("tesseract"), ["tesseract"])
+        self.assertEqual(self.run_mode("tesseract"), ["tesseract", "tesseract", "tesseract"])
 
 
 if __name__ == "__main__":
