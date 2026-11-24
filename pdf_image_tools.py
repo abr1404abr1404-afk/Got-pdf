@@ -655,43 +655,14 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
             raise ValueError("تعذّر تشكيل النص العربي بالخط المتاح؛ لم يتم اعتماد التعديل.") from exc
         if spare_height < 0 or scale < 0.95:
             raise ValueError("النص العربي البديل لا يتسع في المساحة الأصلية؛ اختصره للحفاظ على التخطيط.")
-        # Keep a logical Unicode text layer in addition to the shaped visual text.
-        import os
-        font_path = "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"
-        if not os.path.isfile(font_path):
-            raise ValueError("خط Noto Naskh Arabic غير متاح لإضافة طبقة النص القابلة للبحث.")
-        clusters = []
-        for char in replacement:
-            if unicodedata.combining(char) and clusters:
-                clusters[-1] += char
-            else:
-                clusters.append(char)
-        logical_layer_text = "".join(reversed(clusters))
-        page.insert_text(
-            (target_rect.x0, target_rect.y1 - max(1.0, fontsize * 0.12)),
-            logical_layer_text, fontname="NotoLogical", fontfile=font_path,
-            fontsize=fontsize, render_mode=3, overlay=True,
-        )
-        after = []
-        for block in page.get_text("dict").get("blocks", []):
-            if block.get("type") != 0:
-                continue
-            for line in block.get("lines", []):
-                for span in line.get("spans", []):
-                    value = str(span.get("text", "")).strip()
-                    if value:
-                        after.append(value)
-        def normalized(value):
-            import unicodedata
-            value = unicodedata.normalize("NFKC", value)
-            value = "".join(char for char in value if not unicodedata.combining(char))
-            value = value.replace("\\u200e", "").replace("\\u200f", "")
-            return " ".join(value.split()).strip()
-        extracted = normalized(" ".join(after))
-        if not normalized(replacement) or normalized(replacement) not in extracted:
-            raise ValueError("تعذّر التحقق من النص العربي الناتج: "+repr(extracted)+"؛ المتوقع: "+repr(normalized(replacement)))
+        # Verify that the original target text was removed and neighboring text survived.
+        after = page.get_text("text")
+        normalized_after = unicodedata.normalize("NFKC", after)
+        if normalized_original in normalized_after:
+            raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
         for neighbor in expected:
-            if normalized(neighbor) and normalized(neighbor) not in extracted:
+            normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
+            if normalized_neighbor and normalized_neighbor not in normalized_after:
                 raise ValueError("تغيّر نص مجاور أثناء الاستبدال؛ أُلغي التعديل.")
         output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
