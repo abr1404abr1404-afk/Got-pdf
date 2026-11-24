@@ -49,6 +49,11 @@ for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransfo
   if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature);
 }
 
+for (const feature of ["openOcrReview", "ocrReviewText", "ocrReviewSave", "ocrReviewDownload", "مراجعة النص"]) {
+  if (!html.includes(feature)) failures.push("OCR text review feature is missing: " + feature);
+}
+
+
 if (failures.length) {
   console.error("Frontend checks failed:");
   for (const failure of failures) console.error("- " + failure);
