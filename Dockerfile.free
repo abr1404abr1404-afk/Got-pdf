@@ -14,8 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY requirements-free.txt ./
 RUN pip install --upgrade pip && pip install -r requirements-free.txt
-# main.py imports office_conversion at startup; include it in the runtime image.
-COPY main.py pdf_tools.py searchable_pdf.py redaction.py document_export.py pdf_security.py pdf_to_docx.py pdf_image_tools.py request_limits.py office_conversion.py ./
+# main.py imports local service modules at startup; include every one in the runtime image.
+COPY main.py pdf_tools.py searchable_pdf.py redaction.py document_export.py pdf_security.py pdf_to_docx.py pdf_image_tools.py request_limits.py office_conversion.py pdf_compare.py ./
 
 EXPOSE 10000
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]
