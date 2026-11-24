@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -63,6 +63,56 @@ class PdfImageToolsTests(unittest.TestCase):
                 "page": 1, "xref": item["xref"], "occurrence": 0,
                 "rect": item["rect"], "action": "resize", "scale": 8,
             }])
+
+    def test_replace_isolated_latin_text_preserves_other_text_and_source(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=400, height=200)
+        page.insert_text((30, 60), "OldLabel", fontsize=12, color=(0.2, 0.3, 0.4))
+        page.insert_text((250, 60), "KeepMe", fontsize=12)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"]
+                      if item["type"] == "text" and item["text"] == "OldLabel")
+        output = replace_isolated_latin_pdf_text(source, {
+            "action": "replace", "page": 1, "object_id": target["id"],
+            "text_hash": target["text_hash"], "rect": target["rect"],
+            "replacement": "NewTag",
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            text = result[0].get_text()
+            self.assertIn("NewTag", text)
+            self.assertNotIn("OldLabel", text)
+            self.assertIn("KeepMe", text)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertIn("OldLabel", original[0].get_text())
+
+    def test_replace_latin_text_rejects_arabic(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_text((30, 60), "Label")
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "text")
+        with self.assertRaisesRegex(ValueError, "الحروف اللاتينية"):
+            replace_isolated_latin_pdf_text(source, {
+                "action": "replace", "page": 1, "object_id": target["id"],
+                "text_hash": target["text_hash"], "rect": target["rect"],
+                "replacement": "مرحبا",
+            })
+
+    def test_replace_latin_text_rejects_wider_replacement(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_text((30, 60), "A")
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "text")
+        with self.assertRaisesRegex(ValueError, "أعرض"):
+            replace_isolated_latin_pdf_text(source, {
+                "action": "replace", "page": 1, "object_id": target["id"],
+                "text_hash": target["text_hash"], "rect": target["rect"],
+                "replacement": "A much longer replacement",
+            })
 
     def test_delete_isolated_text_span_preserves_other_text_and_source(self):
         doc = pymupdf.open()
