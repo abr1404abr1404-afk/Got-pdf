@@ -81,6 +81,19 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=[
+        "Content-Disposition",
+        "X-Conversion-Analysis",
+        "X-Conversion-Source-Words",
+        "X-Conversion-Output-Words",
+        "X-Conversion-Matched-Words",
+        "X-Conversion-Text-Coverage",
+        "X-Conversion-Text-Precision",
+        "X-Conversion-Source-Images",
+        "X-Conversion-Output-Images",
+        "X-Conversion-Output-Tables",
+        "X-Conversion-Output-Paragraphs",
+    ],
 )
 
 _paddle_lock = threading.Lock()
