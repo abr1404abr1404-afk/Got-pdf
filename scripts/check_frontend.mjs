@@ -69,6 +69,40 @@ for (const feature of ['rel="manifest"', 'apple-mobile-web-app-capable', 'pwaIns
   if (!html.includes(feature)) failures.push("PWA install support is missing: " + feature);
 }
 
+const manifestPath = path.join(root, "manifest.webmanifest");
+try {
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  if (manifest.start_url !== "./" || manifest.scope !== "./" || manifest.display !== "standalone") {
+    failures.push("PWA manifest has an unexpected start URL, scope, or display mode.");
+  }
+  for (const icon of manifest.icons || []) {
+    const iconPath = path.resolve(root, icon.src);
+    if (!iconPath.startsWith(root + path.sep) || !fs.existsSync(iconPath)) {
+      failures.push("PWA manifest icon is missing or outside the project: " + icon.src);
+      continue;
+    }
+    const bytes = fs.readFileSync(iconPath);
+    const png = bytes.length >= 24 && bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const width = png ? bytes.readUInt32BE(16) : 0;
+    const height = png ? bytes.readUInt32BE(20) : 0;
+    if (icon.type === "image/png" && (!png || (icon.sizes !== "any" && icon.sizes !== width + "x" + height))) {
+      failures.push("PWA icon is not a valid PNG with the declared dimensions: " + icon.src);
+    }
+  }
+} catch (error) {
+  failures.push("PWA manifest is missing or invalid JSON: " + error.message);
+}
+
+try {
+  const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
+  new vm.Script(sw, { filename: "sw.js" });
+  if (!sw.includes("/api(?:\\\\/|$)/") || !sw.includes("alfalqi-pdf-")) {
+    failures.push("Service worker must exclude API requests and use a versioned cache namespace.");
+  }
+} catch (error) {
+  failures.push("Service worker is missing or has invalid syntax: " + error.message);
+}
+
 
 
 if (failures.length) {
