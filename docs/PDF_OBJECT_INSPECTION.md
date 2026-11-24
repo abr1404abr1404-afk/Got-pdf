@@ -59,3 +59,8 @@ Isolated simple rectangles and straight lines can also change stroke width (0.1�
 ## Moving vector objects
 
 Simple isolated rectangles and straight lines can be moved by a bounded offset of −500 to +500 PDF points. The original and proposed bounds are checked against page edges, text, raster images, other vectors, and annotations. Complex paths and overlapping objects are rejected. The editor returns a new PDF copy.
+
+
+## Raster image movement and safer editing
+
+The embedded-image editor supports deleting, resizing (10%–400%), and moving an isolated image occurrence by up to 500 PDF points in either direction. Before destructive redaction, the service rejects overlap with text spans, other image occurrences, vector drawings, annotations, and page boundaries; proposed placement is checked against the same content types. These are conservative bounding-box checks, not pixel-level semantic understanding. Repeated uses of the same image resource on one page must be edited one occurrence at a time in separate requests. The source PDF is never modified in place.
