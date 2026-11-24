@@ -79,3 +79,8 @@ The image manager supports selecting multiple distinct embedded images and apply
 ## Raster image enhancement
 
 The editor supports grayscale conversion and bounded brightness, contrast, color, and sharpness adjustments on embedded raster images. Processing is capped at 20 million pixels per image; images with separate transparency masks are rejected rather than risk losing transparency. Enhancements preserve the selected image's placement and return a new PDF copy. Visual fidelity depends on the source image's color profile and format.
+
+
+## Arabic RTL text replacement — first controlled milestone
+
+The inspector now offers a separate Arabic replacement action for horizontal right-to-left spans. The server uses PyMuPDF Story/HTML layout (HarfBuzz-backed shaping) with Noto Naskh Arabic, keeps the original span rectangle and approximate font size/color, and rejects replacement if it cannot fit at 95% or greater scale. It verifies the extracted replacement text and confirms the original file remains untouched. Only isolated spans are eligible; overlapping text, images, vector drawings, annotations, vertical text, and mixed/unsupported script cases are rejected. This is not exact original-font preservation: the replacement uses Noto Naskh Arabic, so visual review is required. The first milestone is limited to short, single-span Arabic replacement; multi-line reflow and mixed Arabic/Latin shaping remain unsupported.
