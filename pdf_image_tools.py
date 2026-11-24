@@ -33,10 +33,12 @@ def list_pdf_images(data: bytes) -> list[dict[str, Any]]:
         for page_index in range(doc.page_count):
             page = doc.load_page(page_index)
             infos = page.get_image_info(xrefs=True)
+            seen_xrefs: set[int] = set()
             for info in infos:
                 xref = int(info.get("xref") or 0)
-                if xref <= 0:
+                if xref <= 0 or xref in seen_xrefs:
                     continue
+                seen_xrefs.add(xref)
                 bbox = pymupdf.Rect(info["bbox"])
                 rects = page.get_image_rects(xref)
                 if not rects:
@@ -78,6 +80,7 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
         raise ValueError("حدد صورة واحدة على الأقل، وبحد أقصى 200 عملية.")
     doc = _open(data)
     try:
+        seen_targets: set[tuple[int, int]] = set()
         for operation in operations:
             if not isinstance(operation, dict):
                 raise ValueError("إحدى عمليات الصور غير صالحة.")
@@ -94,6 +97,10 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                 raise ValueError("بيانات الصورة أو إحداثياتها غير صالحة.") from exc
             if not 1 <= page_number <= doc.page_count or xref <= 0 or occurrence < 0:
                 raise ValueError("مرجع الصورة خارج نطاق الملف.")
+            target_key = (page_number, xref)
+            if target_key in seen_targets:
+                raise ValueError("عدّل موضع صورة واحد من كل مجموعة صور متطابقة في الطلب الواحد.")
+            seen_targets.add(target_key)
             if action not in {"delete", "resize"}:
                 raise ValueError("العملية المدعومة هي الحذف أو تغيير الحجم.")
             if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
