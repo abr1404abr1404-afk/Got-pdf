@@ -34,11 +34,17 @@ from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
 from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
 from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, replace_isolated_arabic_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
-from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from request_limits import (
+    RequestBodyLimitMiddleware,
+    SlidingWindowRateLimiter,
+    validate_pixel_dimensions,
+)
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
+# The compare endpoint accepts two PDFs; reserve room for multipart fields and boundaries.
+MAX_REQUEST_BODY_MB = max(1, int(os.getenv("MAX_REQUEST_BODY_MB", str(2 * MAX_UPLOAD_MB + 2))))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "12"))
 OCR_DPI = int(os.getenv("OCR_DPI", "240"))
 MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "12000000"))
@@ -53,6 +59,10 @@ GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
 MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=MAX_REQUEST_BODY_MB * 1024 * 1024,
+)
 
 
 class AssistantRequest(BaseModel):
@@ -542,7 +552,7 @@ def _tesseract_languages() -> list[str]:
 @app.get("/api/health")
 def health():
     languages = _tesseract_languages()
-    return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
+    return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB, "max_request_body_mb": MAX_REQUEST_BODY_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "tesseract_languages": languages,
