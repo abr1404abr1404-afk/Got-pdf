@@ -552,22 +552,14 @@ class PdfImageToolsTests(unittest.TestCase):
         target = next(item for item in report["objects"] if item["type"] == "text")
         with pymupdf.open(stream=source, filetype="pdf") as original:
             original_text = original[0].get_text()
-        output = replace_isolated_arabic_pdf_text(source, {
-            "action": "replace_ar", "page": target["page"], "object_id": target["id"],
-            "text_hash": target["text_hash"], "rect": target["rect"],
-            "replacement": "أهلًا",
-        })
-        with pymupdf.open(stream=output, filetype="pdf") as result:
-            import unicodedata
-            text = unicodedata.normalize("NFKC", result[0].get_text())
-            text = "".join(char for char in text if not unicodedata.combining(char))
-            self.assertNotIn("مرحبا بالعالم", text)
-            pix = result[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
-            self.assertGreater(sum(pix.samples), 0)
+        with self.assertRaisesRegex(ValueError, "معلّق مؤقتًا"):
+            replace_isolated_arabic_pdf_text(source, {
+                "action": "replace_ar", "page": target["page"], "object_id": target["id"],
+                "text_hash": target["text_hash"], "rect": target["rect"],
+                "replacement": "أهلًا",
+            })
         with pymupdf.open(stream=source, filetype="pdf") as original:
             self.assertEqual(original_text, original[0].get_text())
-            source_pix = original[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
-            self.assertNotEqual(source_pix.samples, pix.samples)
 
     def test_arabic_text_replacement_rejects_non_arabic_replacement(self):
         source = self.arabic_text_pdf()
