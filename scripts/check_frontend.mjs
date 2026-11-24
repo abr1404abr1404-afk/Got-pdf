@@ -94,7 +94,7 @@ if (installButtonAt < 0 || (toolbarAt >= 0 && installButtonAt > toolbarAt)) {
   failures.push("PWA install action must be placed in the primary header, outside the editing toolbar.");
 }
 
-for (const feature of ['id="dshare" class="hb share-action"', 'مشاركة PDF', 'aria-label="مشاركة ملف PDF"', 'showToolHint.h=setTimeout(()=>h.classList.remove("on"),2000)']) {
+for (const feature of ['id="dshare" class="hb share-action"', 'مشاركة PDF', 'aria-label="مشاركة ملف PDF"', 'showToolHint.h=setTimeout(()=>{h.classList.remove("on");h.textContent=""},1800)', 'toast.h=setTimeout(()=>{t.style.display="none";t.textContent=""},2000)']) {
   if (!html.includes(feature)) failures.push("PDF sharing styling or two-second tool hints are missing: " + feature);
 }
 
