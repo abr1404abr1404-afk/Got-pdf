@@ -39,3 +39,8 @@ The object editor also supports deleting one short text span (up to 240 characte
 ## Limited Latin text replacement
 
 A first replacement milestone supports one isolated, horizontal Latin text span at a time. The server verifies the span ID, SHA-256 fingerprint, normalized bounds, and absence of intersections with other text, images, vector drawings, or annotations. It retains the original baseline, approximate font size, color, and the embedded font when extractable; otherwise only common Base-14 font families are accepted. Replacement text must fit within the original span width. Arabic, bidirectional text, complex scripts, reflow, and exact font/layout preservation are deliberately rejected in this milestone pending dedicated shaping and rendering tests. The original PDF remains unchanged.
+
+
+## Safe vector recoloring
+
+The inspector exposes path type and line style metadata. Recoloring is currently restricted to an isolated single rectangle or straight line. The server verifies the object ID and page bounds, rejects intersections with text, images, other drawings, or annotations, removes the old path, then recreates the same geometry with the requested stroke and/or fill color while retaining width and opacity. Complex paths, curves, grouped drawings, and overlapping content are rejected. The original file is never overwritten.
