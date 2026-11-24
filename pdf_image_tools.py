@@ -660,9 +660,16 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         font_path = "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"
         if not os.path.isfile(font_path):
             raise ValueError("خط Noto Naskh Arabic غير متاح لإضافة طبقة النص القابلة للبحث.")
+        clusters = []
+        for char in replacement:
+            if unicodedata.combining(char) and clusters:
+                clusters[-1] += char
+            else:
+                clusters.append(char)
+        logical_layer_text = "".join(reversed(clusters))
         page.insert_text(
             (target_rect.x0, target_rect.y1 - max(1.0, fontsize * 0.12)),
-            replacement, fontname="NotoLogical", fontfile=font_path,
+            logical_layer_text, fontname="NotoLogical", fontfile=font_path,
             fontsize=fontsize, render_mode=3, overlay=True,
         )
         after = []
