@@ -407,3 +407,8 @@ main { min-height: calc(100vh - 105px); }
 .autosave-status[data-state="saved"]{color:#16834a;border-color:color-mix(in srgb,#16834a 35%,var(--line))}
 .autosave-status[data-state="error"]{color:#b45309;border-color:color-mix(in srgb,#b45309 40%,var(--line))}
 @media(max-width:640px){.autosave-status{max-width:112px;overflow:hidden;text-overflow:ellipsis;font-size:.64rem;padding:4px 6px}}
+
+/* Local PDF text search results and temporary page focus */
+.pdf-search-result{display:grid;gap:5px;text-align:start;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer}
+.pdf-search-result span{font-size:.88rem;line-height:1.55;overflow-wrap:anywhere;color:var(--mut)}
+.wrap.search-hit{outline:4px solid var(--acc);outline-offset:4px;border-radius:4px}
