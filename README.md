@@ -103,6 +103,7 @@ python tools/ocr_benchmark.py --manifest benchmarks/my-arabic-set/manifest.json
 يحدد `render.yaml` القيم الافتراضية التالية:
 
 - `MAX_UPLOAD_MB=25`
+- `MAX_REQUEST_BODY_MB` — الحد الأقصى لإجمالي جسم طلب HTTP قبل تحليل multipart؛ الافتراضي `2 × MAX_UPLOAD_MB + 2` لدعم مقارنة ملفين مع بيانات النماذج. يمكن ضبطه حسب موارد الخادم.
 - `MAX_PDF_PAGES=12`
 - `OCR_DPI=240`
 - `OCR_MODE=hybrid`
