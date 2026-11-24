@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -92,11 +92,55 @@ class PdfImageToolsTests(unittest.TestCase):
         self.assertTrue(any(w["type"] == "image_text_overlap" for w in report["warnings"]))
 
 
+    def vector_source(self, overlap_text=False):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((30, 30), "Keep this text")
+        if overlap_text:
+            page.insert_text((90, 90), "Do not cover")
+            page.draw_rect(pymupdf.Rect(85, 65, 175, 100), color=(1, 0, 0), width=2)
+        else:
+            page.draw_rect(pymupdf.Rect(30, 60, 80, 100), color=(1, 0, 0), width=2)
+            page.draw_rect(pymupdf.Rect(190, 60, 240, 100), color=(0, 0, 1), width=2)
+        data = doc.tobytes()
+        doc.close()
+        return data
+
+    def test_delete_isolated_vector_preserves_other_drawing_and_text(self):
+        source = self.vector_source()
+        report = inspect_pdf_objects(source)
+        vectors = [item for item in report["objects"] if item["type"] == "vector"]
+        self.assertEqual(len(vectors), 2)
+        output = edit_pdf_vector_objects(source, [{
+            "page": vectors[0]["page"], "object_id": vectors[0]["id"],
+            "rect": vectors[0]["rect"], "action": "delete",
+        }])
+        with pymupdf.open(stream=output, filetype="pdf") as doc:
+            self.assertIn("Keep this text", doc[0].get_text())
+            self.assertEqual(len(doc[0].get_drawings()), 1)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertEqual(len(original[0].get_drawings()), 2)
+
+    def test_vector_delete_rejects_overlap_with_text(self):
+        source = self.vector_source(overlap_text=True)
+        report = inspect_pdf_objects(source)
+        vector = next(item for item in report["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "يتداخل مع نص"):
+            edit_pdf_vector_objects(source, [{
+                "page": vector["page"], "object_id": vector["id"],
+                "rect": vector["rect"], "action": "delete",
+            }])
+
+    def test_vector_delete_rejects_stale_object_id(self):
+        source = self.vector_source()
+        with self.assertRaises(ValueError):
+            edit_pdf_vector_objects(source, [{
+                "page": 1, "object_id": "p1-vector-99",
+                "rect": [0.1, 0.1, 0.2, 0.2], "action": "delete",
+            }])
+
+
 
 if __name__ == "__main__":
     unittest.main()
 
-
-
-if __name__ == "__main__":
-    unittest.main()
