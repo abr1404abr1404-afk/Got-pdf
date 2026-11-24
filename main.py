@@ -26,7 +26,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
-from pdf_tools import compress_pdf_bytes\nfrom searchable_pdf import add_searchable_text_layer
+from pdf_tools import compress_pdf_bytes
+from searchable_pdf import add_searchable_text_layer
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
