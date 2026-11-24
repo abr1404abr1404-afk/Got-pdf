@@ -3169,6 +3169,26 @@ async function replacePdfTextObject(item){
   }catch(error){console.error(error);toast(error.message||"تعذّر استبدال النص.")}
   finally{button.disabled=false}
 }
+async function replacePdfArabicTextObject(item){
+  if(!item||item.type!=="text"||item.truncated||!item.text_hash)return;
+  const replacement=prompt("أدخل النص العربي البديل:",item.text||"");
+  if(replacement===null||!replacement.trim())return;
+  if(!/[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF]/.test(replacement))return toast("اكتب نصًا يحتوي على حروف عربية.");
+  if(!confirm("سيُشكّل الفلقي النص العربي من اليمين إلى اليسار بخط Noto Naskh Arabic في نسخة جديدة. يشترط أن يتسع النص في المساحة الحالية وألا يتداخل مع عناصر أخرى. هل تريد المتابعة؟"))return;
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  const button=$("pdfObjectInspect");button.disabled=true;
+  try{
+    const selected=pages.filter(p=>p.sel),bytes=await buildPdf(selected.length?selected:pages),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
+    form.append("operations",JSON.stringify({page:item.page,object_id:item.id,rect:item.rect,text_hash:item.text_hash,action:"replace_ar",replacement:replacement.trim()}));
+    const response=await fetch(base+"/api/pdf/objects/edit",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر استبدال النص العربي.")}
+    const output=new Uint8Array(await response.arrayBuffer());
+    await saveFile(safeName()+"-arabic-text-replaced.pdf",output,"application/pdf");
+    toast("أُنشئت نسخة جديدة بالنص العربي البديل.");
+  }catch(error){console.error(error);toast(error.message||"تعذّر استبدال النص العربي.")}
+  finally{button.disabled=false}
+}
 function pdfRgbHex(value){
   if(!Array.isArray(value)||value.length<3)return "";
   return "#"+value.slice(0,3).map(v=>Math.max(0,Math.min(255,Math.round(Number(v)*255))).toString(16).padStart(2,"0")).join("").toUpperCase();
@@ -3314,6 +3334,10 @@ async function inspectPdfObjects(){
       }else if(item.type==="text"&&!item.truncated&&item.text_hash){
         const replace=document.createElement("button");replace.type="button";replace.textContent="استبدال النص (لاتيني)";
         replace.addEventListener("click",()=>replacePdfTextObject(item));card.append(replace);
+        if(Array.isArray(item.writing_direction)&&item.writing_direction[0]<0){
+          const replaceAr=document.createElement("button");replaceAr.type="button";replaceAr.textContent="استبدال النص العربي";
+          replaceAr.addEventListener("click",()=>replacePdfArabicTextObject(item));card.append(replaceAr);
+        }
         const remove=document.createElement("button");remove.type="button";remove.textContent="حذف هذا النص من نسخة جديدة";
         remove.addEventListener("click",()=>deletePdfTextObject(item));card.append(remove);
       }
