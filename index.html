@@ -3190,7 +3190,7 @@ async function replacePdfArabicTextObject(item){
   const replacement=prompt("أدخل النص العربي البديل:",item.text||"");
   if(replacement===null||!replacement.trim())return;
   if(!/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(replacement))return toast("اكتب نصًا يحتوي على حروف عربية.");
-  if(!confirm("سيُشكّل الفلقي النص العربي من اليمين إلى اليسار بخط Noto Naskh Arabic في نسخة جديدة. يشترط أن يتسع النص في المساحة الحالية وألا يتداخل مع عناصر أخرى. هل تريد المتابعة؟"))return;
+  if(!confirm("سيُرسم النص العربي من اليمين إلى اليسار بخط Noto Naskh Arabic في نسخة جديدة. يشترط أن يتسع النص في المساحة الحالية وألا يتداخل مع عناصر أخرى. قد لا يكون النص البديل قابلًا للبحث أو النسخ بدقة في كل قارئات PDF. هل تريد المتابعة؟"))return;
   const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
   const button=$("pdfObjectInspect");button.disabled=true;
   try{
