@@ -149,7 +149,14 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                     rotation = operation.get("rotation")
                     if isinstance(rotation, bool) or rotation not in {90, 180, 270}:
                         raise ValueError("زاوية تدوير الصورة يجب أن تكون 90 أو 180 أو 270 درجة.")
-                    replacement_rect = pymupdf.Rect(original)
+                    center = original.tl + (original.br - original.tl) * 0.5
+                    if rotation in {90,  270}:
+                        replacement_rect = pymupdf.Rect(
+                            center.x - original.height / 2, center.y - original.width / 2,
+                            center.x + original.height / 2, center.y + original.width / 2,
+                        )
+                    else:
+                        replacement_rect = pymupdf.Rect(original)
                 if not page_rect.contains(replacement_rect):
                     raise ValueError("الموضع أو الحجم الجديد يتجاوز حدود الصفحة.")
             # Redaction changes page content, so refuse all existing overlaps rather
