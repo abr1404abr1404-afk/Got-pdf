@@ -578,6 +578,10 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         raise ValueError("يجب أن يحتوي النص البديل على حروف عربية.")
     if any(ord(ch) < 32 and ch not in "\n\t" for ch in replacement):
         raise ValueError("النص البديل يحتوي على محارف غير مدعومة.")
+    # Fail closed: current MuPDF HTML shaping can render Arabic glyphs while
+    # producing unreliable Unicode extraction/ToUnicode mappings. Keep the
+    # endpoint disabled until visual and searchable-text fidelity are verified.
+    raise ValueError("استبدال النص العربي معلّق مؤقتًا حتى اكتمال التحقق من سلامة التشكيل وطبقة البحث. لم يُعدّل الملف.")
     try:
         page_number = int(operation["page"])
         object_id = str(operation["object_id"])
