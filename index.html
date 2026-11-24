@@ -371,6 +371,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>علامة مائية (تُضاف عند التنزيل على كل الصفحات)</h3><input id="wmt" type="text" dir="auto" placeholder="مثال: سري / مسودة / اسم الجهة"><div class="r"><label>الشفافية <select id="wmo"><option value="0.10">خفيفة</option><option value="0.18" selected>متوسطة</option><option value="0.30">واضحة</option></select></label></div></div>
 <div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" placeholder="المؤلف"></div>
 <div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>\n<div class="tsec"><h3>OCR وتصدير متقدم</h3><p class="dshint">أنشئ نسخة PDF قابلة للبحث بطبقة نص مخفية بعد مراجعة النصوص. تتطلب اتصالًا بخادم الفلقي، ولن يُرسل الملف إلا بعد تأكيدك.</p><div class="qa"><button id="searchablePdf" class="p" type="button">إنشاء PDF قابل للبحث</button></div></div>
+<div class="tsec"><h3>حجب آمن نهائي</h3><p class="dshint">ارسم مستطيلات سوداء بأداة «حجب بصري» فوق البيانات المراد إزالتها، ثم طبّق الحجب النهائي. سيُرسل ملف PDF ومناطق الحجب إلى خادم الفلقي بعد موافقتك. احتفظ بالأصل؛ الحجب النهائي لا يمكن التراجع عنه داخل النسخة الناتجة. لا ينظف بيانات الملف الوصفية أو المرفقات.</p><div class="qa"><button id="secureRedactPdf" class="p" type="button">تطبيق الحجب النهائي</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
@@ -2809,6 +2810,35 @@ $("searchablePdf").onclick=async()=>{
     await saveFile(safeName()+"-searchable.pdf",output);
     toast("تم إنشاء PDF قابل للبحث. اختبر البحث داخل قارئ PDF.");
   }catch(error){console.error(error);toast(error.message||"حدث خطأ أثناء إنشاء PDF قابل للبحث.")}
+  finally{btn.disabled=false}
+};
+$("secureRedactPdf").onclick=async()=>{
+  const base=apiBase();
+  if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  if(!base)return toast("خادم الفلقي غير متصل. لا يمكن تطبيق الحجب النهائي دون الخادم.");
+  const selected=pages.some(p=>p.sel)?pages.filter(p=>p.sel):pages.slice();
+  const regions=[];
+  selected.forEach((pg,index)=>{
+    (pg.an||[]).filter(a=>a.t==="bk"&&a.w>0&&a.h>0).forEach(a=>{
+      regions.push({page:index+1,rect:[a.x,a.y,a.x+a.w,a.y+a.h]});
+    });
+  });
+  if(!regions.length)return toast("ارسم مستطيلًا واحدًا على الأقل بأداة «حجب بصري» فوق البيانات المراد إزالتها.");
+  if(!window.confirm("سيُرسل ملف PDF المحدد ومناطق الحجب إلى خادم الفلقي لتطبيق إزالة دائمة للنصوص والصور والرسوم داخل المستطيلات. ستُنشأ نسخة جديدة ولن يتغير الملف الأصلي. تابع فقط إذا كنت توافق على الإرسال."))return;
+  const btn=$("secureRedactPdf");btn.disabled=true;
+  try{
+    toast("جارٍ تجهيز نسخة PDF ومناطق الحجب…");
+    const source=await buildPdf(selected);
+    const form=new FormData();
+    form.append("file",new Blob([source],{type:"application/pdf"}),safeName()+".pdf");
+    form.append("regions",JSON.stringify({regions}));
+    toast("جارٍ تطبيق الحجب الدائم والتحقق من الملف…");
+    const response=await fetch(base+"/api/pdf/redact",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تطبيق الحجب النهائي.")}
+    const output=new Uint8Array(await response.arrayBuffer());
+    await saveFile(safeName()+"-redacted.pdf",output);
+    toast("اكتمل الحجب النهائي في نسخة جديدة. اختبر الملف الناتج قبل مشاركته.");
+  }catch(error){console.error(error);toast(error.message||"حدث خطأ أثناء تطبيق الحجب النهائي.")}
   finally{btn.disabled=false}
 };
 function jszipLoad(){if(window.JSZip)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";s.onload=res;s.onerror=()=>rej(new Error("تعذّر تحميل مكتبة الضغط"));document.head.append(s)})}
