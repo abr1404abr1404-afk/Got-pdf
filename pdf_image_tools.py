@@ -617,7 +617,9 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         if len(original) > MAX_TEXT_EDIT_CHARS or hashlib.sha256(original.encode("utf-8")).hexdigest() != text_hash:
             raise ValueError("تغيّر النص أو تجاوز الحد؛ أعد فهرسة الملف.")
         direction = target["direction"]
-        if not re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", original):
+        import unicodedata
+        normalized_original = unicodedata.normalize("NFKC", original)
+        if not re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", normalized_original):
             raise ValueError("المقطع المحدد ليس نصًا عربيًا.")
         if abs(float(direction[1])) > 0.01 or float(direction[0]) >= 0:
             raise ValueError("يدعم الاستبدال حاليًا النص العربي الأفقي من اليمين إلى اليسار فقط.")
