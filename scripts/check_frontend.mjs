@@ -73,6 +73,15 @@ for (const feature of ['rel="manifest"', 'apple-mobile-web-app-capable', 'pwaIns
   if (!html.includes(feature)) failures.push("PWA install support is missing: " + feature);
 }
 
+for (const feature of ['id="pwaInstallHelp"', 'pwaHelpClose', 'تحميل التطبيق', 'role="dialog"', 'إضافة إلى الشاشة الرئيسية']) {
+  if (!html.includes(feature)) failures.push("Accessible PWA install instructions are missing: " + feature);
+}
+const installButtonAt = html.indexOf('id="pwaInstall"');
+const toolbarAt = html.indexOf('<div class="hr2">');
+if (installButtonAt < 0 || (toolbarAt >= 0 && installButtonAt > toolbarAt)) {
+  failures.push("PWA install action must be placed in the primary header, outside the editing toolbar.");
+}
+
 for (const feature of ["MAX_PROJECT_FILE_BYTES", "MAX_PROJECT_DECODED_BYTES", "decodeProjectBase64", "data.docs.length>20", "data.pages.length>1000", "PDF-", "p.i<1", "بقي الملف المفتوح كما هو"]) {
   if (!html.includes(feature)) failures.push("AFQ project import protection is missing: " + feature);
 }
