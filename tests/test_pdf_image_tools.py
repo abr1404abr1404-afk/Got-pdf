@@ -64,6 +64,30 @@ class PdfImageToolsTests(unittest.TestCase):
                 "rect": item["rect"], "action": "resize", "scale": 8,
             }])
 
+    def test_inspect_includes_text_font_and_style_metadata(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((30, 50), "Metadata sample", fontname="helv", fontsize=14, color=(0.2, 0.3, 0.4))
+        source = doc.tobytes()
+        doc.close()
+        report = inspect_pdf_objects(source)
+        item = next(item for item in report["objects"] if item["type"] == "text")
+        self.assertTrue(item["font"])
+        self.assertAlmostEqual(item["font_size"], 14, delta=0.2)
+        self.assertEqual(item["color"], "#334C66")
+        self.assertEqual(len(item["writing_direction"]), 2)
+        self.assertEqual(len(item["origin"]), 2)
+
+    def test_inspect_flags_vector_text_overlap(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((90, 90), "Overlap")
+        page.draw_rect(pymupdf.Rect(85, 65, 175, 100), color=(1, 0, 0), width=2)
+        source = doc.tobytes()
+        doc.close()
+        report = inspect_pdf_objects(source)
+        self.assertTrue(any(w["type"] == "vector_text_overlap" for w in report["warnings"]))
+
     def test_inspect_reports_text_images_and_vector_objects(self):
         source = self.source_pdf()
         with pymupdf.open(stream=source, filetype="pdf") as doc:
