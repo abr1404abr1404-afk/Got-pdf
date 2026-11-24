@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector, edit_pdf_images
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -54,6 +54,44 @@ class PdfImageToolsTests(unittest.TestCase):
             self.assertTrue(rects)
             self.assertAlmostEqual(rects[0].width, 60, delta=2)
             self.assertAlmostEqual(rects[0].height, 40, delta=2)
+
+    def test_move_image_changes_position_and_preserves_dimensions(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        output = edit_pdf_images(source, [{
+            "page": item["page"], "xref": item["xref"],
+            "occurrence": item["occurrence"], "rect": item["rect"],
+            "action": "move", "dx": 25, "dy": 10,
+        }])
+        with pymupdf.open(stream=output, filetype="pdf") as doc:
+            xref = doc[0].get_images(full=True)[0][0]
+            rect = doc[0].get_image_rects(xref)[0]
+            self.assertAlmostEqual(rect.x0, 85, delta=2)
+            self.assertAlmostEqual(rect.y0, 60, delta=2)
+            self.assertAlmostEqual(rect.width, 120, delta=2)
+            self.assertAlmostEqual(rect.height, 80, delta=2)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            original_rect = original[0].get_image_rects(item["xref"])[0]
+            self.assertAlmostEqual(original_rect.x0, 60, delta=2)
+
+    def test_image_edit_rejects_overlap_with_text(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        from PIL import Image
+        import io
+        image = Image.new("RGB", (30, 20), (220, 34, 34))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        page.insert_image(pymupdf.Rect(60, 50, 180, 130), stream=buffer.getvalue())
+        page.insert_text((80, 90), "Overlapping text")
+        source = doc.tobytes()
+        doc.close()
+        item = list_pdf_images(source)[0]
+        with self.assertRaisesRegex(ValueError, "تتداخل مع نص"):
+            edit_pdf_images(source, [{
+                "page": 1, "xref": item["xref"], "occurrence": 0,
+                "rect": item["rect"], "action": "delete",
+            }])
 
     def test_invalid_scale_is_rejected(self):
         source = self.source_pdf()
