@@ -551,7 +551,6 @@ def replace_isolated_latin_pdf_text(data: bytes, operation: dict[str, Any]) -> b
                     value = str(span.get("text", "")).strip()
                     if value:
                         after.append(value)
-        from collections import Counter
         import unicodedata
         normalize_text = lambda value: unicodedata.normalize("NFKC", value).replace("\u200e", "").replace("\u200f", "").strip()
         normalized_after = normalize_text(" ".join(after))
