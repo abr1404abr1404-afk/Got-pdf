@@ -40,6 +40,7 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertEqual(report["analysis_status"], "ok")
         self.assertTrue(report["source_extractable"])
         self.assertEqual(report["text_coverage_percent"], 100.0)
+        self.assertEqual(report["text_precision_percent"], 66.67)
         self.assertEqual(report["output_table_count"], 1)
         self.assertEqual(report["output_paragraph_count"], 1)
         self.assertGreater(report["source_word_count"], 0)
