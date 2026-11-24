@@ -507,3 +507,31 @@ body.ann-tools-open #anp{display:flex;}
 #toolHint.on{opacity:1;visibility:visible;transform:translate(-50%,0);}
 @media(max-width:640px){#anp{bottom:calc(8px + env(safe-area-inset-bottom,0px));max-height:40dvh;overflow-y:auto;overscroll-behavior:contain;}#anp .ann-tools-title{font-size:.8rem;}#toolHint{top:calc(env(safe-area-inset-top,0px) + 8px);font-size:.84rem;padding:9px 12px;}}
 @media(prefers-reduced-motion:reduce){#toolHint{transition:none;}}
+
+
+/* Two-row compact mobile header: identity/file/install on row one, all tools on row two. */
+@media(max-width:640px){
+  header{display:flex!important;flex-direction:column!important;gap:0!important;}
+  .hr1{display:grid!important;grid-template-columns:36px auto minmax(74px,1fr) auto!important;grid-template-areas:"menu brand filename install"!important;align-items:center!important;gap:6px!important;padding:7px 8px!important;min-height:54px!important;}
+  .hr1 #mnb{grid-area:menu;width:36px!important;height:36px!important;min-width:36px!important;}
+  .hr1 .brand{grid-area:brand;min-width:0!important;gap:5px!important;}
+  .hr1 .brand .logo{width:30px!important;height:30px!important;}
+  .hr1 .brand .nm{font-size:.82rem!important;white-space:nowrap;}
+  .hr1 .brand .nm small{font-size:.58rem!important;}
+  .hr1 #fn{grid-area:filename;width:100%!important;min-width:0!important;max-width:100%!important;height:34px!important;min-height:34px!important;padding:0 7px!important;border-radius:9px!important;font-size:.75rem!important;}
+  .hr1 #pwaInstall{grid-area:install;display:inline-flex!important;visibility:visible!important;width:auto!important;min-width:94px!important;height:36px!important;min-height:36px!important;padding:0 8px!important;gap:4px!important;justify-content:center!important;white-space:nowrap!important;font-size:.7rem!important;border-radius:9px!important;}
+  .hr1 #pwaInstall .lb{display:inline!important;font-size:.7rem!important;}
+  .hr2{display:flex!important;flex-wrap:nowrap!important;align-items:center!important;gap:6px!important;min-height:54px!important;padding:6px 8px!important;overflow-x:auto!important;overflow-y:hidden!important;white-space:nowrap!important;}
+  .hr2>.grp{flex:none!important;}
+  .hr2 #dshare,.hr2 #save{flex:none!important;height:38px!important;min-height:38px!important;}
+  #toolHint{top:calc(env(safe-area-inset-top,0px) + 74px)!important;left:50%!important;width:min(92vw,520px)!important;z-index:15000!important;padding:12px 14px!important;font-size:.88rem!important;line-height:1.7!important;box-shadow:0 10px 35px rgba(0,0,0,.28)!important;}
+}
+@media(max-width:380px){
+  .hr1{grid-template-columns:32px minmax(58px,auto) minmax(62px,1fr) auto!important;gap:4px!important;padding-inline:5px!important;}
+  .hr1 #mnb{width:32px!important;min-width:32px!important;height:34px!important;}
+  .hr1 .brand .logo{display:none!important;}
+  .hr1 .brand .nm{font-size:.75rem!important;}
+  .hr1 #fn{font-size:.7rem!important;padding-inline:5px!important;}
+  .hr1 #pwaInstall{min-width:88px!important;padding-inline:5px!important;font-size:.65rem!important;}
+  .hr1 #pwaInstall .lb{font-size:.65rem!important;}
+}
