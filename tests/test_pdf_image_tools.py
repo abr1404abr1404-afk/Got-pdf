@@ -93,6 +93,44 @@ class PdfImageToolsTests(unittest.TestCase):
                 "rect": item["rect"], "action": "delete",
             }])
 
+    def test_batch_delete_multiple_isolated_images(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=320, height=220)
+        from PIL import Image
+        import io
+        for color, rect in [((220, 20, 20), pymupdf.Rect(20, 30, 100, 90)),
+                            ((20, 20, 220), pymupdf.Rect(180, 120, 260, 180))]:
+            image = Image.new("RGB", (24, 18), color)
+            buffer = io.BytesIO()
+            image.save(buffer, format="PNG")
+            page.insert_image(rect, stream=buffer.getvalue())
+        source = doc.tobytes()
+        doc.close()
+        items = list_pdf_images(source)
+        self.assertEqual(len(items), 2)
+        output = edit_pdf_images(source, [{
+            "page": item["page"], "xref": item["xref"],
+            "occurrence": item["occurrence"], "rect": item["rect"],
+            "action": "delete",
+        } for item in items])
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            self.assertEqual(len(result[0].get_images(full=True)), 0)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertEqual(len(original[0].get_images(full=True)), 2)
+
+    def test_batch_image_edit_rejects_invalid_later_operation_without_changing_source(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        with self.assertRaises(ValueError):
+            edit_pdf_images(source, [
+                {"page": 1, "xref": item["xref"], "occurrence": 0,
+                 "rect": item["rect"], "action": "delete"},
+                {"page": 1, "xref": 99999, "occurrence": 0,
+                 "rect": item["rect"], "action": "delete"},
+            ])
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertEqual(len(original[0].get_images(full=True)), 1)
+
     def test_invalid_scale_is_rejected(self):
         source = self.source_pdf()
         item = list_pdf_images(source)[0]
