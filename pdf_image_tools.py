@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import hashlib
 from typing import Any
 
 import pymupdf
@@ -205,6 +206,7 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             "type": "text",
                             "page": page_index + 1,
                             "text": raw_text[:MAX_TEXT_PREVIEW_CHARS],
+                            "text_hash": hashlib.sha256(raw_text.encode("utf-8")).hexdigest(),
                             "truncated": len(raw_text) > MAX_TEXT_PREVIEW_CHARS,
                             "font": str(span.get("font", ""))[:120],
                             "font_size": round(float(span.get("size") or 0), 2),
@@ -331,6 +333,102 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                              "message": "تم إيقاف الفهرسة عند 500 عنصر لحماية الأداء."})
         return {"pages": doc.page_count, "count": len(objects), "counts": counts,
                 "objects": objects, "warnings": warnings}
+    finally:
+        doc.close()
+
+
+
+
+MAX_TEXT_EDIT_CHARS = 240
+
+def delete_isolated_pdf_text(data: bytes, operation: dict[str, Any]) -> bytes:
+    """Delete one isolated, revalidated text span and verify no neighboring text changed."""
+    if not isinstance(operation, dict) or operation.get("action") != "delete":
+        raise ValueError("العملية المدعومة حاليًا هي حذف مقطع نصي منفصل فقط.")
+    try:
+        page_number = int(operation["page"])
+        object_id = str(operation["object_id"])
+        text_hash = str(operation["text_hash"])
+        coords = operation["rect"]
+        if not isinstance(coords, list) or len(coords) != 4:
+            raise ValueError
+        normalized = [float(value) for value in coords]
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("بيانات النص أو إحداثياته غير صالحة.") from exc
+    if not all(math.isfinite(v) for v in normalized):
+        raise ValueError("إحداثيات النص غير صالحة.")
+    if not 1 <= page_number <= 200 or not re.fullmatch(r"p[0-9]+-text-[0-9]+", object_id):
+        raise ValueError("مرجع النص غير صالح.")
+    if len(text_hash) != 64 or not re.fullmatch(r"[0-9a-f]{64}", text_hash):
+        raise ValueError("بصمة النص غير صالحة؛ أعد فهرسة الملف.")
+    x0, y0, x1, y1 = normalized
+    if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
+        raise ValueError("مستطيل النص يجب أن يقع داخل الصفحة.")
+    doc = _open(data)
+    try:
+        if page_number > doc.page_count or not object_id.startswith(f"p{page_number}-text-"):
+            raise ValueError("مرجع النص خارج نطاق الملف.")
+        page = doc.load_page(page_number - 1)
+        page_rect = page.rect
+        try:
+            span_index = int(object_id.rsplit("-", 1)[1]) - 1
+        except ValueError as exc:
+            raise ValueError("معرّف النص غير صالح.") from exc
+        spans: list[tuple[pymupdf.Rect, str]] = []
+        for block in page.get_text("dict").get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    value = str(span.get("text", "")).strip()
+                    if value:
+                        spans.append((pymupdf.Rect(span.get("bbox", (0, 0, 0, 0))), value))
+        if span_index < 0 or span_index >= len(spans):
+            raise ValueError("لم يتم العثور على النص المحدد؛ أعد فهرسة الملف.")
+        target_rect, target_text = spans[span_index]
+        if len(target_text) > MAX_TEXT_EDIT_CHARS:
+            raise ValueError("هذا المقطع أطول من الحد الآمن للحذف الفردي.")
+        if hashlib.sha256(target_text.encode("utf-8")).hexdigest() != text_hash:
+            raise ValueError("تغيّر النص؛ أعد فهرسة الملف قبل التعديل.")
+        supplied = pymupdf.Rect(page_rect.x0 + x0 * page_rect.width,
+                                page_rect.y0 + y0 * page_rect.height,
+                                page_rect.x0 + x1 * page_rect.width,
+                                page_rect.y0 + y1 * page_rect.height)
+        if any(abs(a-b) > 1.5 for a,b in zip(target_rect, supplied)):
+            raise ValueError("تغيّر موضع النص؛ أعد فهرسة الملف قبل التعديل.")
+        # Redaction rectangles can affect neighboring content. Reject any overlap
+        # with another text span, image, vector path or annotation before proceeding.
+        for index, (other_rect, _value) in enumerate(spans):
+            if index != span_index and _overlap_ratio(target_rect, other_rect) > 0:
+                raise ValueError("يتداخل النص مع مقطع نصي آخر؛ لن يتم حذفه لتجنب إتلاف المحتوى.")
+        for info in page.get_image_info(xrefs=True):
+            if _overlap_ratio(target_rect, pymupdf.Rect(info.get("bbox", (0,0,0,0)))) > 0:
+                raise ValueError("يتداخل النص مع صورة؛ لن يتم حذفه.")
+        for drawing in page.get_drawings():
+            rect = drawing.get("rect")
+            if rect and _overlap_ratio(target_rect, pymupdf.Rect(rect)) > 0:
+                raise ValueError("يتداخل النص مع رسم متجهي؛ لن يتم حذفه.")
+        for annotation in page.annots() or []:
+            if _overlap_ratio(target_rect, pymupdf.Rect(annotation.rect)) > 0:
+                raise ValueError("يتداخل النص مع تعليق؛ لن يتم حذفه.")
+        expected = [value for index, (_rect, value) in enumerate(spans) if index != span_index]
+        page.add_redact_annot(target_rect, fill=None, cross_out=False)
+        page.apply_redactions(images=0, graphics=0, text=0)
+        after: list[str] = []
+        for block in page.get_text("dict").get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    value = str(span.get("text", "")).strip()
+                    if value:
+                        after.append(value)
+        if after != expected:
+            raise ValueError("تعذّر ضمان بقاء النصوص المجاورة كما هي؛ أُلغي التعديل.")
+        output = doc.tobytes(garbage=4, deflate=True, clean=True)
+        if not output.startswith(b"%PDF-"):
+            raise ValueError("تعذّر إنشاء نسخة PDF المعدّلة.")
+        return output
     finally:
         doc.close()
 
