@@ -123,6 +123,8 @@ for (const feature of [
   'pdfCompareLineDifference(a.lines,b.lines)',
   'pdfCompareThumbnail(a,box)',
   'معاينة منطقة الاختلاف',
+  'استعادة النسخة الأولى',
+  'استعادة النسخة الثانية',
   'المقارنة المرئية محدودة إلى 30 صفحة'
 ]) {
   if (!html.includes(feature)) failures.push("Local PDF version comparison is missing or incomplete: " + feature);
