@@ -374,6 +374,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" placeholder="المؤلف"></div>
 <div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>\n<div class="tsec"><h3>OCR وتصدير متقدم</h3><p class="dshint">أنشئ نسخة PDF قابلة للبحث بطبقة نص مخفية بعد مراجعة النصوص. تتطلب اتصالًا بخادم الفلقي، ولن يُرسل الملف إلا بعد تأكيدك.</p><div class="qa"><button id="searchablePdf" class="p" type="button">إنشاء PDF قابل للبحث</button></div></div>
 <div class="tsec"><h3>حجب آمن نهائي</h3><p class="dshint">ارسم مستطيلات سوداء بأداة «حجب بصري» فوق البيانات المراد إزالتها، ثم طبّق الحجب النهائي. سيُرسل ملف PDF ومناطق الحجب إلى خادم الفلقي بعد موافقتك. احتفظ بالأصل؛ الحجب النهائي لا يمكن التراجع عنه داخل النسخة الناتجة. لا ينظف بيانات الملف الوصفية أو المرفقات.</p><div class="qa"><button id="secureRedactPdf" class="p" type="button">تطبيق الحجب النهائي</button></div></div>
+<div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
@@ -2886,6 +2887,46 @@ $("secureRedactPdf").onclick=async()=>{
   }catch(error){console.error(error);toast(error.message||"حدث خطأ أثناء تطبيق الحجب النهائي.")}
   finally{btn.disabled=false}
 };
+async function collectOfficeExportPages(){
+  const chosen=pages.some(p=>p.sel)?pages.map((p,i)=>p.sel?i:-1).filter(i=>i>=0):pages.map((p,i)=>i);
+  if(chosen.length>100)throw new Error("اختر 100 صفحة أو أقل للتصدير.");
+  const output=[];let total=0;
+  for(const index of chosen){
+    const pg=pages[index];let text="";
+    if(Array.isArray(pg.ocr)&&pg.ocr.length)text=pg.ocr.map(line=>String(line.t||"")).join("\n");
+    else{
+      const page=await docs[pg.d].pdf.getPage(pg.i),content=await page.getTextContent();
+      text=content.items.map(item=>(item.str||"")+(item.hasEOL?"\n":" ")).join("").replace(/[ \t]+\n/g,"\n").trim();
+    }
+    if(text.trim()){
+      total+=text.length;if(total>200000)throw new Error("تجاوز النص حد التصدير البالغ 200 ألف حرف.");
+      output.push({page:index+1,text});
+    }
+  }
+  if(!output.length)throw new Error("لا يوجد نص قابل للتصدير. شغّل OCR على الصفحات المصوّرة أولًا.");
+  return output;
+}
+async function exportOfficeFile(kind){
+  const base=apiBase();if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  if(!base)return toast("خادم الفلقي غير متصل. اربط عنوان API أولًا.");
+  const isWord=kind==="docx",button=$(isWord?"exportDocx":"exportXlsx");
+  if(!window.confirm("سيُرسل النص المستخرج من الصفحات المحددة إلى خادم الفلقي لإنشاء ملف "+(isWord?"Word":"Excel")+". لن يُرسل ملف PDF الأصلي. تابع فقط إذا كنت توافق على إرسال النص."))return;
+  button.disabled=true;
+  try{
+    toast("جارٍ استخراج النص محليًا…");
+    const exportPages=await collectOfficeExportPages();
+    toast("جارٍ إنشاء ملف "+(isWord?"Word":"Excel")+"…");
+    const response=await fetch(base+(isWord?"/api/export/docx":"/api/export/xlsx"),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({pages:exportPages})});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر إنشاء ملف التصدير.")}
+    const bytes=new Uint8Array(await response.arrayBuffer());
+    const mime=isWord?"application/vnd.openxmlformats-officedocument.wordprocessingml.document":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    await saveFile(safeName()+(isWord?"-text.docx":"-text.xlsx"),bytes,mime);
+    toast("تم إنشاء ملف "+(isWord?"Word":"Excel")+". راجع النصوص وتنسيقها قبل الاعتماد.");
+  }catch(error){console.error(error);toast(error.message||"تعذّر تصدير النص.")}
+  finally{button.disabled=false}
+}
+$("exportDocx").onclick=()=>exportOfficeFile("docx");
+$("exportXlsx").onclick=()=>exportOfficeFile("xlsx");
 function jszipLoad(){if(window.JSZip)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";s.onload=res;s.onerror=()=>rej(new Error("تعذّر تحميل مكتبة الضغط"));document.head.append(s)})}
 $("spl").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");const n=pages.filter(p=>p.sel).length;$("spinfo").textContent=n?"سيُقسَّم المحدد فقط ("+n+" صفحة).":"سيُقسَّم الملف كله ("+pages.length+" صفحة). حدّد صفحات بالمربعات لتقسيمها وحدها.";$("spm").classList.add("on")};
 $("spx").onclick=()=>$("spm").classList.remove("on");
