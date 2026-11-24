@@ -621,8 +621,8 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         normalized_original = unicodedata.normalize("NFKC", original)
         if not re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", normalized_original):
             raise ValueError("المقطع المحدد ليس نصًا عربيًا.")
-        if abs(float(direction[1])) > 0.01 or float(direction[0]) >= 0:
-            raise ValueError("يدعم الاستبدال حاليًا النص العربي الأفقي من اليمين إلى اليسار فقط.")
+        if abs(float(direction[1])) > 0.01:
+            raise ValueError("يدعم الاستبدال حاليًا النص العربي الأفقي فقط؛ النص المائل أو العمودي غير مدعوم.")
         supplied = pymupdf.Rect(page_rect.x0+x0*page_rect.width, page_rect.y0+y0*page_rect.height,
                                 page_rect.x0+x1*page_rect.width, page_rect.y0+y1*page_rect.height)
         if any(abs(a-b) > 1.5 for a, b in zip(target_rect, supplied)):
