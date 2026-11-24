@@ -379,6 +379,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>حجب آمن نهائي</h3><p class="dshint">ارسم مستطيلات سوداء بأداة «حجب بصري» فوق البيانات المراد إزالتها، ثم طبّق الحجب النهائي. سيُرسل ملف PDF ومناطق الحجب إلى خادم الفلقي بعد موافقتك. احتفظ بالأصل؛ الحجب النهائي لا يمكن التراجع عنه داخل النسخة الناتجة. يزيل بيانات المستند الوصفية والمرفقات المضمنة من النسخة الناتجة.</p><div class="qa"><button id="secureRedactPdf" class="p" type="button">تطبيق الحجب النهائي</button></div></div>
 <div class="tsec"><h3>فتح PDF محمي</h3><p class="dshint">عند فتح ملف محمي سيطلب البرنامج كلمة المرور. لفك الحماية إلى نسخة قابلة للتحرير، تُرسل النسخة المشفرة وكلمة المرور إلى خادم الفلقي بعد موافقتك. لا يمكن تجاوز كلمة مرور مفقودة أو صلاحيات المالك.</p></div>
 <div class="tsec"><h3>تحويل PDF إلى Word مع التنسيق</h3><p class="dshint">تحويل تخطيط الصفحة والنصوص والصور إلى مستند Word قابل للتحرير. قد تختلف النتيجة عن الأصل، خصوصًا في الخطوط العربية والجداول والصفحات المصوّرة. الحد الحالي 20 صفحة.</p><div class="qa"><button id="pdfToDocxLayout" class="p" type="button">تحويل PDF إلى Word بالتنسيق</button></div></div>
+<div class="tsec"><h3>مقارنة ملفين PDF</h3><p class="dshint">قارن الملف المفتوح بملف آخر لاكتشاف النص المضاف والمحذوف والصفحات وأبعادها. تتم المقارنة على الخادم بعد موافقتك؛ لا تكشف هذه النسخة التغييرات البصرية داخل الصور.</p><div class="qa"><button id="comparePdf" type="button">اختيار ملف للمقارنة</button><input id="comparePdfFile" class="native-picker" type="file" accept="application/pdf,.pdf"></div></div>
 <div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها في نسخة جديدة. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
@@ -3043,6 +3044,56 @@ async function pdfToDocxLayout(){
   finally{button.disabled=false}
 }
 $("pdfToDocxLayout").onclick=pdfToDocxLayout;
+
+const comparePicker=$("comparePdfFile");
+$("comparePdf").onclick=()=>comparePicker.click();
+comparePicker.onchange=async()=>{
+  const file=comparePicker.files&&comparePicker.files[0];
+  comparePicker.value="";
+  if(!file)return;
+  if(!pages.length)return toast("افتح ملف PDF الأصلي أولًا.");
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  const selected=pages.filter(p=>p.sel),list=selected.length?selected:pages;
+  if(list.length>30)return toast("المقارنة تدعم حتى 30 صفحة من الملف المفتوح.");
+  if(file.size>25*1024*1024)return toast("حجم الملف المختار يتجاوز 25 ميجابايت.");
+  if(!confirm("ستُرسل نسخة من الملف المفتوح والملف الذي اخترته إلى خادم الفلقي لإجراء المقارنة. لا تتابع إذا احتويا على معلومات لا ترغب بإرسالها."))return;
+  const button=$("comparePdf");button.disabled=true;
+  try{
+    toast("جارٍ تجهيز الملفين للمقارنة…");
+    const current=await buildPdf(list),form=new FormData();
+    form.append("original",new Blob([current],{type:"application/pdf"}),safeName()+"-original.pdf");
+    form.append("revised",file,file.name||"revised.pdf");
+    const response=await fetch(base+"/api/pdf/compare",{method:"POST",body:form});
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(result.detail||"تعذّرت مقارنة الملفين.");
+    const lines=[
+      "نتيجة المقارنة",
+      "صفحات الملف الأصلي: "+result.original_page_count,
+      "صفحات الملف المعدّل: "+result.revised_page_count,
+      "الصفحات المتغيرة: "+result.changed_pages,
+      "الصفحات المتطابقة: "+result.same_pages,
+      ""
+    ];
+    for(const page of result.pages||[]){
+      lines.push("الصفحة "+page.page+" — "+(page.status==="same"?"دون تغيير":page.status==="added"?"صفحة مضافة":page.status==="removed"?"صفحة محذوفة":"يوجد تغيير"));
+      const diff=page.text||{};
+      for(const value of (diff.added_lines||[]).slice(0,12))lines.push("  + "+value);
+      for(const value of (diff.removed_lines||[]).slice(0,12))lines.push("  − "+value);
+      if(page.geometry_changed)lines.push("  • تغيرت أبعاد الصفحة");
+    }
+    lines.push("","حدود المقارنة: النص القابل للاستخراج وأبعاد الصفحات فقط؛ لا تشمل التغييرات البصرية في الصور أو المسح الضوئي.");
+    const layer=document.createElement("div");
+    layer.style.cssText="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:14px";
+    const panel=document.createElement("section");
+    panel.style.cssText="width:min(720px,100%);max-height:85vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;direction:rtl";
+    const heading=document.createElement("h2");heading.textContent="تقرير مقارنة PDF";
+    const pre=document.createElement("pre");pre.textContent=lines.join("\\n");pre.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.8 system-ui;max-height:65vh;overflow:auto";
+    const close=document.createElement("button");close.textContent="إغلاق";close.className="p";close.onclick=()=>layer.remove();
+    panel.append(heading,pre,close);layer.append(panel);document.body.append(layer);
+    toast("اكتملت مقارنة الملفين.");
+  }catch(error){console.error(error);toast(error.message||"فشلت مقارنة الملفين.");}
+  finally{button.disabled=false}
+};
 
 let pdfImageItems=[];
 function renderPdfImageItems(){
