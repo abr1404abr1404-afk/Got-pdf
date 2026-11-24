@@ -1,7 +1,8 @@
 /* Alfalqi PDF app-shell service worker.
-   Never cache API responses, OAuth tokens, user documents, or Drive content. */
+   Cache public UI fonts for offline use; never cache API responses, OAuth tokens,
+   user documents, or Drive content. */
 const CACHE_PREFIX = "alfalqi-pdf-";
-const CACHE_VERSION = "shell-v1";
+const CACHE_VERSION = "shell-v2";
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 const APP_SHELL = [
   "./",
