@@ -53,3 +53,81 @@ def validate_pixel_dimensions(width: int, height: int, max_pixels: int) -> int:
     if pixels > max_pixels:
         raise ValueError("image exceeds the configured pixel limit")
     return pixels
+
+
+
+class RequestBodyTooLarge(Exception):
+    """Raised when an HTTP request body exceeds the configured byte limit."""
+
+
+class RequestBodyLimitMiddleware:
+    """Bound the complete ASGI request body, including chunked multipart uploads.
+
+    UploadFile limits checked inside route handlers are too late to protect the
+    multipart parser itself. This middleware rejects oversized Content-Length
+    values early and also counts streamed chunks when the header is absent or
+    inaccurate. It does not buffer request bodies.
+    """
+
+    def __init__(self, app, max_body_bytes: int) -> None:
+        if max_body_bytes < 1:
+            raise ValueError("max_body_bytes must be positive")
+        self.app = app
+        self.max_body_bytes = int(max_body_bytes)
+
+    @staticmethod
+    async def _reject(send) -> None:
+        body = b'{"detail":"حجم الطلب يتجاوز الحد المسموح."}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json; charset=utf-8"),
+                (b"content-length", str(len(body)).encode("ascii")),
+                (b"cache-control", b"no-store"),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope.get("type") != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = {
+            key.lower(): value
+            for key, value in scope.get("headers", [])
+        }
+        raw_length = headers.get(b"content-length")
+        if raw_length:
+            try:
+                declared_length = int(raw_length)
+            except (TypeError, ValueError):
+                declared_length = -1
+            if declared_length > self.max_body_bytes:
+                await self._reject(send)
+                return
+
+        received = 0
+        response_started = False
+
+        async def limited_receive():
+            nonlocal received
+            message = await receive()
+            if message.get("type") == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_body_bytes:
+                    raise RequestBodyTooLarge()
+            return message
+
+        async def tracked_send(message):
+            nonlocal response_started
+            if message.get("type") == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracked_send)
+        except RequestBodyTooLarge:
+            if not response_started:
+                await self._reject(send)
