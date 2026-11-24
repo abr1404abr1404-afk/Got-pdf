@@ -2856,8 +2856,16 @@ $("secureRedactPdf").onclick=async()=>{
   const selected=pages.some(p=>p.sel)?pages.filter(p=>p.sel):pages.slice();
   const regions=[];
   selected.forEach((pg,index)=>{
+    const x0=a=>Math.max(0,Math.min(1,a.x)), y0=a=>Math.max(0,Math.min(1,a.y));
     (pg.an||[]).filter(a=>a.t==="bk"&&a.w>0&&a.h>0).forEach(a=>{
-      regions.push({page:index+1,rect:[a.x,a.y,a.x+a.w,a.y+a.h]});
+      const left=x0(a),top=y0(a),right=Math.max(0,Math.min(1,a.x+a.w)),bottom=Math.max(0,Math.min(1,a.y+a.h));
+      const rotation=((pg.nat||0)+(pg.rot||0))%360;
+      let rect;
+      if(rotation===90)rect=[top,1-right,bottom,1-left];
+      else if(rotation===180)rect=[1-right,1-bottom,1-left,1-top];
+      else if(rotation===270)rect=[1-bottom,left,1-top,right];
+      else rect=[left,top,right,bottom];
+      regions.push({page:index+1,rect});
     });
   });
   if(!regions.length)return toast("ارسم مستطيلًا واحدًا على الأقل بأداة «حجب بصري» فوق البيانات المراد إزالتها.");
