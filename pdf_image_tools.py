@@ -103,8 +103,8 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
             if target_key in seen_targets:
                 raise ValueError("عدّل موضع صورة واحد من كل مجموعة صور متطابقة في الطلب الواحد.")
             seen_targets.add(target_key)
-            if action not in {"delete", "resize", "move"}:
-                raise ValueError("العمليات المدعومة هي الحذف أو تغيير الحجم أو النقل.")
+            if action not in {"delete", "resize", "move", "rotate"}:
+                raise ValueError("العمليات المدعومة هي الحذف أو تغيير الحجم أو النقل أو التدوير.")
             if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
                 raise ValueError("إحداثيات الصورة غير صالحة.")
             if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
@@ -126,7 +126,7 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                 raise ValueError("موضع الصورة تغيّر؛ أعد تحليل الصور ثم حاول مجددًا.")
             image_bytes = b""
             replacement_rect = None
-            if action in {"resize", "move"}:
+            if action in {"resize", "move", "rotate"}:
                 image_bytes = doc.extract_image(xref).get("image", b"")
                 if not image_bytes:
                     raise ValueError("تعذّر استخراج بيانات الصورة الأصلية.")
@@ -140,11 +140,16 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                         center.x - width / 2, center.y - height / 2,
                         center.x + width / 2, center.y + height / 2,
                     )
-                else:
+                elif action == "move":
                     dx, dy = float(operation.get("dx", 0)), float(operation.get("dy", 0))
                     if not math.isfinite(dx) or not math.isfinite(dy) or abs(dx) > 500 or abs(dy) > 500:
                         raise ValueError("إزاحة الصورة يجب أن تكون بين -500 و500 نقطة.")
                     replacement_rect = original + (dx, dy, dx, dy)
+                else:
+                    rotation = operation.get("rotation")
+                    if isinstance(rotation, bool) or rotation not in {90, 180, 270}:
+                        raise ValueError("زاوية تدوير الصورة يجب أن تكون 90 أو 180 أو 270 درجة.")
+                    replacement_rect = pymupdf.Rect(original)
                 if not page_rect.contains(replacement_rect):
                     raise ValueError("الموضع أو الحجم الجديد يتجاوز حدود الصفحة.")
             # Redaction changes page content, so refuse all existing overlaps rather
@@ -183,7 +188,10 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
             page.add_redact_annot(original, fill=None, cross_out=False)
             page.apply_redactions(images=2, graphics=0, text=0)
             if replacement_rect is not None:
-                page.insert_image(replacement_rect, stream=image_bytes, keep_proportion=True)
+                insert_options = {"stream": image_bytes, "keep_proportion": True}
+                if action == "rotate":
+                    insert_options["rotate"] = int(operation["rotation"])
+                page.insert_image(replacement_rect, **insert_options)
         output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء PDF المعدّل.")
