@@ -417,9 +417,9 @@ label.btn{position:relative}
 </div></div>
 <div id="rdm"><div class="bx" role="dialog" aria-label="الملف جاهز"><h2>الملف جاهز ✔</h2><p id="rdn"></p><div class="rdb"><button id="rds" class="p">مشاركة / حفظ في «الملفات»</button><a id="rdd" class="rda p" href="#" download>تنزيل الملف</a><a id="rdo" class="rda" href="#" target="_blank" rel="noopener">فتح الملف</a><button id="rdx">إغلاق</button></div></div></div>
 <div id="hlp"><div class="bx" role="dialog" aria-label="دليل الاستخدام"><h2>دليل سريع</h2><ul class="hl"><li><b>فتح:</b> ملف PDF واحد أو عدة ملفات تُدمج. <b>صورة:</b> تحويل الصور إلى PDF بحجم الصفحة الذي تختاره.</li><li><b>تعديل النص:</b> فعّله ثم اضغط أي سطر في الملف. الضغط على النص المضاف يحدّده، والسحب يحرّكه، والضغط مرة ثانية يفتح الكتابة. الضغط بعيدًا ينهي التعديل.</li><li><b>شريط النص:</b> ✥ للنقل، A−/A+ للحجم، B للعريض، «Aa» للخطوط والألوان وتكرار النص ونسخه.</li><li><b>تعليق:</b> تظليل وقلم وحجب بصري. المربع الأسود وحده لا يزيل الأصل؛ لتطبيق الحجب الدائم استخدم «أدوات ← حجب آمن نهائي» بعد مراجعة المستطيلات والموافقة على إرسال نسخة الملف للخادم.</li><li><b>بحث:</b> يبحث محليًا في النص القابل للتحديد أو نص OCR، والصفحات المصوّرة تحتاج تحليل OCR أولًا.</li><li><b>باركود:</b> رمز QR أو Code128 على الصفحة أو على كل الصفحات.</li><li><b>مساعد AI:</b> يجيب عن أسئلتك من نص المستند بعد موافقتك على إرسال النص المستخرج فقط إلى خدمة الذكاء الاصطناعي.</li><li><b>ضغط PDF:</b> ينشئ نسخة محسّنة مع الحفاظ على النص والصفحات قدر الإمكان.</li><li><b>دمج / تقسيم / أدوات:</b> ترتيب الملفات، التقسيم بالنطاق، علامة مائية، خصائص الملف.</li><li><b>القرص بإصبعين:</b> يكبّر الملف فقط. <b>تراجع / إعادة:</b> من الشريط العلوي أو Ctrl+Z / Ctrl+Y.</li><li>تتم معالجة ملفات PDF محليًا في المتصفح. عند تفعيل خادم OCR، تُرسل الصفحة المراد تحليلها إلى خادم الخدمة؛ لا ترسل مستندات حساسة إلى خادم لا تثق به.</li><li><b>على iPhone:</b> إذا لم يستجب اختيار الملف داخل معاينة التطبيق، افتح ملف HTML في Safari ثم اختر «فتح PDF» أو «صورة→PDF». تأكد من اكتمال تنزيل الملف قبل اختياره.</li><li><b>اقتراحات تطوير:</b> صور مصغّرة للصفحات، حفظ تلقائي واستعادة آخر جلسة، سجل للملفات الأخيرة، بحث داخل النص، واختصارات قابلة للتخصيص.</li></ul><div class="r"><span class="sp"></span><button id="hlx" class="p">حسنًا</button></div></div></div>
-<div id="anp"><button id="ah" class="on">تظليل</button><button id="ap">قلم حر</button><button id="ack">✓ صح</button><button id="axx">✕ خطأ</button><button id="aci">○ دائرة</button><button id="asq">□ مربع</button><button id="ab" type="button" title="حجب بصري فقط؛ لا يزيل النص الأصلي من PDF">حجب بصري</button><input id="ac" type="color" value="#ffd400" aria-label="اللون"><select id="aw" aria-label="السماكة"><option value="2">رفيع</option><option value="4" selected>متوسط</option><option value="8">عريض</option></select><button id="aq" class="p">إنهاء</button></div>
+<div id="anp"><button id="ah" class="on">تظليل</button><button id="ap">قلم حر</button><button id="ack">✓ صح</button><button id="axx">✕ خطأ</button><button id="aci">○ دائرة</button><button id="asq">□ مربع</button><button id="ab" type="button" title="حجب بصري فقط؛ لا يزيل النص الأصلي من PDF">حجب بصري</button><input id="ac" type="color" value="#ffd400" aria-label="اللون"><label class="ann-width-control" for="aw">السماكة <input id="aw" type="range" min="1" max="20" step="1" value="4" aria-label="سماكة القلم من 1 إلى 20 نقطة"><output id="awv" for="aw">4 pt</output></label><button id="aq" class="p">إنهاء</button></div>
 <div id="sg"><div class="bx" role="dialog" aria-label="التوقيع"><h2>ارسم توقيعك</h2><p>ارسم بإصبعك أو بالفأرة داخل المربع الأبيض.</p><canvas id="sgc"></canvas><div class="r"><input id="sgcol" type="color" value="#111111" aria-label="لون التوقيع"><button id="sgsv" style="display:none">استخدام المحفوظ</button><button id="sgx">مسح</button><span class="sp"></span><button id="sgn">إلغاء</button><button id="sgok" class="p">إدراج</button></div></div></div>
-<div id="pdfFillModal" class="pdf-fill-overlay" aria-hidden="true"><section class="pdf-fill-card" role="dialog" aria-modal="true" aria-labelledby="pdfFillTitle"><header><h2 id="pdfFillTitle">تعبئة نموذج PDF</h2><button id="pdfFillClose" type="button" aria-label="إغلاق">×</button></header><p id="pdfFillInfo">اكتشاف الحقول القابلة للتعبئة في الملف.</p><div id="pdfFillFields" class="pdf-fill-fields"></div><div class="pdf-fill-actions"><span id="pdfFillStatus"></span><button id="pdfFillApply" class="p" type="button">تعبئة وتطبيق</button><button id="pdfFillCancel" type="button">إغلاق</button></div></section></div>
+<div id="pdfFillModal" class="pdf-fill-overlay" aria-hidden="true"><section class="pdf-fill-card" role="dialog" aria-modal="true" aria-labelledby="pdfFillTitle"><header><h2 id="pdfFillTitle">تعبئة نموذج PDF</h2><button id="pdfFillClose" type="button" aria-label="إغلاق">×</button></header><p id="pdfFillInfo">اكتشاف الحقول القابلة للتعبئة في الملف.</p><div id="pdfFillFields" class="pdf-fill-fields"></div><div class="pdf-fill-import"><button id="pdfFillImportBtn" type="button">استيراد بيانات JSON</button><button id="pdfFillTemplateBtn" type="button">تنزيل قالب الحقول</button><input id="pdfFillImportFile" type="file" accept=".json,application/json" hidden><small>يمكنك تعبئة الحقول دفعة واحدة بملف JSON باستخدام أسماء الحقول الظاهرة.</small></div><div class="pdf-fill-actions"><span id="pdfFillStatus"></span><button id="pdfFillApply" class="p" type="button">تعبئة وتطبيق</button><button id="pdfFillCancel" type="button">إغلاق</button></div></section></div>
 <div id="toast"></div>
 <div id="pwaInstallHelp" class="pwa-help-overlay" hidden role="presentation"><section class="pwa-help-card" role="dialog" aria-modal="true" aria-labelledby="pwaHelpTitle" aria-describedby="pwaHelpText"><header><h2 id="pwaHelpTitle">تحميل تطبيق الفلقي PDF</h2><button id="pwaHelpClose" type="button" aria-label="إغلاق نافذة التعليمات">×</button></header><div id="pwaHelpText" class="pwa-help-content"></div><div class="pwa-help-actions"><button id="pwaHelpAction" type="button" class="primary" hidden>تثبيت التطبيق</button><button id="pwaHelpDone" type="button">إغلاق</button></div></section></div>
 <script src="./config.js"></script>\n<script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2708,6 +2708,29 @@ function pdfFieldKind(field){const n=field&&field.constructor&&field.constructor
 function pdfFieldAutocomplete(name){const n=(name||"").toLowerCase();if(/e.?mail|البريد/.test(n))return "email";if(/phone|mobile|tel|جوال|هاتف/.test(n))return "tel";if(/name|اسم/.test(n))return "name";if(/address|عنوان/.test(n))return "street-address";if(/city|مدينة/.test(n))return "address-level2";if(/postal|zip|رمز.?بريد/.test(n))return "postal-code";if(/company|organization|جهة|شركة/.test(n))return "organization";if(/birth|ميلاد/.test(n))return "bday";return "off"}
 function closePdfFill(){const box=$("pdfFillModal");box.classList.remove("on");box.setAttribute("aria-hidden","true");pdfFillDoc=null;pdfFillFields=[]}
 $("pdfFillClose").onclick=$("pdfFillCancel").onclick=closePdfFill;
+$("pdfFillImportBtn").onclick=()=>$("pdfFillImportFile").click();
+$("pdfFillImportFile").onchange=async e=>{
+ const file=e.target.files&&e.target.files[0];e.target.value="";if(!file)return;
+ try{
+  if(file.size>1024*1024)throw new Error("حجم ملف البيانات يتجاوز 1 ميجابايت.");
+  const data=JSON.parse(await file.text());
+  if(!data||typeof data!=="object"||Array.isArray(data))throw new Error("يجب أن يحتوي JSON على كائن بأسماء الحقول وقيمها.");
+  let matched=0;
+  for(const item of pdfFillFields){if(!Object.prototype.hasOwnProperty.call(data,item.name))continue;const value=data[item.name];
+   if(item.kind==="check")item.input.checked=value===true||value===1||["true","1","yes"].includes(String(value).toLowerCase());
+   else if(item.kind==="text")item.input.value=value==null?"":String(value);
+   else if(item.kind==="select"||item.kind==="radio"){const v=String(value??"");if([...item.input.options].some(o=>o.value===v))item.input.value=v;else continue}
+   else continue;matched++;
+  }
+  $("pdfFillStatus").textContent="تم إدخال بيانات "+matched+" حقلًا مطابقًا. راجعها قبل التطبيق.";
+ }catch(error){$("pdfFillStatus").textContent="تعذّر استيراد البيانات: "+error.message}
+};
+$("pdfFillTemplateBtn").onclick=()=>{
+ if(!pdfFillFields.length)return;
+ const template={};pdfFillFields.forEach(x=>{template[x.name]=x.kind==="check"?false:""});
+ const blob=new Blob([JSON.stringify(template,null,2)],{type:"application/json"}),url=URL.createObjectURL(blob),a=document.createElement("a");
+ a.href=url;a.download="alfalqi-pdf-form-template.json";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 $("pdfAutoFill").onclick=async()=>{
  if(!pages.length)return toast("افتح ملف PDF أولًا.");
  const selected=pages.find(p=>p.sel)||pages[0],docIndex=selected.d;
@@ -3333,7 +3356,7 @@ function annSet(m){annMode=m;document.body.classList.toggle("ann",!!m);[["ah","h
   if(m){if(addMode)$("txt").click();if(typeof editing!=="undefined"&&editing)$("edt").click();dropSel()}}
 $("ann").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");annSet(annMode?null:"hl")};
 $("ah").onclick=()=>annSet("hl");$("ap").onclick=()=>annSet("pen");$("ack").onclick=()=>annSet("ck");$("axx").onclick=()=>annSet("xx");$("aci").onclick=()=>annSet("ci");$("asq").onclick=()=>annSet("sq");$("ab").onclick=()=>{annSet("bk");toast("المربع الأسود يخفي ما تحته في الملف المنزَّل، لكن النص الأصلي يبقى داخل الملف.")};
-$("aq").onclick=()=>annSet(null);$("ac").oninput=e=>{annColor=e.target.value};$("aw").onchange=e=>{annW=+e.target.value};
+$("aq").onclick=()=>annSet(null);$("ac").oninput=e=>{annColor=e.target.value};$("aw").oninput=e=>{annW=+e.target.value;$("awv").textContent=annW+" pt"};
 // ===== دليل =====
 $("hlpb").onclick=()=>$("hlp").classList.add("on");$("hlx").onclick=()=>$("hlp").classList.remove("on");
 
