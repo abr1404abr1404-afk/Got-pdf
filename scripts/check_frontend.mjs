@@ -65,6 +65,10 @@ for (const feature of ["dsUploadResumable", "uploadType=resumable", "Content-Ran
   if (!html.includes(feature)) failures.push("Google Drive reliability feature is missing: " + feature);
 }
 
+for (const feature of ['rel="manifest"', 'apple-mobile-web-app-capable', 'pwaInstall', 'serviceWorker.register("./sw.js"', 'beforeinstallprompt']) {
+  if (!html.includes(feature)) failures.push("PWA install support is missing: " + feature);
+}
+
 
 
 if (failures.length) {
