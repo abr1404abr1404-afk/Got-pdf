@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -226,6 +226,56 @@ class PdfImageToolsTests(unittest.TestCase):
         data = doc.tobytes()
         doc.close()
         return data
+
+    def test_recolor_isolated_vector_rectangle_preserves_geometry_and_text(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((30, 30), "Keep this text")
+        page.draw_rect(pymupdf.Rect(80, 70, 150, 120), color=(1, 0, 0), fill=(0, 1, 0), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        output = recolor_isolated_pdf_vector(source, {
+            "action": "recolor", "page": 1, "object_id": target["id"],
+            "rect": target["rect"], "stroke_color": "#0000FF", "fill_color": "#FFFF00",
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            self.assertIn("Keep this text", result[0].get_text())
+            drawings = result[0].get_drawings()
+            self.assertEqual(len(drawings), 1)
+            self.assertEqual(drawings[0]["color"], (0.0, 0.0, 1.0))
+            self.assertEqual(drawings[0]["fill"], (1.0, 1.0, 0.0))
+            self.assertAlmostEqual(drawings[0]["rect"].width, 70, delta=0.2)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertEqual(original[0].get_drawings()[0]["color"], (1.0, 0.0, 0.0))
+
+    def test_recolor_vector_rejects_overlap(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((90, 90), "Overlapping")
+        page.draw_rect(pymupdf.Rect(85, 65, 175, 100), color=(1, 0, 0), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "يتداخل مع نص"):
+            recolor_isolated_pdf_vector(source, {
+                "action": "recolor", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "stroke_color": "#0000FF",
+            })
+
+    def test_recolor_vector_rejects_complex_path(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.draw_rect(pymupdf.Rect(30, 30, 80, 80), color=(1, 0, 0))
+        page.draw_rect(pymupdf.Rect(120, 30, 170, 80), color=(0, 0, 1))
+        source = doc.tobytes()
+        doc.close()
+        with pymupdf.open(stream=source, filetype="pdf") as check:
+            check[0].draw_line((50, 50), (60, 60), color=(0, 0, 0))
+            source = check.tobytes()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        # A rectangle is supported; a multi-item path is deliberately not.
+        self.assertIn("re", target["path_types"])
 
     def test_delete_isolated_vector_preserves_other_drawing_and_text(self):
         source = self.vector_source()
