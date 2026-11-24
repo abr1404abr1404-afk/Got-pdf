@@ -370,3 +370,10 @@ main { min-height: calc(100vh - 105px); }
 @media (prefers-reduced-motion: reduce) {
   #aim .bx, #cpm .bx { animation: none !important; }
 }
+
+
+/* PWA install action */
+#pwaInstall[hidden]{display:none!important}
+#pwaInstall{border-color:color-mix(in srgb,var(--acc) 42%,var(--line));color:var(--acc);font-weight:600}
+#pwaInstall:hover{background:color-mix(in srgb,var(--acc) 9%,var(--panel))}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
