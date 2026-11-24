@@ -2730,8 +2730,11 @@ async function renderPdfComparePage(pdf,pageNumber){
  await page.render({canvasContext:context,viewport}).promise;
  const image=context.getImageData(0,0,canvas.width,canvas.height);
  const content=await page.getTextContent();
- const text=content.items.map(item=>item.str||"").join(" ").replace(/\s+/g," ").trim();
- return{width:canvas.width,height:canvas.height,pixels:image.data,text};
+ const lines=[];let current="";
+ for(const item of content.items){current+=(item.str||"");if(item.hasEOL){if(current.trim())lines.push(current.trim());current=""}}
+ if(current.trim())lines.push(current.trim());
+ const text=lines.join("\\n");
+ return{width:canvas.width,height:canvas.height,pixels:image.data,text,lines};
 }
 async function compareSelectedPdfVersions(){
  const ids=[...selectedPdfCompareIds];if(ids.length!==2)return;
@@ -2761,10 +2764,12 @@ async function compareSelectedPdfVersions(){
     if(different){changed++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y)}
    }
    const textA=normalizePdfCompareText(a.text),textB=normalizePdfCompareText(b.text);
+   const linesA=new Set(a.lines.map(normalizePdfCompareText).filter(Boolean)),linesB=new Set(b.lines.map(normalizePdfCompareText).filter(Boolean));
+   const removedText=[...linesA].filter(line=>!linesB.has(line)).slice(0,6),addedText=[...linesB].filter(line=>!linesA.has(line)).slice(0,6);
    const textChanged=textA!==textB,visualPercent=changed/Math.max(1,total)*100;
    if(textChanged||visualPercent>0.15||a.width!==b.width||a.height!==b.height){
     summary.changed++;
-    summary.details.push({page:n,textChanged,visualPercent,box:maxX>=0?{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}:null,dimensions:a.width+"×"+a.height+" / "+b.width+"×"+b.height});
+    summary.details.push({page:n,textChanged,removedText,addedText,visualPercent,box:maxX>=0?{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}:null,dimensions:a.width+"×"+a.height+" / "+b.width+"×"+b.height});
    }
   }
   const heading=document.createElement("strong");heading.textContent="نتيجة المقارنة";result.append(heading);
@@ -2777,6 +2782,8 @@ async function compareSelectedPdfVersions(){
    else if(d.kind==="removed")p.textContent="صفحة "+d.page+": موجودة في النسخة الأولى وغير موجودة في الثانية.";
    else p.textContent="صفحة "+d.page+": اختلاف نصي "+(d.textChanged?"نعم":"لا")+" · فرق مرئي تقريبي "+d.visualPercent.toFixed(2)+"%"+(d.box?" · منطقة الفرق x:"+d.box.x+" y:"+d.box.y+" w:"+d.box.w+" h:"+d.box.h:"")+".";
    result.append(p);
+   if(d.removedText&&d.removedText.length){const removed=document.createElement("p");removed.className="pdf-image-meta";removed.textContent="نصوص لم تعد موجودة: "+d.removedText.join(" | ");result.append(removed)}
+   if(d.addedText&&d.addedText.length){const added=document.createElement("p");added.className="pdf-image-meta";added.textContent="نصوص أُضيفت: "+d.addedText.join(" | ");result.append(added)}
   }
   status.textContent="اكتملت المقارنة محليًا. النسبة المرئية تقريبية وقد تتأثر باختلاف الخطوط أو طريقة العرض.";
  }catch(e){status.textContent=e.message||"تعذّرت مقارنة النسختين."}
