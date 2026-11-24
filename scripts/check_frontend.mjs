@@ -94,6 +94,10 @@ if (installButtonAt < 0 || (toolbarAt >= 0 && installButtonAt > toolbarAt)) {
   failures.push("PWA install action must be placed in the primary header, outside the editing toolbar.");
 }
 
+for (const feature of ['id="ack"', 'id="axx"', 'id="aci"', 'id="asq"', 'id="pdfAutoFill"', 'id="pdfFillModal"', "function annNode", "drawEllipse", "field.setText", "pdfFieldAutocomplete"]) {
+  if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
+}
+
 for (const feature of ["pdfToDocxLayout", "pdfImageAnalyze", "pdfImageManager", "/api/pdf/unlock", "/api/convert/pdf-to-docx", "/api/pdf/images/list", "/api/pdf/images/edit", "openedPdfBytes"]) {
   if (!html.includes(feature)) failures.push("PDF password, layout conversion, or image editing UI is missing: " + feature);
 }
