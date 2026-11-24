@@ -53,7 +53,9 @@ class RedactionTests(unittest.TestCase):
             outside = pix.pixel(120, 100)
             self.assertLess(max(inside[:3]), 20)
             self.assertGreater(outside[0], outside[1] * 2)
-            self.assertFalse(any(d["rect"].intersects(pymupdf.Rect(160, 50, 250, 150))
+            vector_area = pix.pixel(200, 100)
+            self.assertLess(max(vector_area[:3]), 20)
+            self.assertFalse(any(d.get("fill") == (0.0, 0.0, 1.0)
                                  for d in page.get_drawings()))
 
     def test_redaction_regions_are_page_scoped_and_validated(self):
