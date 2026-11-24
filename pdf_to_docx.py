@@ -107,9 +107,9 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
 
         def tokens(value):
             normalized = unicodedata.normalize("NFKC", value).casefold()
-            return re.findall(r"\\w+", normalized, flags=re.UNICODE)
+            return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
-        source_tokens = tokens("\\n".join(source_parts))
+        source_tokens = tokens("\n".join(source_parts))
         output_tokens = tokens("\\n".join(output_parts))
         report["source_word_count"] = len(source_tokens)
         report["output_word_count"] = len(output_tokens)
