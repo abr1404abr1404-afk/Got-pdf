@@ -3058,7 +3058,19 @@ $("qdh").onclick=()=>addTextAtView(new Intl.DateTimeFormat("ar-SA-u-ca-islamic-u
 $("qdg").onclick=()=>addTextAtView(new Intl.DateTimeFormat("ar-SA-u-ca-gregory-nu-arab",{day:"numeric",month:"long",year:"numeric"}).format(new Date()));
 // ===== حفظ المشروع وفتحه =====
 const b64=u=>{let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
-const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
+const MAX_PROJECT_FILE_BYTES=80*1024*1024,MAX_PROJECT_DECODED_BYTES=60*1024*1024;
+function decodeProjectBase64(value,label,maxBytes=MAX_PROJECT_DECODED_BYTES){
+  if(typeof value!=="string"||!value.length||value.length>Math.ceil(maxBytes*4/3)+4||
+     !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value))
+    throw new Error("بيانات "+label+" غير صالحة أو تتجاوز الحد المسموح.");
+  let raw;try{raw=atob(value)}catch(error){throw new Error("تعذّر فك بيانات "+label+".")}
+  if(raw.length>maxBytes)throw new Error("حجم "+label+" يتجاوز الحد الآمن.");
+  return Uint8Array.from(raw,c=>c.charCodeAt(0));
+}
+const unb64=t=>decodeProjectBase64(t,"الصورة",20*1024*1024);
+const projectObject=value=>value&&typeof value==="object"&&!Array.isArray(value);
+const projectFinite=value=>typeof value==="number"&&Number.isFinite(value);
+
 $("prs").onclick=async()=>{if(!pages.length)return toast("افتح ملفًا أولًا.");
   if($("ocrReview").classList.contains("on")&&!ocrReviewSaveCurrent())return;
   try{toast("جارٍ تجهيز المشروع…");
@@ -3066,14 +3078,101 @@ $("prs").onclick=async()=>{if(!pages.length)return toast("افتح ملفًا أ
     const bytes=new TextEncoder().encode(JSON.stringify(data));$("tlm").classList.remove("on");
     await saveFile((safeName()||"project")+".afq",bytes,"application/json");$("toast").style.display="none"}
   catch(e){toast("تعذّر حفظ المشروع: "+((e&&e.message)||e))}};
-$("pro").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)return;
-  try{toast("جارٍ فتح المشروع…");const data=JSON.parse(await f.text());if(!data.docs||!data.pages)throw new Error("ملف مشروع غير صالح");
-    docs.length=0;
-    for(const d of data.docs){const bytes=unb64(d.b),pdf=await openPdfDocument(bytes);docs.push({bytes,pdf,name:d.name})}
-    pages=data.pages.map(p=>({d:p.d,i:p.i,rot:p.rot,nat:p.nat,sel:false,ov:(p.ov||[]).map(o=>o.f>=FBASE?{...o,f:AR_RE.test(o.t)?(o.af??fIdx("Noto Sans Arabic")):0}:o),an:p.an||[],ocr:Array.isArray(p.ocr)?p.ocr.map(o=>({t:String(o.t||""),c:Number(o.c)||0,x0:Number(o.x0)||0,x1:Number(o.x1)||0,y0:Number(o.y0)||0,y1:Number(o.y1)||0})):null,tables:Array.isArray(p.tables)?p.tables:[],img:(p.img||[]).map(im=>{const b=unb64(im.b);return{x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b,u:URL.createObjectURL(new Blob([b],{type:im.m}))}})}));
-    Object.assign(WM,data.WM||{});Object.assign(META,data.META||{});if(data.fn)$("fn").value=data.fn;
-    HU.length=0;HR.length=0;hLast=null;$("tlm").classList.remove("on");render();toast("تم فتح المشروع. تابع من حيث توقفت.")}
-  catch(err){toast("تعذّر فتح المشروع: "+((err&&err.message)||err))}};
+$("pro").onchange=async e=>{
+  const f=e.target.files[0];e.target.value="";if(!f)return;
+  const createdUrls=[];
+  try{
+    if(f.size>MAX_PROJECT_FILE_BYTES)throw new Error("حجم ملف المشروع يتجاوز 80 ميجابايت. احفظ نسخة أصغر أو قسّم المشروع.");
+    toast("جارٍ التحقق من ملف المشروع…");
+    const data=JSON.parse(await f.text());
+    if(!projectObject(data)||![undefined,1,2].includes(data.v)||!Array.isArray(data.docs)||!Array.isArray(data.pages))
+      throw new Error("بنية ملف المشروع غير صالحة أو إصدار غير مدعوم.");
+    if(!data.docs.length||data.docs.length>20)throw new Error("يجب أن يحتوي المشروع على ملف واحد على الأقل وبحد أقصى 20 ملفًا.");
+    if(!data.pages.length||data.pages.length>1000)throw new Error("عدد الصفحات في المشروع غير صالح أو يتجاوز الحد الآمن (1000 صفحة).");
+    if(data.WM!==undefined&&!projectObject(data.WM))throw new Error("إعدادات العلامة المائية غير صالحة.");
+    if(data.META!==undefined&&!projectObject(data.META))throw new Error("بيانات المشروع الوصفية غير صالحة.");
+    let decodedTotal=0;
+    const importedDocs=[];
+    for(let i=0;i<data.docs.length;i++){
+      const d=data.docs[i];
+      if(!projectObject(d)||typeof d.name!=="string"||d.name.length>255||typeof d.b!=="string")
+        throw new Error("بيانات الملف رقم "+(i+1)+" غير صالحة.");
+      const bytes=decodeProjectBase64(d.b,"ملف PDF رقم "+(i+1),60*1024*1024);
+      decodedTotal+=bytes.byteLength;
+      if(decodedTotal>MAX_PROJECT_DECODED_BYTES)throw new Error("إجمالي الملفات داخل المشروع يتجاوز 60 ميجابايت.");
+      if(bytes.length<5||new TextDecoder().decode(bytes.subarray(0,5))!=="%PDF-")
+        throw new Error("الملف رقم "+(i+1)+" ليس PDF صالحًا.");
+      const pdf=await openPdfDocument(bytes);
+      if(!pdf||!Number.isInteger(pdf.numPages)||pdf.numPages<1||pdf.numPages>1000)
+        throw new Error("عدد صفحات الملف رقم "+(i+1)+" غير صالح.");
+      importedDocs.push({bytes,pdf,name:d.name});
+    }
+    const checkedPages=[];
+    for(let i=0;i<data.pages.length;i++){
+      const p=data.pages[i];
+      if(!projectObject(p)||!Number.isInteger(p.d)||p.d<0||p.d>=importedDocs.length||
+         !Number.isInteger(p.i)||p.i<0||p.i>=importedDocs[p.d].pdf.numPages)
+        throw new Error("مرجع الصفحة رقم "+(i+1)+" لا يشير إلى صفحة موجودة.");
+      if((p.rot!==undefined&&(!projectFinite(p.rot)||Math.abs(p.rot)>3600))||
+         (p.nat!==undefined&&(!projectFinite(p.nat)||Math.abs(p.nat)>3600)))
+        throw new Error("زاوية تدوير الصفحة رقم "+(i+1)+" غير صالحة.");
+      const ov=p.ov??[],an=p.an??[],ocr=p.ocr??null,tables=p.tables??[],imgs=p.img??[];
+      if(!Array.isArray(ov)||ov.length>2000||!Array.isArray(an)||an.length>1000||
+         (ocr!==null&&(!Array.isArray(ocr)||ocr.length>10000))||
+         !Array.isArray(tables)||tables.length>500||!Array.isArray(imgs)||imgs.length>100)
+        throw new Error("تحتوي الصفحة رقم "+(i+1)+" على عناصر تتجاوز الحدود المسموحة.");
+      for(const item of ov)if(!projectObject(item)||typeof item.t!=="string"||item.t.length>10000)
+        throw new Error("يوجد عنصر نصي غير صالح في الصفحة رقم "+(i+1)+".");
+      for(const item of an){
+        if(!projectObject(item)||!["pn","hl","bk"].includes(item.t))
+          throw new Error("يوجد تعليق غير صالح في الصفحة رقم "+(i+1)+".");
+        if(item.t==="pn"){
+          if(!Array.isArray(item.pts)||item.pts.length<2||item.pts.length>20000||
+             item.pts.some(pt=>!Array.isArray(pt)||pt.length<2||!projectFinite(pt[0])||!projectFinite(pt[1])||pt[0]<0||pt[0]>1||pt[1]<0||pt[1]>1))
+            throw new Error("مسار القلم في الصفحة رقم "+(i+1)+" غير صالح.");
+        }else if(!["x","y","w","h"].every(k=>projectFinite(item[k]))||
+          item.x<0||item.y<0||item.x>1||item.y>1||Math.abs(item.w)>1||Math.abs(item.h)>1)
+          throw new Error("حدود التعليق في الصفحة رقم "+(i+1)+" غير صالحة.");
+      }
+      for(const line of (ocr||[]))if(!projectObject(line)||typeof line.t!=="string"||line.t.length>10000)
+        throw new Error("بيانات OCR في الصفحة رقم "+(i+1)+" غير صالحة.");
+      const safeImages=[];
+      for(const image of imgs){
+        if(!projectObject(image)||typeof image.m!=="string"||!/^image\/(png|jpeg|webp|gif)$/i.test(image.m)||
+           !["x","y","w","hh","r"].every(k=>projectFinite(image[k]))||image.w<=0||image.hh<=0||
+           typeof image.b!=="string")
+          throw new Error("صورة مضافة غير صالحة في الصفحة رقم "+(i+1)+".");
+        const bytes=decodeProjectBase64(image.b,"صورة الصفحة",20*1024*1024);
+        decodedTotal+=bytes.byteLength;
+        if(decodedTotal>MAX_PROJECT_DECODED_BYTES)throw new Error("إجمالي بيانات المشروع المفكوكة يتجاوز 60 ميجابايت.");
+        safeImages.push({...image,b:bytes});
+      }
+      checkedPages.push({p,ov,an,ocr,tables,images:safeImages});
+    }
+    const importedPages=checkedPages.map(({p,ov,an,ocr,tables,images})=>({
+      d:p.d,i:p.i,rot:p.rot??0,nat:p.nat??0,sel:false,
+      ov:ov.map(o=>o.f>=FBASE?{...o,f:AR_RE.test(o.t)?(o.af??fIdx("Noto Sans Arabic")):0}:o),
+      an,ocr:Array.isArray(ocr)?ocr.map(o=>({t:String(o.t||""),c:Number(o.c)||0,x0:Number(o.x0)||0,x1:Number(o.x1)||0,y0:Number(o.y0)||0,y1:Number(o.y1)||0})):null,
+      tables,
+      img:images.map(im=>{
+        const url=URL.createObjectURL(new Blob([im.b],{type:im.m}));createdUrls.push(url);
+        return{x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b:im.b,u:url};
+      })
+    }));
+    // Replace the open session only after every PDF, page reference, and embedded image passed validation.
+    const previousUrls=pages.flatMap(p=>(p.img||[]).map(im=>im.u).filter(Boolean));
+    docs.splice(0,docs.length,...importedDocs);
+    pages=importedPages;
+    Object.assign(WM,data.WM||{});Object.assign(META,data.META||{});
+    if(typeof data.fn==="string")$("fn").value=data.fn.slice(0,255);
+    HU.length=0;HR.length=0;hLast=null;$("tlm").classList.remove("on");
+    previousUrls.forEach(url=>{try{URL.revokeObjectURL(url)}catch(error){}});
+    render();toast("تم فتح المشروع بعد التحقق من سلامة ملفاته. تابع من حيث توقفت.");
+  }catch(err){
+    createdUrls.forEach(url=>{try{URL.revokeObjectURL(url)}catch(error){}});
+    toast("تعذّر فتح المشروع؛ بقي الملف المفتوح كما هو. "+((err&&err.message)||err));
+  }
+};
 
 $("ocb").onclick=()=>$("ocm").classList.add("on");
 $("ocx").onclick=()=>$("ocm").classList.remove("on");
