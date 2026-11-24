@@ -1,6 +1,10 @@
 import unittest
 
-from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from request_limits import (
+    RequestBodyLimitMiddleware,
+    SlidingWindowRateLimiter,
+    validate_pixel_dimensions,
+)
 
 
 class SlidingWindowRateLimiterTests(unittest.TestCase):
