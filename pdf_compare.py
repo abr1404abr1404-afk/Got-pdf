@@ -10,6 +10,7 @@ from PIL import Image, ImageChops
 
 MAX_COMPARE_PAGES = 30
 MAX_TEXT_CHARS_PER_PAGE = 100_000
+MAX_LINES_PER_PAGE = 3_000
 MAX_DIFF_LINES = 80
 MAX_VISUAL_PIXELS = 1_500_000
 VISUAL_CHANGE_THRESHOLD = 24
@@ -38,9 +39,11 @@ def _page_text(page) -> str:
 
 
 def _line_diff(before: str, after: str) -> dict[str, Any]:
-    old_lines = before.splitlines()
-    new_lines = after.splitlines()
-    matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines, autojunk=False)
+    old_all = before.splitlines()
+    new_all = after.splitlines()
+    old_lines = old_all[:MAX_LINES_PER_PAGE]
+    new_lines = new_all[:MAX_LINES_PER_PAGE]
+    matcher = difflib.SequenceMatcher(a=old_lines, b=new_lines)
     added: list[str] = []
     removed: list[str] = []
     changed_blocks = 0
@@ -58,7 +61,16 @@ def _line_diff(before: str, after: str) -> dict[str, Any]:
         "added_count": len(added),
         "removed_count": len(removed),
         "changed_blocks": changed_blocks,
-        "truncated": len(added) > MAX_DIFF_LINES or len(removed) > MAX_DIFF_LINES,
+        "truncated": (
+            len(added) > MAX_DIFF_LINES
+            or len(removed) > MAX_DIFF_LINES
+            or len(old_all) > MAX_LINES_PER_PAGE
+            or len(new_all) > MAX_LINES_PER_PAGE
+        ),
+        "compared_original_lines": len(old_lines),
+        "compared_revised_lines": len(new_lines),
+        "original_lines_truncated": len(old_all) > MAX_LINES_PER_PAGE,
+        "revised_lines_truncated": len(new_all) > MAX_LINES_PER_PAGE,
     }
 
 
