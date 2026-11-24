@@ -77,6 +77,24 @@ class RedactionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _parse_regions({"regions": []}, 1)
 
+    def test_redaction_strips_metadata_and_embedded_attachments(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((40, 80), "PUBLIC")
+        doc.set_metadata({"title": "Private document title", "author": "Private author"})
+        doc.set_xml_metadata("<x:xmpmeta xmlns:x='adobe:ns:meta/'/>")
+        doc.embfile_add("private.txt", b"embedded private payload")
+        source = doc.tobytes()
+        doc.close()
+
+        result = redact_pdf_bytes(source, {
+            "regions": [{"page": 1, "rect": [0.01, 0.01, 0.1, 0.1]}]
+        })
+        with pymupdf.open(stream=result, filetype="pdf") as output:
+            self.assertFalse(any(output.metadata.values()))
+            self.assertEqual(output.get_xml_metadata(), "")
+            self.assertEqual(output.embfile_names(), [])
+
     def test_invalid_pdf_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "ليس PDF"):
             redact_pdf_bytes(b"not a pdf", {"regions": [{"page": 1, "rect": [0, 0, 1, 1]}]})
