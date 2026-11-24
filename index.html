@@ -3159,7 +3159,13 @@ async function inspectPdfObjects(){
       const detail=document.createElement("p");detail.className="dshint";
       const r=item.rect||[];const box=r.length===4?"الموقع: "+r.map(v=>Math.round(v*1000)/10+"%").join("، "):"";
       const extra=item.type==="text"?(item.text||""):(item.type==="image"?(item.width||0)+"×"+(item.height||0)+" px":(item.subtype||""));
-      detail.textContent=[extra,box].filter(Boolean).join(" · ");
+      const style=item.type==="text"?[
+        item.font||"",
+        item.font_size?item.font_size+" pt":"",
+        item.color||"",
+        item.writing_direction?(item.writing_direction[0]<0?"اتجاه الكتابة RTL":"اتجاه الكتابة LTR"):""
+      ].filter(Boolean).join(" · "):"";
+      detail.textContent=[extra,style,box].filter(Boolean).join(" · ");
       card.append(heading,detail);
       if(item.type==="vector"){
         const remove=document.createElement("button");remove.type="button";remove.textContent="حذف هذا الرسم من نسخة جديدة";
