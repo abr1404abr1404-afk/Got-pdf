@@ -57,6 +57,10 @@ for (const feature of ["ocrReviewPrev", "ocrReviewNext", "ocrReviewCounter", "oc
   if (!html.includes(feature)) failures.push("Multi-page OCR review feature is missing: " + feature);
 }
 
+for (const feature of ['id="exportDocx"', 'id="exportXlsx"', '/api/export/docx', '/api/export/xlsx', 'لن يُرسل ملف PDF الأصلي']) {
+  if (!html.includes(feature)) failures.push("Word/Excel export actions are missing: " + feature);
+}
+
 for (const feature of ['id="pdfSearchBtn"', 'id="pdfSearchInput"', 'runPdfSearch()', 'getTextContent()', 'لا يرسل ملفاتك إلى الخادم']) {
   if (!html.includes(feature)) failures.push("Local PDF text search is missing: " + feature);
 }
