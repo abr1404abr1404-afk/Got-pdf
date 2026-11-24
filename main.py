@@ -59,8 +59,13 @@ class AssistantRequest(BaseModel):
 class ExtractRequest(BaseModel):
     document_text: str = Field(..., min_length=1, max_length=45000)
 
+class ExportPage(BaseModel):
+    page: int = Field(..., ge=1, le=100000)
+    text: str = Field(..., max_length=200000)
+
+
 class ExportRequest(BaseModel):
-    pages: list[dict[str, Any]] = Field(..., min_length=1, max_length=100)
+    pages: list[ExportPage] = Field(..., min_length=1, max_length=100)
 
 
 
@@ -661,7 +666,7 @@ async def export_docx(payload: ExportRequest, request: Request):
     """Create an editable Word document from text explicitly sent by the browser."""
     _guard_expensive_request(request, "document-export", client_limit=6, global_limit=20)
     try:
-        output = await _run_cpu(create_docx, payload.pages)
+        output = await _run_cpu(create_docx, [page.model_dump() for page in payload.pages])
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     if len(output) > 20 * 1024 * 1024:
@@ -678,7 +683,7 @@ async def export_xlsx(payload: ExportRequest, request: Request):
     """Create an Excel workbook with page and line references."""
     _guard_expensive_request(request, "document-export", client_limit=6, global_limit=20)
     try:
-        output = await _run_cpu(create_xlsx, payload.pages)
+        output = await _run_cpu(create_xlsx, [page.model_dump() for page in payload.pages])
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     if len(output) > 20 * 1024 * 1024:
