@@ -7,7 +7,7 @@ The optional PDF version history uses browser IndexedDB under `alfalqi-pdf-versi
 - Automatic capture is off until the user accepts an explicit consent prompt. The consent explains that opened source PDFs and generated PDF outputs may be stored locally.
 - The user can turn automatic capture off or on from the version-history dialog.
 - A manual snapshot can be created from the current workspace even when automatic capture is off.
-- Users can inspect the list, delete individual entries, save a snapshot of the current workspace, and restore a selected version.
+- Users can inspect the list, download a backup copy, delete individual entries, save a snapshot of the current workspace, and restore a selected version.
 - Before restoring a version, the current workspace is rendered to a PDF and added to the history so the pre-restore state remains recoverable.
 - Each item records its filename, timestamp, byte size, and PDF bytes.
 
