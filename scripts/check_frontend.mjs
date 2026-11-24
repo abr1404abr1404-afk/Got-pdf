@@ -107,8 +107,8 @@ for (const feature of [
   'restorePdfVersion(id)',
   'downloadPdfVersion(id)',
   'تنزيل نسخة احتياطية',
-  'size>100*1024*1024',
-  'keep.length<5',
+  'size>limit',
+  'keep=rows.slice(0,4)',
   'لن تُرفع هذه النسخ إلى الخادم'
 ]) {
   if (!html.includes(feature)) failures.push("Local PDF version history is missing: " + feature);
