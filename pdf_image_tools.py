@@ -664,9 +664,17 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
                     value = str(span.get("text", "")).strip()
                     if value:
                         after.append(value)
-        from collections import Counter
-        if Counter(after) != Counter(expected + [replacement]):
-            raise ValueError("تعذّر التحقق من النص العربي الناتج؛ أُلغي التعديل.")
+        def normalized(value):
+            import unicodedata
+            value = unicodedata.normalize("NFKC", value)
+            value = value.replace("\\u200e", "").replace("\\u200f", "")
+            return " ".join(value.split()).strip()
+        extracted = normalized(" ".join(after))
+        if not normalized(replacement) or normalized(replacement) not in extracted:
+            raise ValueError("تعذّر التحقق من وجود النص العربي البديل بعد التشكيل؛ أُلغي التعديل.")
+        for neighbor in expected:
+            if normalized(neighbor) and normalized(neighbor) not in extracted:
+                raise ValueError("تغيّر نص مجاور أثناء الاستبدال؛ أُلغي التعديل.")
         output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
