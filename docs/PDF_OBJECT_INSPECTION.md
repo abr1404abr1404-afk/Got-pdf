@@ -34,3 +34,8 @@ The response includes page count, object count, per-type counts, objects, and wa
 ## Safe isolated text deletion
 
 The object editor also supports deleting one short text span (up to 240 characters) when it is isolated from all other text spans, raster images, vector drawings, and annotations. The client submits the inspection ID, normalized rectangle, and SHA-256 text fingerprint. The server revalidates all three against the uploaded PDF, applies a text-only redaction, then compares the remaining extracted text spans with the expected sequence. If any neighboring text changes, the operation is rejected and no output is returned. This is deletion only; replacement, reflow, and exact font-preserving text editing are not yet supported. Flattened/scanned text is not editable as a text object.
+
+
+## Limited Latin text replacement
+
+A first replacement milestone supports one isolated, horizontal Latin text span at a time. The server verifies the span ID, SHA-256 fingerprint, normalized bounds, and absence of intersections with other text, images, vector drawings, or annotations. It retains the original baseline, approximate font size, color, and the embedded font when extractable; otherwise only common Base-14 font families are accepted. Replacement text must fit within the original span width. Arabic, bidirectional text, complex scripts, reflow, and exact font/layout preservation are deliberately rejected in this milestone pending dedicated shaping and rendering tests. The original PDF remains unchanged.
