@@ -17,10 +17,12 @@ Coordinates are normalized to the page rectangle (0–1), so a client can map an
 - Inventory is capped at 500 objects per request.
 - Text previews are capped at 240 characters per span.
 - Overlap warnings identify raster images intersecting text spans or other raster images. These are review hints, not proof that editing will damage content.
-- The endpoint does not modify the source PDF.
-- The existing raster-image edit endpoint remains limited to embedded raster images. It does not edit text spans, vector paths, fonts, or page backgrounds as independent objects.
+- The inspection endpoint does not modify the source PDF.
+- `POST /api/pdf/objects/edit` currently supports deleting isolated vector drawings only. It creates a new PDF copy; the input bytes remain unchanged.
+- A vector deletion is rejected if its bounding box intersects any text span, raster image, or other vector drawing. This conservative check can reject some safe edits, but avoids knowingly deleting overlapping content.
+- The raster-image edit endpoint remains separate and limited to embedded raster images. Text spans, fonts, and page backgrounds are not independently editable yet.
 
-## Known limitations
+## First editable object operation\n\nThe object inspector UI offers a delete action for vector drawings. The server rechecks the object ID and normalized bounding box against the submitted PDF, rejects stale selections, validates all operations before applying any, and returns a new PDF. It does not support vector recoloring, path reshaping, text replacement, or annotation editing yet. Object IDs are request-local; re-run inspection after every edit.\n\n## Known limitations
 
 Some PDFs flatten text, diagrams, and images into one page-sized image. Such content cannot be separated reliably into its original objects. Complex clipping masks, transparency groups, patterns, form XObjects, and unusual PDF structures may also require specialized handling. The inventory is an aid for selection and review, not a complete semantic interpretation of every PDF operator.
 
