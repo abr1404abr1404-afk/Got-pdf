@@ -117,8 +117,8 @@ if (versionModalAt < 0 || nextModalAt < 0) {
   failures.push("PDF version history dialog is missing or misplaced.");
 } else {
   const modalMarkup = html.slice(versionModalAt, nextModalAt);
-  const openDivs = (modalMarkup.match(/<div\\b/gi) || []).length;
-  const closeDivs = (modalMarkup.match(/<\\/div\\s*>/gi) || []).length;
+  const openDivs = (modalMarkup.match(/<div\b/gi) || []).length;
+  const closeDivs = (modalMarkup.match(/<\/div\s*>/gi) || []).length;
   if (openDivs !== closeDivs) failures.push("PDF version history dialog has unbalanced div elements.");
 }
 
