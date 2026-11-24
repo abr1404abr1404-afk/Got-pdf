@@ -701,7 +701,7 @@ async def pdf_objects_inspect(request: Request, file: UploadFile = File(...)):
 
 @app.post("/api/pdf/objects/edit")
 async def pdf_objects_edit(request: Request, file: UploadFile = File(...), operations: str = Form(...)):
-    """Delete isolated vector drawings or a single isolated text span from a new PDF copy."""
+    """Apply validated isolated PDF text/vector edits and return a new copy."""
     _guard_expensive_request(request, "pdf-object-edit", client_limit=3, global_limit=8)
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
