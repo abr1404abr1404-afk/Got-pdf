@@ -98,6 +98,30 @@ for (const feature of ['id="dshare" class="hb share-action"', 'مشاركة PDF'
   if (!html.includes(feature)) failures.push("PDF sharing styling or two-second tool hints are missing: " + feature);
 }
 
+for (const feature of [
+  'id="pdfVersionModal"',
+  'id="pdfVersionSnapshot"',
+  'id="pdfVersionAutoToggle"',
+  'indexedDB.open("alfalqi-pdf-versions",1)',
+  'requestPdfHistoryConsent()',
+  'restorePdfVersion(id)',
+  'MAX_BYTES=100*1024*1024',
+  'keep.length<5',
+  'لن تُرفع هذه النسخ إلى الخادم'
+]) {
+  if (!html.includes(feature)) failures.push("Local PDF version history is missing: " + feature);
+}
+const versionModalAt = html.indexOf('<div id="pdfVersionModal"');
+const nextModalAt = html.indexOf('<div id="pdfObjectInspector"', versionModalAt);
+if (versionModalAt < 0 || nextModalAt < 0) {
+  failures.push("PDF version history dialog is missing or misplaced.");
+} else {
+  const modalMarkup = html.slice(versionModalAt, nextModalAt);
+  const openDivs = (modalMarkup.match(/<div\\b/gi) || []).length;
+  const closeDivs = (modalMarkup.match(/<\\/div\\s*>/gi) || []).length;
+  if (openDivs !== closeDivs) failures.push("PDF version history dialog has unbalanced div elements.");
+}
+
 for (const feature of ['id="ann" type="button" title="يفتح لوحة مستقلة للرموز والعلامات والقلم، ثم اختر الأداة المطلوبة"', 'id="annToolsClose"', 'id="toolHint"', 'role="toolbar" aria-label="لوحة الرموز والعلامات والقلم"', 'body.ann-tools-open #anp{display:flex}', 'const menuHelp=new Map(MENU.map', 'showToolHint(description)', 'id="ack"', 'id="axx"', 'id="aci"', 'id="acif"', 'id="asq"', 'id="asqf"', 'id="pdfAutoFill"', 'id="pdfFillModal"', 'id="aw"', 'id="awv"', 'id="pdfFillImportBtn"', 'id="pdfFillTemplateBtn"', "function annNode", "drawEllipse", "field.setText", "pdfFieldAutocomplete", "JSON.parse(await file.text())"]) {
   if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
 }
