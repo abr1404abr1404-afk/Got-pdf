@@ -33,3 +33,11 @@ The optional PDF version history uses browser IndexedDB under `alfalqi-pdf-versi
 - The history is a bounded snapshot list, not a full keystroke-level undo log or cloud backup.
 - Restoring replaces the current in-memory workspace after confirmation; it does not overwrite the saved history item or the original file.
 - Automatic capture is consent-based; manually saving a snapshot is an explicit user action.
+
+## Compare two saved versions
+
+- The history dialog lets the user select exactly two local versions and compare them without uploading either PDF.
+- PDF.js extracts text and renders page previews in the browser. The comparison is limited to 30 pages per version and caps each rendered page at 1.5 million pixels.
+- Both versions of each page are rendered at a shared scale, so different page dimensions do not create an avoidable scale mismatch.
+- The report shows added/removed pages, approximate visual difference percentage and bounding region, a pair of visual crops for changed areas, and up to six added/removed text lines.
+- Text extraction and rendering depend on PDF.js and available browser fonts. The visual score is approximate; font substitution, scanned pages, rotation, annotations, and content that is not represented in the PDF text layer can affect interpretation. It is a review aid, not a legal or forensic guarantee.
