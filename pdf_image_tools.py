@@ -552,7 +552,9 @@ def replace_isolated_latin_pdf_text(data: bytes, operation: dict[str, Any]) -> b
                     if value:
                         after.append(value)
         from collections import Counter
-        if Counter(after) != Counter(expected + [replacement]):
+        import unicodedata
+        normalize_text = lambda value: unicodedata.normalize("NFKC", value).replace("\u200e", "").replace("\u200f", "").strip()
+        if Counter(normalize_text(value) for value in after) != Counter(normalize_text(value) for value in expected + [replacement]):
             raise ValueError("تعذّر التحقق من النص الناتج؛ أُلغي التعديل.")
         output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
