@@ -67,8 +67,8 @@ class PdfCompareTests(unittest.TestCase):
 
 
     def test_line_diff_caps_extreme_line_counts(self):
-        source = "\\n".join(f"line-{index}" for index in range(MAX_LINES_PER_PAGE + 100))
-        result = _line_diff(source, source + "\\nextra")
+        source = "\n".join(f"line-{index}" for index in range(MAX_LINES_PER_PAGE + 100))
+        result = _line_diff(source, source + "\nextra")
 
         self.assertTrue(result["truncated"])
         self.assertEqual(result["compared_original_lines"], MAX_LINES_PER_PAGE)
