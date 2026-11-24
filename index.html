@@ -318,7 +318,7 @@ label.btn{position:relative}
 .scan-review-overlay{position:fixed;inset:0;z-index:10060;background:rgba(5,12,22,.82);display:flex;align-items:center;justify-content:center;padding:12px;direction:rtl}.scan-review-box{width:min(760px,100%);max-height:94dvh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 24px 80px rgba(0,0,0,.4)}.scan-review-box>header,.scan-review-box>footer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.scan-review-box>header small{display:block;color:var(--mut);font-size:.85rem;margin-top:3px}.scan-review-box>p{color:var(--mut);font-size:.9rem}.scan-review-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.scan-review-item{min-width:0;border:1px solid var(--line);border-radius:12px;padding:9px;background:var(--bg);display:flex;flex-direction:column;gap:8px}.scan-review-item img{width:100%;height:190px;object-fit:contain;background:#20242a;border-radius:8px}.scan-review-meta{display:flex;flex-direction:column;gap:8px}.scan-review-actions{display:flex;gap:5px;flex-wrap:wrap}.scan-review-actions button,.scan-review-box button{padding:7px 10px}.scan-review-actions button:last-child{color:#c33}.scan-review-box>footer{justify-content:flex-end;margin-top:14px}.scan-review-box button.primary{background:var(--acc);color:var(--accfg);border-color:var(--acc)}.scan-review-box button:disabled{opacity:.4;cursor:not-allowed}.scan-review-empty{grid-column:1/-1;text-align:center;color:var(--mut);padding:24px}@media(max-width:520px){.scan-review-box{padding:12px}.scan-review-list{grid-template-columns:repeat(2,minmax(0,1fr))}.scan-review-item img{height:145px}.scan-review-actions button{flex:1 1 38%}}
 
 /* OCR text review */
-#ocrReview{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}#ocrReview.on{display:flex}#ocrReview .ocrbox{background:var(--panel);color:var(--ink);width:min(100%,760px);max-height:92vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}#ocrReview h2{margin:0 0 6px;font-size:1.1rem}#ocrReview p{margin:0 0 10px;color:var(--mut);font-size:.9rem;line-height:1.7}#ocrReview textarea{display:block;width:100%;min-height:48vh;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);color:var(--ink);font:16px/1.9 "IBM Plex Sans Arabic",sans-serif;direction:auto;unicode-bidi:plaintext}#ocrReview .ocr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}#ocrReview .ocr-note{font-size:.82rem;color:var(--mut);margin-top:8px}
+#ocrReview{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}#ocrReview.on{display:flex}#ocrReview .ocrbox{background:var(--panel);color:var(--ink);width:min(100%,760px);max-height:92vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}#ocrReview h2{margin:0 0 6px;font-size:1.1rem}#ocrReview p{margin:0 0 10px;color:var(--mut);font-size:.9rem;line-height:1.7}#ocrReview textarea{display:block;width:100%;min-height:48vh;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);color:var(--ink);font:16px/1.9 "IBM Plex Sans Arabic",sans-serif;direction:auto;unicode-bidi:plaintext} #ocrReview .ocr-multipage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}#ocrReview .ocr-multipage strong{font-size:.9rem}#ocrReview .ocr-multipage .sp{flex:1}#ocrReview .ocr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}#ocrReview .ocr-note{font-size:.82rem;color:var(--mut);margin-top:8px}
 </style>
   <link rel="stylesheet" href="./experience.css">
 </head>
@@ -355,7 +355,7 @@ label.btn{position:relative}
 <label class="opt"><input type="radio" name="spmode" value="ranges"> نطاقات مخصّصة <input id="spr" type="text" dir="ltr" placeholder="1-3, 4, 5-8"></label>
 <div class="r"><button id="spx">إلغاء</button><span class="sp"></span><button id="spok" class="p">تقسيم وتنزيل ZIP</button></div></div></div>
 <div id="ocm"><div class="bx" role="dialog" aria-label="قراءة نص صورة"><h2>قراءة النص من صورة وتعديله</h2><p>اختر صورة (مستند، شاشة، لافتة…)، فتتحول إلى صفحة PDF ويُقرأ نصها ثم تُفعَّل أداة «تعديل النص» لتعدّل السطور مباشرة. القراءة تحتاج إنترنت، وأول مرة قد تستغرق دقيقة، وتعمل من المتصفح مباشرة وليس داخل تطبيق Claude.</p><label class="oc-l">لغة النص في الصورة<select id="ocl2"><option value="ara+eng" selected>عربي + English</option><option value="ara">عربي فقط</option><option value="eng">English فقط</option></select></label><div class="r"><label for="focr" class="btn p">اختيار صورة وتحليلها</label><input id="focr" type="file" accept="image/*,.heic,.heif" class="native-picker"><span class="sp"></span><button id="ocx">إلغاء</button></div></div></div>
-<div id="ocrReview" aria-hidden="true"><div class="ocrbox" role="dialog" aria-modal="true" aria-labelledby="ocrReviewTitle"><h2 id="ocrReviewTitle">مراجعة النص المستخرج</h2><p>راجع النص وصحّح الأخطاء. التعديلات تحفظ داخل جلسة العمل وتُستخدم في استخراج النص، ولا تغيّر محتوى ملف PDF الأصلي.</p><textarea id="ocrReviewText" spellcheck="false" aria-label="النص المستخرج"></textarea><div class="ocr-note">للحفاظ على تطابق السطور مع مواضعها في الصفحة، لا تغيّر عدد الأسطر أثناء التصحيح. يمكنك نسخ النص أو تنزيله TXT.</div><div class="ocr-actions"><button id="ocrReviewCancel">إغلاق</button><button id="ocrReviewCopy">نسخ النص</button><button id="ocrReviewDownload">تنزيل TXT</button><span class="sp"></span><button id="ocrReviewSave" class="p">حفظ التصحيحات</button></div></div></div>
+<div id="ocrReview" aria-hidden="true"><div class="ocrbox" role="dialog" aria-modal="true" aria-labelledby="ocrReviewTitle"><h2 id="ocrReviewTitle">مراجعة النص المستخرج</h2><p>راجع النص وصحّح الأخطاء. التعديلات تحفظ داخل جلسة العمل وتُستخدم في استخراج النص، ولا تغيّر محتوى ملف PDF الأصلي.</p><div class="ocr-multipage"><button id="ocrReviewPrev" type="button">السابق</button><strong id="ocrReviewCounter">صفحة 1 من 1</strong><button id="ocrReviewNext" type="button">التالي</button><span class="sp"></span><button id="ocrReviewAllDownload" type="button">تنزيل كل الصفحات</button></div><textarea id="ocrReviewText" spellcheck="false" aria-label="النص المستخرج"></textarea><div class="ocr-note">للحفاظ على تطابق السطور مع مواضعها في الصفحة، لا تغيّر عدد الأسطر أثناء التصحيح. يمكنك نسخ النص أو تنزيله TXT.</div><div class="ocr-actions"><button id="ocrReviewCancel">إغلاق</button><button id="ocrReviewCopy">نسخ النص</button><button id="ocrReviewDownload">تنزيل TXT</button><span class="sp"></span><button id="ocrReviewSave" class="p">حفظ التصحيحات</button></div></div></div>
 <div id="mnm"><div class="bx" role="dialog" aria-label="القائمة الرئيسية"><div class="mh"><span class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg></span><h2>الفلقي لتعديل PDF</h2></div><p>شرح الأزرار واستخدامها. تُعالج ملفاتك محليًا، لكن عند تفعيل خادم OCR تُرسل الصفحة المراد تحليلها إلى ذلك الخادم.</p><div id="mnl"></div><div class="r"><button id="mnh" type="button">الدليل السريع</button><span class="sp"></span><button id="mnx" class="p" type="button">إغلاق</button></div></div></div>
 <div id="mgm"><div class="bx" role="dialog" aria-label="دمج الملفات"><h2>دمج الملفات</h2><p>رتّب الملفات بالأسهم أو احذف ما لا تريده، ثم اضغط «تطبيق». لإضافة ملف جديد استخدم «إضافة ملف».</p><div id="mglist"></div><div class="r"><label for="file" class="btn">+ إضافة ملف</label><span class="sp"></span><button id="mgx">إلغاء</button><button id="mgok" class="p">تطبيق</button></div></div></div>
 <div id="tlm"><div class="bx" role="dialog" aria-label="أدوات"><h2>أدوات إضافية</h2>
@@ -2134,25 +2134,37 @@ const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.uno
 
 let rt=0;const EMPTY=$("main").innerHTML;
 
-let ocrReviewPage=null;
-function openOcrReview(pg){
-  if(!pg||!Array.isArray(pg.ocr)||!pg.ocr.length)return toast("لا يوجد نص مستخرج لمراجعته.");
-  ocrReviewPage=pg;$("ocrReviewText").value=pg.ocr.map(line=>line.t||"").join("\n");
-  $("ocrReview").classList.add("on");$("ocrReview").setAttribute("aria-hidden","false");$("ocrReviewText").focus();
+let ocrReviewPages=[],ocrReviewIndex=0,ocrReviewPage=null;
+function ocrReviewSaveCurrent(){
+  if(!ocrReviewPage)return true;
+  const lines=currentOcrReviewText().split("\n");
+  if(lines.length!==ocrReviewPage.ocr.length){toast("حافظ على عدد الأسطر في الصفحة الحالية حتى تبقى مواضع النصوص صحيحة.");return false;}
+  ocrReviewPage.ocr.forEach((line,i)=>{line.t=lines[i].trim()});return true;
 }
-function closeOcrReview(){ $("ocrReview").classList.remove("on");$("ocrReview").setAttribute("aria-hidden","true");ocrReviewPage=null; }
+function ocrReviewLoadCurrent(){
+  ocrReviewPage=ocrReviewPages[ocrReviewIndex];
+  $("ocrReviewText").value=ocrReviewPage.ocr.map(line=>line.t||"").join("\n");
+  $("ocrReviewCounter").textContent="صفحة "+(ocrReviewIndex+1)+" من "+ocrReviewPages.length+" (رقمها في المستند: "+(pages.indexOf(ocrReviewPage)+1)+")";
+  $("ocrReviewPrev").disabled=ocrReviewIndex===0;$("ocrReviewNext").disabled=ocrReviewIndex===ocrReviewPages.length-1;
+}
+function openOcrReview(pg){
+  ocrReviewPages=pages.filter(p=>Array.isArray(p.ocr)&&p.ocr.length);
+  if(!ocrReviewPages.length)return toast("لا توجد صفحات تحتوي نصًا مستخرجًا لمراجعته.");
+  ocrReviewIndex=Math.max(0,ocrReviewPages.indexOf(pg));
+  $("ocrReview").classList.add("on");$("ocrReview").setAttribute("aria-hidden","false");ocrReviewLoadCurrent();$("ocrReviewText").focus();
+}
+function closeOcrReview(){ $("ocrReview").classList.remove("on");$("ocrReview").setAttribute("aria-hidden","true");ocrReviewPages=[];ocrReviewPage=null; }
 function currentOcrReviewText(){return $("ocrReviewText").value.replace(/\r/g,"");}
+function ocrReviewMove(delta){if(!ocrReviewSaveCurrent())return;const next=ocrReviewIndex+delta;if(next<0||next>=ocrReviewPages.length)return;ocrReviewIndex=next;ocrReviewLoadCurrent();}
+function allOcrReviewText(){return ocrReviewPages.map(pg=>"[صفحة "+(pages.indexOf(pg)+1)+"]\n"+pg.ocr.map(line=>line.t||"").join("\n")).join("\n\n");}
 $("ocrReviewCancel").onclick=closeOcrReview;
 $("ocrReview").addEventListener("click",e=>{if(e.target===$("ocrReview"))closeOcrReview()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("ocrReview").classList.contains("on"))closeOcrReview()});
-$("ocrReviewSave").onclick=()=>{
-  if(!ocrReviewPage)return;const lines=currentOcrReviewText().split("\n");
-  if(lines.length!==ocrReviewPage.ocr.length)return toast("حافظ على عدد الأسطر كما هو؛ صحّح الكلمات داخل كل سطر فقط.");
-  ocrReviewPage.ocr.forEach((line,i)=>{line.t=lines[i].trim()});
-  render();toast("تم حفظ التصحيحات في جلسة العمل دون تعديل PDF الأصلي.");closeOcrReview();
-};
-$("ocrReviewCopy").onclick=async()=>{try{await navigator.clipboard.writeText(currentOcrReviewText());toast("تم نسخ النص المصحح.")}catch(e){$("ocrReviewText").select();toast("تعذّر النسخ التلقائي؛ حدّد النص وانسخه يدويًا.")}};
-$("ocrReviewDownload").onclick=()=>{const blob=new Blob(["\uFEFF",currentOcrReviewText()],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-ocr-text.txt";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$("ocrReviewPrev").onclick=()=>ocrReviewMove(-1);$("ocrReviewNext").onclick=()=>ocrReviewMove(1);
+$("ocrReviewSave").onclick=()=>{if(!ocrReviewSaveCurrent())return;render();toast("تم حفظ تصحيحات الصفحات التي راجعتها في جلسة العمل.");closeOcrReview();};
+$("ocrReviewCopy").onclick=async()=>{if(!ocrReviewSaveCurrent())return;try{await navigator.clipboard.writeText(currentOcrReviewText());toast("تم نسخ نص الصفحة الحالية.")}catch(e){$("ocrReviewText").select();toast("تعذّر النسخ التلقائي؛ حدّد النص وانسخه يدويًا.")}};
+$("ocrReviewDownload").onclick=()=>{if(!ocrReviewSaveCurrent())return;const blob=new Blob(["\uFEFF",currentOcrReviewText()],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-ocr-page-"+(pages.indexOf(ocrReviewPage)+1)+".txt";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$("ocrReviewAllDownload").onclick=()=>{if(!ocrReviewSaveCurrent())return;const blob=new Blob(["\uFEFF",allOcrReviewText()],{type:"text/plain;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="alfalqi-ocr-all-pages.txt";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 async function render(){
   const my=++rt,main=$("main"),sy=scrollY,sx=main.scrollLeft;
   pages.forEach((p,i)=>p.ov.forEach(o=>{if(o.pn)o.t=ar(i+1)}));
