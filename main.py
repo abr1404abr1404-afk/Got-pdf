@@ -29,6 +29,7 @@ from starlette.concurrency import run_in_threadpool
 from pdf_tools import compress_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
+from document_export import create_docx, create_xlsx
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -57,6 +58,11 @@ class AssistantRequest(BaseModel):
 
 class ExtractRequest(BaseModel):
     document_text: str = Field(..., min_length=1, max_length=45000)
+
+class ExportRequest(BaseModel):
+    pages: list[dict[str, Any]] = Field(..., min_length=1, max_length=100)
+
+
 
 
 origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
@@ -647,6 +653,40 @@ async def compress_pdf(request: Request, file: UploadFile = File(...), level: st
             "X-Compressed-Size": str(len(optimized)),
             "X-Compression-Reduced": "true" if reduced else "false",
         },
+    )
+
+
+@app.post("/api/export/docx")
+async def export_docx(payload: ExportRequest, request: Request):
+    """Create an editable Word document from text explicitly sent by the browser."""
+    _guard_expensive_request(request, "document-export", client_limit=6, global_limit=20)
+    try:
+        output = await _run_cpu(create_docx, payload.pages)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if len(output) > 20 * 1024 * 1024:
+        raise HTTPException(413, "حجم ملف Word الناتج يتجاوز الحد المسموح.")
+    return Response(
+        content=output,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": 'attachment; filename="alfalqi-extracted-text.docx"'},
+    )
+
+
+@app.post("/api/export/xlsx")
+async def export_xlsx(payload: ExportRequest, request: Request):
+    """Create an Excel workbook with page and line references."""
+    _guard_expensive_request(request, "document-export", client_limit=6, global_limit=20)
+    try:
+        output = await _run_cpu(create_xlsx, payload.pages)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if len(output) > 20 * 1024 * 1024:
+        raise HTTPException(413, "حجم ملف Excel الناتج يتجاوز الحد المسموح.")
+    return Response(
+        content=output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="alfalqi-extracted-text.xlsx"'},
     )
 
 
