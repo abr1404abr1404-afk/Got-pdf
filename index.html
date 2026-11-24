@@ -3553,6 +3553,16 @@ decorate(document);
   }
 })();
 const MENU=[["pdfSearchBtn","بحث داخل PDF","ابحث محليًا داخل النص المستخرج أو النص القابل للتحديد، وانتقل إلى الصفحات المطابقة."],["ai","مساعد المستندات الذكي","اسأل عن محتوى الملف، لخّصه، واستخرج المعلومات مع الإشارة إلى أرقام الصفحات."],["compress","ضغط PDF","أنشئ نسخة أصغر قدر الإمكان دون تغيير الملف الأصلي أو تحويل النص إلى صورة."],["thumbs","مصغرات الصفحات","تعرض صورًا مصغرة لصفحات الملف وتتيح الانتقال مباشرة إلى أي صفحة."],["file","فتح","يفتح ملف PDF أو عدة ملفات في آن واحد، وتُدمج تلقائيًا في ملف واحد."],["fimg","صورة → PDF","يحوّل صورة أو أكثر إلى ملف PDF. حجم الصفحة (A4 وغيره) من القائمة المجاورة."],["ocb","قراءة نص صورة","يقرأ الكلام الموجود في صورة ويحوّله إلى أسطر تعدّلها مباشرة (يحتاج إنترنت)."],["txt","إضافة نص","اضغط على مكان في الصفحة واكتب. بعدها غيّر الخط واللون والحجم من الشريط."],["edt","تعديل النص","اضغط على أي سطر موجود في الملف لتعدّله أو تحذفه، مع الحفاظ على الخلفية."],["img","إدراج صورة","تضع صورة داخل الصفحة (شعار، ختم، باركود) ثم تحرّكها وتغيّر حجمها."],["sig","توقيع","ارسم توقيعك بإصبعك ثم ضعه في الصفحة، ويمكن حفظه لاستخدامه لاحقًا."],["bcb","باركود","ينشئ QR أو Code128، أو يقرأ باركود من صورة ويعيد رسمه نظيفًا."],["ann","تعليق","تظليل وقلم حر وحجب (مربع أسود يخفي ما تحته)."],["pn","ترقيم","يضيف أرقام الصفحات بالأرقام العربية أسفل كل صفحة."],["spl","تقسيم","يستخرج صفحات بنطاق تحدده، أو يقسّم الملف إلى عدة ملفات."],["mrg","دمج","يرتّب الملفات المفتوحة بالأسهم أو يحذف بعضها ثم يدمجها."],["tls","أدوات","علامة مائية، خصائص الملف، تدوير الكل، عكس الترتيب، تاريخ اليوم، حفظ المشروع وفتحه."],["ud","تراجع / إعادة","يلغي آخر تعديل أو يعيده (حتى 100 خطوة)."],["save","تنزيل","يجهّز الملف النهائي بالاسم الذي كتبته في خانة اسم الملف."]];
+const menuHelp=new Map(MENU.map(([id,label,description])=>[id,description]));
+document.addEventListener("click",event=>{
+  const control=event.target.closest("button.hb,button.p,label.btn,select");
+  if(!control||control.id==="ann"||control.closest("#anp"))return;
+  const nested=control.matches("label")?control.querySelector("input,select"):null;
+  const id=(nested&&nested.id)||control.id;
+  const item=MENU.find(([key])=>key===id);
+  const description=(item&&item[2])||control.getAttribute("title")||control.getAttribute("aria-label");
+  if(description)showToolHint(description);
+},true);
 function buildMenu(){const box=document.getElementById("mnl");if(box.dataset.built)return;box.dataset.built="1";MENU.forEach(([id,t,d])=>{let el=document.getElementById(id);if(el&&el.tagName==="INPUT")el=el.closest("label")||el;const sv=el&&el.querySelector("svg"),row=document.createElement("div");row.className="mrow2";const mi=document.createElement("span");mi.className="mi";if(sv)mi.append(sv.cloneNode(true));const bd=document.createElement("div"),b=document.createElement("b"),de=document.createElement("div");b.textContent=t;de.className="mdesc";de.textContent=d;bd.append(b,de);row.append(mi,bd);box.append(row)});const z=document.createElement("div");z.className="mrow2";z.innerHTML='<span class="mi">±</span><div><b>تكبير / تصغير</b><div class="mdesc">زرّا + و − أو القرص بإصبعين على الملف فقط (دون تكبير البرنامج).</div></div>';box.append(z)}
 $("mnb").onclick=()=>{buildMenu();$("mnm").classList.add("on")};
 $("mnx").onclick=()=>$("mnm").classList.remove("on");
