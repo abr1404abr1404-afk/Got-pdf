@@ -94,7 +94,7 @@ if (installButtonAt < 0 || (toolbarAt >= 0 && installButtonAt > toolbarAt)) {
   failures.push("PWA install action must be placed in the primary header, outside the editing toolbar.");
 }
 
-for (const feature of ['id="ack"', 'id="axx"', 'id="aci"', 'id="asq"', 'id="pdfAutoFill"', 'id="pdfFillModal"', "function annNode", "drawEllipse", "field.setText", "pdfFieldAutocomplete"]) {
+for (const feature of ['id="ack"', 'id="axx"', 'id="aci"', 'id="asq"', 'id="pdfAutoFill"', 'id="pdfFillModal"', 'id="aw"', 'id="awv"', 'id="pdfFillImportBtn"', 'id="pdfFillTemplateBtn"', "function annNode", "drawEllipse", "field.setText", "pdfFieldAutocomplete", "JSON.parse(await file.text())"]) {
   if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
 }
 
