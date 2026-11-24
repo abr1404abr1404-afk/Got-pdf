@@ -69,3 +69,8 @@ The embedded-image editor supports deleting, resizing (10%–400%), and moving a
 ## Safe raster image rotation
 
 The raster image editor supports 90°, 180°, and 270° rotation for an isolated embedded image occurrence. Quarter-turn rotations swap the placement width and height around the image center; half-turn rotation retains the original placement bounds. The same overlap checks used by move/resize run before redaction and reinsertion. Rotation can be included in the existing multi-image operation batch (up to 200 operations), while duplicate placements of the same image resource on one page must still be submitted separately. Only a new PDF copy is returned.
+
+
+## Batch image operations
+
+The image manager supports selecting multiple distinct embedded images and applying their requested actions in one request. The UI includes select-all and clear-selection controls. The service validates each operation before returning an output; a failed operation rejects the request, and the caller's original PDF bytes remain unchanged. Identical image resources reused multiple times on one page remain limited to one selected occurrence per request.
