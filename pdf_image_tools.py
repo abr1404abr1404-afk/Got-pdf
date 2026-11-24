@@ -692,13 +692,16 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         # Visible Arabic is RAQM-shaped artwork; the invisible layer carries
         # the logical Unicode string for search and copy/paste.
         intermediate = doc.tobytes(garbage=4, deflate=True, clean=True)
+        # Keep diacritics in visible artwork; omit combining marks from the
+        # invisible search layer to preserve stable logical extraction order.
+        logical_replacement = "".join(char for char in replacement if not unicodedata.combining(char))
         try:
             from searchable_pdf import add_searchable_text_layer
             output = add_searchable_text_layer(intermediate, {
                 "pages": [{
                     "page": page_number,
                     "lines": [{
-                        "text": replacement,
+                        "text": logical_replacement,
                         "bbox": [target_rect.x0, target_rect.y0, target_rect.x1, target_rect.y1],
                     }],
                 }],
@@ -712,7 +715,7 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
             raise ValueError("تعذّر التحقق من طبقة النص العربية الناتجة؛ أُلغي التعديل.") from exc
         normalized_after = unicodedata.normalize("NFKC", after).replace("\\u200e", "").replace("\\u200f", "")
         compact_after = "".join(normalized_after.split())
-        normalized_replacement = unicodedata.normalize("NFKC", replacement)
+        normalized_replacement = unicodedata.normalize("NFKC", logical_replacement)
         compact_replacement = "".join(normalized_replacement.split())
         if "".join(normalized_original.split()) in compact_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
