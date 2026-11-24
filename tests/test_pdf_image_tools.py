@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -63,6 +63,53 @@ class PdfImageToolsTests(unittest.TestCase):
                 "page": 1, "xref": item["xref"], "occurrence": 0,
                 "rect": item["rect"], "action": "resize", "scale": 8,
             }])
+
+    def test_delete_isolated_text_span_preserves_other_text_and_source(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=400, height=200)
+        page.insert_text((30, 60), "RemoveMe", fontsize=12)
+        page.insert_text((250, 60), "KeepMe", fontsize=12)
+        source = doc.tobytes()
+        doc.close()
+        report = inspect_pdf_objects(source)
+        target = next(item for item in report["objects"] if item["type"] == "text" and item["text"] == "RemoveMe")
+        output = delete_isolated_pdf_text(source, {
+            "action": "delete", "page": target["page"], "object_id": target["id"],
+            "text_hash": target["text_hash"], "rect": target["rect"],
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            text = result[0].get_text()
+            self.assertNotIn("RemoveMe", text)
+            self.assertIn("KeepMe", text)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertIn("RemoveMe", original[0].get_text())
+
+    def test_text_delete_rejects_overlapping_text(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((50, 80), "Overlap", fontsize=18)
+        page.insert_text((50, 80), "Overlap", fontsize=18)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "text")
+        with self.assertRaisesRegex(ValueError, "يتداخل النص مع مقطع"):
+            delete_isolated_pdf_text(source, {
+                "action": "delete", "page": 1, "object_id": target["id"],
+                "text_hash": target["text_hash"], "rect": target["rect"],
+            })
+
+    def test_text_delete_rejects_stale_hash(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.insert_text((30, 50), "Stale")
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "text")
+        with self.assertRaisesRegex(ValueError, "تغيّر النص"):
+            delete_isolated_pdf_text(source, {
+                "action": "delete", "page": 1, "object_id": target["id"],
+                "text_hash": "0" * 64, "rect": target["rect"],
+            })
 
     def test_inspect_includes_text_font_and_style_metadata(self):
         doc = pymupdf.open()
