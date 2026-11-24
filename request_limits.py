@@ -77,7 +77,7 @@ class RequestBodyLimitMiddleware:
 
     @staticmethod
     async def _reject(send) -> None:
-        body = b'{"detail":"حجم الطلب يتجاوز الحد المسموح."}'
+        body = '{"detail":"حجم الطلب يتجاوز الحد المسموح."}'.encode("utf-8")
         await send({
             "type": "http.response.start",
             "status": 413,
