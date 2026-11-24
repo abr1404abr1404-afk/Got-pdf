@@ -691,36 +691,35 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         page.insert_image(target_rect, stream=image_buffer.getvalue(), overlay=True, keep_proportion=False)
         # Visible Arabic is RAQM-shaped artwork; the invisible layer carries
         # the logical Unicode string for search and copy/paste.
-        def reverse_arabic_graphemes(value: str) -> str:
-            clusters: list[str] = []
-            for char in value:
-                if unicodedata.combining(char) and clusters:
-                    clusters[-1] += char
-                else:
-                    clusters.append(char)
-            return "".join(reversed(clusters))
+        intermediate = doc.tobytes(garbage=4, deflate=True, clean=True)
         try:
-            hidden_font_size = max(1.0, min(4.0, logical_font_size * 0.30))
-            page.insert_text(
-                (target_rect.x0, target_rect.y1 - 1.0), reverse_arabic_graphemes(replacement),
-                fontsize=hidden_font_size, fontname="AlfalqiArabicLogical",
-                fontfile=str(font_path), render_mode=3, overlay=True,
-                color=(0, 0, 0),
-            )
+            from searchable_pdf import add_searchable_text_layer
+            output = add_searchable_text_layer(intermediate, {
+                "pages": [{
+                    "page": page_number,
+                    "lines": [{
+                        "text": replacement,
+                        "bbox": [target_rect.x0, target_rect.y0, target_rect.x1, target_rect.y1],
+                    }],
+                }],
+            })
         except Exception as exc:
             raise ValueError("تعذّر إنشاء طبقة النص العربية القابلة للبحث؛ أُلغي التعديل.") from exc
-        after = page.get_text("text")
+        try:
+            with pymupdf.open(stream=output, filetype="pdf") as verified:
+                after = verified.load_page(page_number - 1).get_text("text")
+        except Exception as exc:
+            raise ValueError("تعذّر التحقق من طبقة النص العربية الناتجة؛ أُلغي التعديل.") from exc
         normalized_after = unicodedata.normalize("NFKC", after).replace("\\u200e", "").replace("\\u200f", "")
         normalized_replacement = unicodedata.normalize("NFKC", replacement)
         if normalized_original in normalized_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
         if normalized_replacement not in normalized_after:
-            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل. المستخرج=" + repr(normalized_after[-120:]) + " المطلوب=" + repr(normalized_replacement))
+            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل.")
         for neighbor in expected:
             normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
             if normalized_neighbor and normalized_neighbor not in normalized_after:
                 raise ValueError("تغيّر نص مجاور أثناء الاستبدال؛ أُلغي التعديل.")
-        output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
         return output
