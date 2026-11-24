@@ -177,10 +177,15 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
     warnings: list[dict[str, Any]] = []
     try:
         for page_index in range(doc.page_count):
+            if len(objects) >= MAX_OBJECT_ITEMS:
+                warnings.append({"type": "inventory_truncated",
+                                 "message": "تم إيقاف الفهرسة عند 500 عنصر لحماية الأداء."})
+                break
             page = doc.load_page(page_index)
             page_rect = page.rect
-            page_objects: list[dict[str, Any]] = []
             text_spans: list[tuple[pymupdf.Rect, str]] = []
+            page_images: list[tuple[pymupdf.Rect, dict[str, Any]]] = []
+
             for block in page.get_text("dict").get("blocks", []):
                 if block.get("type") != 0:
                     continue
@@ -191,7 +196,7 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             continue
                         rect = pymupdf.Rect(span.get("bbox", (0, 0, 0, 0)))
                         text_spans.append((rect, raw_text))
-                        page_objects.append({
+                        objects.append({
                             "id": f"p{page_index + 1}-text-{len(text_spans)}",
                             "type": "text",
                             "page": page_index + 1,
@@ -199,37 +204,38 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             "truncated": len(raw_text) > MAX_TEXT_PREVIEW_CHARS,
                             "rect": _normalized_rect(rect, page_rect),
                         })
-                        if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
+                        if len(objects) >= MAX_OBJECT_ITEMS:
                             break
-                    if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
+                    if len(objects) >= MAX_OBJECT_ITEMS:
                         break
-                if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
+                if len(objects) >= MAX_OBJECT_ITEMS:
                     break
 
-            image_rects: list[pymupdf.Rect] = []
-            for info in page.get_image_info(xrefs=True):
-                rect = pymupdf.Rect(info.get("bbox", (0, 0, 0, 0)))
-                image_rects.append(rect)
-                page_objects.append({
-                    "id": f"p{page_index + 1}-image-{len(image_rects)}",
-                    "type": "image",
-                    "page": page_index + 1,
-                    "width": int(info.get("width") or 0),
-                    "height": int(info.get("height") or 0),
-                    "xref": int(info.get("xref") or 0),
-                    "rect": _normalized_rect(rect, page_rect),
-                })
-                if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
-                    break
+            if len(objects) < MAX_OBJECT_ITEMS:
+                for image_index, info in enumerate(page.get_image_info(xrefs=True), start=1):
+                    rect = pymupdf.Rect(info.get("bbox", (0, 0, 0, 0)))
+                    item = {
+                        "id": f"p{page_index + 1}-image-{image_index}",
+                        "type": "image",
+                        "page": page_index + 1,
+                        "width": int(info.get("width") or 0),
+                        "height": int(info.get("height") or 0),
+                        "xref": int(info.get("xref") or 0),
+                        "rect": _normalized_rect(rect, page_rect),
+                    }
+                    page_images.append((rect, item))
+                    objects.append(item)
+                    if len(objects) >= MAX_OBJECT_ITEMS:
+                        break
 
-            if len(objects) + len(page_objects) < MAX_OBJECT_ITEMS:
-                for drawing_index, drawing in enumerate(page.get_drawings()):
+            if len(objects) < MAX_OBJECT_ITEMS:
+                for drawing_index, drawing in enumerate(page.get_drawings(), start=1):
                     rect_value = drawing.get("rect")
                     if not rect_value:
                         continue
                     rect = pymupdf.Rect(rect_value)
-                    page_objects.append({
-                        "id": f"p{page_index + 1}-vector-{drawing_index + 1}",
+                    objects.append({
+                        "id": f"p{page_index + 1}-vector-{drawing_index}",
                         "type": "vector",
                         "page": page_index + 1,
                         "items": min(len(drawing.get("items", [])), 10000),
@@ -237,32 +243,24 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                         "stroke": list(drawing["color"]) if drawing.get("color") else None,
                         "rect": _normalized_rect(rect, page_rect),
                     })
-                    if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
+                    if len(objects) >= MAX_OBJECT_ITEMS:
                         break
 
-            if len(objects) + len(page_objects) < MAX_OBJECT_ITEMS:
-                for annotation_index, annotation in enumerate(page.annots() or []):
+            if len(objects) < MAX_OBJECT_ITEMS:
+                for annotation_index, annotation in enumerate(page.annots() or [], start=1):
                     rect = pymupdf.Rect(annotation.rect)
-                    page_objects.append({
-                        "id": f"p{page_index + 1}-annotation-{annotation_index + 1}",
+                    objects.append({
+                        "id": f"p{page_index + 1}-annotation-{annotation_index}",
                         "type": "annotation",
                         "page": page_index + 1,
                         "subtype": annotation.type[1] if annotation.type else "unknown",
                         "rect": _normalized_rect(rect, page_rect),
                     })
-                    if len(objects) + len(page_objects) >= MAX_OBJECT_ITEMS:
+                    if len(objects) >= MAX_OBJECT_ITEMS:
                         break
 
-            # Warn when a raster image intersects text or another raster image.
-            page_images = [obj for obj in page_objects if obj["type"] == "image"]
-            for image_index, image_obj in enumerate(page_images):
-                image_rect = pymupdf.Rect(
-                    page_rect.x0 + image_obj["rect"][0] * page_rect.width,
-                    page_rect.y0 + image_obj["rect"][1] * page_rect.height,
-                    page_rect.x0 + image_obj["rect"][2] * page_rect.width,
-                    page_rect.y0 + image_obj["rect"][3] * page_rect.height,
-                )
-                for text_rect, text in text_spans:
+            for image_index, (image_rect, image_obj) in enumerate(page_images):
+                for text_rect, _text in text_spans:
                     if _overlap_ratio(image_rect, text_rect) >= 0.10:
                         warnings.append({
                             "type": "image_text_overlap",
@@ -271,13 +269,7 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             "message": "تتداخل الصورة مع نص؛ راجع المنطقة قبل التعديل.",
                         })
                         break
-                for other in page_images[image_index + 1:]:
-                    other_rect = pymupdf.Rect(
-                        page_rect.x0 + other["rect"][0] * page_rect.width,
-                        page_rect.y0 + other["rect"][1] * page_rect.height,
-                        page_rect.x0 + other["rect"][2] * page_rect.width,
-                        page_rect.y0 + other["rect"][3] * page_rect.height,
-                    )
+                for other_rect, other in page_images[image_index + 1:]:
                     if _overlap_ratio(image_rect, other_rect) >= 0.10:
                         warnings.append({
                             "type": "image_image_overlap",
@@ -286,16 +278,12 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             "other_object_id": other["id"],
                             "message": "تتداخل هذه الصورة مع صورة أخرى؛ قد يتأثر مظهرهما عند التعديل.",
                         })
-            objects.extend(page_objects)
-            if len(objects) >= MAX_OBJECT_ITEMS:
-                warnings.append({
-                    "type": "inventory_truncated",
-                    "message": "تم إيقاف الفهرسة عند 500 عنصر لحماية الأداء.",
-                })
-                break
 
         counts = {kind: sum(1 for item in objects if item["type"] == kind)
                   for kind in ("text", "image", "vector", "annotation")}
+        if len(objects) >= MAX_OBJECT_ITEMS and not any(w["type"] == "inventory_truncated" for w in warnings):
+            warnings.append({"type": "inventory_truncated",
+                             "message": "تم إيقاف الفهرسة عند 500 عنصر لحماية الأداء."})
         return {"pages": doc.page_count, "count": len(objects), "counts": counts,
                 "objects": objects, "warnings": warnings}
     finally:
