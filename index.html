@@ -2016,6 +2016,17 @@ const FONTS=[
 ["Mono",'"Courier New",monospace',null,"en"]];
 const FBASE=FONTS.length;
 FONTS.forEach(f=>{if(f[2]){const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f[2]+"&display=swap";document.head.append(l)}});
+// Load each selectable font once while online. The service worker caches the
+// public Google Fonts CSS and WOFF2 responses so the app can reuse them offline.
+const fontWarmupPromise=(async()=>{
+  if(!("fonts" in document))return;
+  const sample="الفلقي PDF ١٢٣ ٠٤٥ abc 123";
+  for(let i=0;i<FONTS.length;i+=4){
+    await Promise.allSettled(FONTS.slice(i,i+4).filter(f=>f[2]).map(f=>
+      document.fonts.load("16px "+f[1],sample)
+    ));
+  }
+})();
 function fontOpts(sel,val){const g1=document.createElement("optgroup"),g2=document.createElement("optgroup"),g3=document.createElement("optgroup");g1.label="خطوط عربية";g2.label="خطوط إنجليزية";g3.label="خط الملف الأصلي";FONTS.forEach((f,i)=>{const op=new Option(f[0],i);(i>=FBASE?g3:f[3]==="en"?g2:g1).append(op)});sel.append(g1,g2);if(FONTS.length>FBASE)sel.append(g3);sel.value=val}
 const def={f:0,c:"#000000",s:14};let cur=null;
 const toast=m=>{const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",3500)};
