@@ -552,12 +552,18 @@ class PdfImageToolsTests(unittest.TestCase):
         target = next(item for item in report["objects"] if item["type"] == "text")
         with pymupdf.open(stream=source, filetype="pdf") as original:
             original_text = original[0].get_text()
-        with self.assertRaisesRegex(ValueError, "معلّق مؤقتًا"):
-            replace_isolated_arabic_pdf_text(source, {
-                "action": "replace_ar", "page": target["page"], "object_id": target["id"],
-                "text_hash": target["text_hash"], "rect": target["rect"],
-                "replacement": "أهلًا",
-            })
+            original_pix = original[0].get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+        output = replace_isolated_arabic_pdf_text(source, {
+            "action": "replace_ar", "page": target["page"], "object_id": target["id"],
+            "text_hash": target["text_hash"], "rect": target["rect"],
+            "replacement": "أهلًا",
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            output_text = result[0].get_text()
+            output_pix = result[0].get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+            self.assertIn("أهلًا", output_text)
+            self.assertNotIn("مرحبا بالعالم", output_text)
+            self.assertNotEqual(original_pix.samples, output_pix.samples)
         with pymupdf.open(stream=source, filetype="pdf") as original:
             self.assertEqual(original_text, original[0].get_text())
 
