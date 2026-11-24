@@ -2057,7 +2057,9 @@ async function readFileBytes(file){
     reader.readAsArrayBuffer(file);
   });
 }
+let openedPdfBytes=null;
 async function openPdfDocument(bytes){
+  openedPdfBytes=bytes;
   if(!window.pdfjsLib||!pdfjsLib.getDocument)throw new Error("مكتبة قراءة PDF لم تُحمّل. افتح الصفحة مع اتصال بالإنترنت ثم أعد المحاولة.");
   let firstError;
   try{return await pdfjsLib.getDocument({data:bytes.slice()}).promise}
@@ -2074,6 +2076,7 @@ async function openPdfDocument(bytes){
     const response=await fetch(base+"/api/pdf/unlock",{method:"POST",body:form});
     if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر فتح الملف المحمي.");}
     const clearBytes=new Uint8Array(await response.arrayBuffer());
+    openedPdfBytes=clearBytes;
     return await pdfjsLib.getDocument({data:clearBytes.slice()}).promise;
   }
   try{return await pdfjsLib.getDocument({data:bytes.slice(),disableWorker:true}).promise}
@@ -2089,7 +2092,8 @@ async function load(files){
     try{
       const bytes=await readFileBytes(f);if(!$("fn").value)$("fn").value=f.name.replace(/\.pdf$/i,"")+"-معدّل";
       const pdf=await openPdfDocument(bytes);
-      const d=docs.push({bytes,pdf,name:f.name})-1;
+      const effectiveBytes=openedPdfBytes||bytes;openedPdfBytes=null;
+      const d=docs.push({bytes:effectiveBytes,pdf,name:f.name})-1;
       for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);pages.push({d,i,rot:0,nat:p.rotate||0,sel:false,ov:[]})}
     }catch(e){console.error("PDF open error:",e);toast("تعذّر فتح «"+f.name+"»: "+((e&&e.message)||"تأكد أنه ملف PDF سليم."))}
   }
