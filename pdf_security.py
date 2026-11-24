@@ -23,7 +23,7 @@ def unlock_pdf_bytes(data: bytes, password: str) -> bytes:
         if document.page_count < 1 or document.page_count > MAX_UNLOCK_PAGES:
             raise ValueError("عدد صفحات الملف يتجاوز الحد المسموح لفك القفل.")
         # A user password may permit viewing but prohibit modification.
-        if auth != 2 and not (document.permissions & pymupdf.PDF_PERM_MODIFY):
+        if not (document.permissions & pymupdf.PDF_PERM_MODIFY):
             raise PermissionError("كلمة المرور صحيحة، لكن مالك الملف لم يسمح بالتعديل. يلزم إذن المالك.")
         output = document.tobytes(
             encryption=pymupdf.PDF_ENCRYPT_NONE,
