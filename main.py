@@ -32,7 +32,7 @@ from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
-from pdf_to_docx import convert_pdf_to_docx
+from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
 from pdf_image_tools import list_pdf_images, edit_pdf_images
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
@@ -651,10 +651,27 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
         raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+    quality = await _run_cpu(analyze_pdf_docx_quality, data, output)
+    quality_headers = {
+        "X-Conversion-Engine": "pdf2docx",
+        "X-Conversion-Analysis": str(quality.get("analysis_status", "analysis_unavailable")),
+        "X-Conversion-Source-Words": str(quality.get("source_word_count", 0)),
+        "X-Conversion-Output-Words": str(quality.get("output_word_count", 0)),
+        "X-Conversion-Matched-Words": str(quality.get("matched_word_count", 0)),
+        "X-Conversion-Source-Images": str(quality.get("source_image_count", 0)),
+        "X-Conversion-Output-Images": str(quality.get("output_image_count", 0)),
+        "X-Conversion-Output-Tables": str(quality.get("output_table_count", 0)),
+        "X-Conversion-Output-Paragraphs": str(quality.get("output_paragraph_count", 0)),
+    }
+    for key in ("text_coverage_percent", "text_precision_percent"):
+        value = quality.get(key)
+        if value is not None:
+            header_name = "X-Conversion-" + ("Text-Coverage" if key == "text_coverage_percent" else "Text-Precision")
+            quality_headers[header_name] = str(value)
     return Response(content=output,
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": 'attachment; filename="alfalqi-converted.docx"',
-                             "X-Conversion-Engine": "pdf2docx"})
+                             **quality_headers})
 
 
 @app.post("/api/pdf/images/list")
