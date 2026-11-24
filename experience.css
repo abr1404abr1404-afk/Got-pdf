@@ -511,6 +511,7 @@ body.ann-tools-open #anp{display:flex;}
 
 /* Two-row compact mobile header: identity/file/install on row one, all tools on row two. */
 @media(max-width:640px){
+  #pwaInstall[hidden]{display:none!important;}
   header{display:flex!important;flex-direction:column!important;gap:0!important;}
   .hr1{display:grid!important;grid-template-columns:36px auto minmax(74px,1fr) auto!important;grid-template-areas:"menu brand filename install"!important;align-items:center!important;gap:6px!important;padding:7px 8px!important;min-height:54px!important;}
   .hr1 #mnb{grid-area:menu;width:36px!important;height:36px!important;min-width:36px!important;}
