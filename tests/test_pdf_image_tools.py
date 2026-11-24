@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -226,6 +226,37 @@ class PdfImageToolsTests(unittest.TestCase):
         data = doc.tobytes()
         doc.close()
         return data
+
+    def test_restyle_isolated_vector_changes_stroke_width_and_opacity(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.draw_rect(pymupdf.Rect(80, 70, 120, 110), color=(1, 0, 0), width=1)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        output = restyle_isolated_pdf_vector(source, {
+            "action": "restyle", "page": 1, "object_id": target["id"],
+            "rect": target["rect"], "line_width": 4, "opacity": 0.5,
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            drawing = result[0].get_drawings()[0]
+            self.assertAlmostEqual(drawing["width"], 4, delta=0.1)
+            self.assertAlmostEqual(drawing["stroke_opacity"], 0.5, delta=0.01)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertAlmostEqual(original[0].get_drawings()[0]["width"], 1, delta=0.1)
+
+    def test_restyle_vector_rejects_invalid_width(self):
+        doc = pymupdf.open()
+        page = doc.new_page()
+        page.draw_line((30, 30), (80, 80), color=(1, 0, 0))
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "سماكة الخط"):
+            restyle_isolated_pdf_vector(source, {
+                "action": "restyle", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "line_width": 30, "opacity": 0.5,
+            })
 
     def test_scale_isolated_vector_rectangle_preserves_center_and_style(self):
         doc = pymupdf.open()
