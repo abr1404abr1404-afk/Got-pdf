@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import difflib
+import math
 from typing import Any
 
 import pymupdf
+from PIL import Image, ImageChops
 
 MAX_COMPARE_PAGES = 30
 MAX_TEXT_CHARS_PER_PAGE = 100_000
 MAX_DIFF_LINES = 80
+MAX_VISUAL_PIXELS = 1_500_000
+VISUAL_CHANGE_THRESHOLD = 24
 
 
 def _open_pdf(data: bytes, label: str):
@@ -58,8 +62,35 @@ def _line_diff(before: str, after: str) -> dict[str, Any]:
     }
 
 
+
+def _render_page(page) -> Image.Image:
+    rect = page.rect
+    width = max(1, int(math.ceil(rect.width)))
+    height = max(1, int(math.ceil(rect.height)))
+    scale = min(1.0, math.sqrt(MAX_VISUAL_PIXELS / (width * height)))
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False, colorspace=pymupdf.csRGB)
+    return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+
+def _visual_diff(before: Image.Image, after: Image.Image) -> dict[str, Any]:
+    if before.size != after.size:
+        return {"comparable": False, "changed": None, "changed_percent": None, "changed_bounds_px": None}
+    difference = ImageChops.difference(before, after).convert("L")
+    mask = difference.point(lambda value: 255 if value >= VISUAL_CHANGE_THRESHOLD else 0)
+    changed_pixels = mask.histogram()[255]
+    total_pixels = before.width * before.height
+    bounds = mask.getbbox()
+    return {
+        "comparable": True,
+        "changed": changed_pixels > 0,
+        "changed_pixels": changed_pixels,
+        "total_pixels": total_pixels,
+        "changed_percent": round((changed_pixels / total_pixels) * 100, 3),
+        "changed_bounds_px": list(bounds) if bounds else None,
+    }
+
 def compare_pdf_bytes(original: bytes, revised: bytes) -> dict[str, Any]:
-    """Compare extracted text and page geometry; never modifies either source."""
+    """Compare text, page geometry, and rendered appearance without changing sources."""
     first = _open_pdf(original, "الأصلي")
     second = _open_pdf(revised, "المعدّل")
     try:
@@ -81,14 +112,17 @@ def compare_pdf_bytes(original: bytes, revised: bytes) -> dict[str, Any]:
             old_size = [round(old_page.rect.width, 2), round(old_page.rect.height, 2)]
             new_size = [round(new_page.rect.width, 2), round(new_page.rect.height, 2)]
             geometry_changed = old_size != new_size
+            visual = _visual_diff(_render_page(old_page), _render_page(new_page))
             text_changed = diff["changed_blocks"] > 0
-            status = "changed" if text_changed or geometry_changed else "same"
+            visual_changed = visual["changed"] is True
+            status = "changed" if text_changed or geometry_changed or visual_changed else "same"
             if status != "same":
                 changed_pages += 1
             pages.append({
                 "page": index + 1,
                 "status": status,
                 "geometry_changed": geometry_changed,
+                "visual": visual,
                 "original_size_pt": old_size,
                 "revised_size_pt": new_size,
                 "text": diff,
@@ -99,9 +133,10 @@ def compare_pdf_bytes(original: bytes, revised: bytes) -> dict[str, Any]:
             "changed_pages": changed_pages,
             "same_pages": total - changed_pages,
             "pages": pages,
-            "comparison_scope": ["extractable_text", "page_dimensions"],
+            "comparison_scope": ["extractable_text", "page_dimensions", "rendered_visual_pixels"],
             "limitations": [
-                "لا تكشف هذه المرحلة التغييرات البصرية داخل الصور أو الرسومات أو النصوص الممسوحة ضوئيًا غير القابلة للاستخراج.",
+                "المقارنة البصرية على صورة مصغرة للصفحة؛ قد لا تكشف الفروق الدقيقة جدًا.",
+                "لا تحدد المقارنة البصرية وحدها نوع العنصر الذي تغيّر؛ راجع حدود الاختلاف المعروضة.",
                 "ترتيب النص المستخرج قد يختلف عن ترتيب العرض في بعض ملفات PDF متعددة الأعمدة.",
             ],
         }
