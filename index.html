@@ -380,7 +380,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>فتح PDF محمي</h3><p class="dshint">عند فتح ملف محمي سيطلب البرنامج كلمة المرور. لفك الحماية إلى نسخة قابلة للتحرير، تُرسل النسخة المشفرة وكلمة المرور إلى خادم الفلقي بعد موافقتك. لا يمكن تجاوز كلمة مرور مفقودة أو صلاحيات المالك.</p></div>
 <div class="tsec"><h3>تحويل PDF إلى Word مع التنسيق</h3><p class="dshint">تحويل تخطيط الصفحة والنصوص والصور إلى مستند Word قابل للتحرير. قد تختلف النتيجة عن الأصل، خصوصًا في الخطوط العربية والجداول والصفحات المصوّرة. الحد الحالي 20 صفحة.</p><div class="qa"><button id="pdfToDocxLayout" class="p" type="button">تحويل PDF إلى Word بالتنسيق</button></div></div>
 <div class="tsec"><h3>مقارنة ملفين PDF</h3><p class="dshint">قارن الملف المفتوح بملف آخر لاكتشاف النص المضاف والمحذوف والصفحات وأبعادها والفروق البصرية التقريبية. تتم المقارنة على الخادم بعد موافقتك؛ وقد لا تكشف التفاصيل الدقيقة أو تحدد نوع العنصر الذي تغيّر.</p><div class="qa"><button id="comparePdf" type="button">اختيار ملف للمقارنة</button><input id="comparePdfFile" class="native-picker" type="file" accept="application/pdf,.pdf"></div></div>
-<div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها في نسخة جديدة. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف العناصر المعزولة، واستبدال نص لاتيني بسيط، وتغيير لون أو حجم المستطيلات والخطوط المنفردة وتعديل سماكة حدودها وشفافيتها ونقلها إلى موضع آخر. الأشكال المعقدة والعربية في الاستبدال غير مدعومة حاليًا. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
+<div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها أو نقلها في نسخة جديدة، مع رفض أي تداخل مع النصوص أو العناصر الأخرى. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف العناصر المعزولة، واستبدال نص لاتيني بسيط، وتغيير لون أو حجم المستطيلات والخطوط المنفردة وتعديل سماكة حدودها وشفافيتها ونقلها إلى موضع آخر. الأشكال المعقدة والعربية في الاستبدال غير مدعومة حاليًا. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
@@ -3336,9 +3336,13 @@ function renderPdfImageItems(){
     const meta=document.createElement("div");meta.className="pdf-image-meta";meta.textContent="صفحة "+item.page+" · "+item.width+"×"+item.height+" px";
     const check=document.createElement("input");check.type="checkbox";check.setAttribute("aria-label","اختيار الصورة");
     const action=document.createElement("select");action.setAttribute("aria-label","إجراء الصورة");
-    [["none","بدون تعديل"],["delete","حذف الصورة"],["0.5","تصغير 50%"],["0.75","تصغير 75%"],["1.25","تكبير 125%"],["1.5","تكبير 150%"],["2","تكبير 200%"]].forEach(([v,t])=>{const option=document.createElement("option");option.value=v;option.textContent=t;action.append(option)});
-    const controls=document.createElement("div");controls.className="pdf-image-controls";controls.append(check,action);
-    card.append(img,meta,controls);item._check=check;item._action=action;host.append(card);
+    [["none","بدون تعديل"],["delete","حذف الصورة"],["0.5","تصغير 50%"],["0.75","تصغير 75%"],["1.25","تكبير 125%"],["1.5","تكبير 150%"],["2","تكبير 200%"],["move","نقل الصورة"]].forEach(([v,t])=>{const option=document.createElement("option");option.value=v;option.textContent=t;action.append(option)});
+    const dx=document.createElement("input");dx.type="number";dx.inputMode="decimal";dx.step="1";dx.min="-500";dx.max="500";dx.value="0";dx.placeholder="أفقي بالنقاط";dx.setAttribute("aria-label","إزاحة أفقية بالنقاط");
+    const dy=document.createElement("input");dy.type="number";dy.inputMode="decimal";dy.step="1";dy.min="-500";dy.max="500";dy.value="0";dy.placeholder="رأسي بالنقاط";dy.setAttribute("aria-label","إزاحة رأسية بالنقاط");
+    dx.hidden=dy.hidden=true;
+    action.addEventListener("change",()=>{dx.hidden=dy.hidden=action.value!=="move"});
+    const controls=document.createElement("div");controls.className="pdf-image-controls";controls.append(check,action,dx,dy);
+    card.append(img,meta,controls);item._check=check;item._action=action;item._dx=dx;item._dy=dy;host.append(card);
   }
   $("pdfImageApply").disabled=!pdfImageItems.length;
 }
@@ -3366,12 +3370,17 @@ $("pdfImageApply").onclick=async()=>{
   const base=apiBase(),operations=[];
   for(const item of pdfImageItems){
     if(!item._check.checked||item._action.value==="none")continue;
-    const action=item._action.value==="delete"?"delete":"resize";
+    const selectedAction=item._action.value;
+    const action=selectedAction==="delete"?"delete":selectedAction==="move"?"move":"resize";
     const operation={page:item.page,xref:item.xref,occurrence:item.occurrence,rect:item.rect,action};
-    if(action==="resize")operation.scale=Number(item._action.value);
+    if(action==="resize")operation.scale=Number(selectedAction);
+    if(action==="move"){
+      operation.dx=Number(item._dx.value);operation.dy=Number(item._dy.value);
+      if(!Number.isFinite(operation.dx)||!Number.isFinite(operation.dy)||Math.abs(operation.dx)>500||Math.abs(operation.dy)>500)return toast("إزاحة الصورة يجب أن تكون بين -500 و500 نقطة.");
+    }
     operations.push(operation);
   }
-  if(!operations.length)return toast("اختر صورة وحدد حذفًا أو نسبة تغيير حجم.");
+  if(!operations.length)return toast("اختر صورة وحدد حذفًا أو تغيير حجم أو نقلًا.");
   const keys=new Set();for(const op of operations){const key=op.page+":"+op.xref;if(keys.has(key))return toast("اختر موضعًا واحدًا فقط من كل صورة متكررة في الصفحة.");keys.add(key)}
   if(!confirm("سيتم تطبيق التغييرات على نسخة PDF جديدة. هل تريد المتابعة؟"))return;
   const button=$("pdfImageApply");button.disabled=true;
