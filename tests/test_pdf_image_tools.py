@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -226,6 +226,39 @@ class PdfImageToolsTests(unittest.TestCase):
         data = doc.tobytes()
         doc.close()
         return data
+
+    def test_move_isolated_vector_rectangle_preserves_dimensions_and_source(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.draw_rect(pymupdf.Rect(50, 50, 90, 90), color=(0, 0, 1), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        output = move_isolated_pdf_vector(source, {
+            "action": "move", "page": 1, "object_id": target["id"],
+            "rect": target["rect"], "dx": 20, "dy": 10,
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            rect = result[0].get_drawings()[0]["rect"]
+            self.assertAlmostEqual(rect.x0, 70, delta=0.5)
+            self.assertAlmostEqual(rect.y0, 60, delta=0.5)
+            self.assertAlmostEqual(rect.width, 40, delta=0.5)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertAlmostEqual(original[0].get_drawings()[0]["rect"].x0, 50, delta=0.5)
+
+    def test_move_vector_rejects_new_overlap(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((130, 90), "Target")
+        page.draw_rect(pymupdf.Rect(50, 50, 90, 90), color=(0, 0, 1), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "الموضع الجديد سيتداخل مع نص"):
+            move_isolated_pdf_vector(source, {
+                "action": "move", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "dx": 75, "dy": 10,
+            })
 
     def test_restyle_isolated_vector_changes_stroke_width_and_opacity(self):
         doc = pymupdf.open()
