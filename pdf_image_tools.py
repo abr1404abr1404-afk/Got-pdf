@@ -565,8 +565,11 @@ def replace_isolated_latin_pdf_text(data: bytes, operation: dict[str, Any]) -> b
 
 
 def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> bytes:
-    """Replace one isolated horizontal Arabic span using HarfBuzz-backed Story layout."""
-    import html as html_lib
+    """Replace one isolated Arabic span with RAQM-rendered artwork and a logical invisible text layer."""
+    import io
+    import unicodedata
+    from pathlib import Path
+    from PIL import Image, ImageDraw, ImageFont
 
     if not isinstance(operation, dict) or operation.get("action") != "replace_ar":
         raise ValueError("عملية استبدال النص العربي غير صالحة.")
@@ -578,10 +581,6 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         raise ValueError("يجب أن يحتوي النص البديل على حروف عربية.")
     if any(ord(ch) < 32 and ch not in "\n\t" for ch in replacement):
         raise ValueError("النص البديل يحتوي على محارف غير مدعومة.")
-    # Fail closed: current MuPDF HTML shaping can render Arabic glyphs while
-    # producing unreliable Unicode extraction/ToUnicode mappings. Keep the
-    # endpoint disabled until visual and searchable-text fidelity are verified.
-    raise ValueError("استبدال النص العربي معلّق مؤقتًا حتى اكتمال التحقق من سلامة التشكيل وطبقة البحث. لم يُعدّل الملف.")
     try:
         page_number = int(operation["page"])
         object_id = str(operation["object_id"])
@@ -645,25 +644,70 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         for annotation in page.annots() or []:
             if _overlap_ratio(target_rect, pymupdf.Rect(annotation.rect)) > 0:
                 raise ValueError("يتداخل النص مع تعليق؛ لن يتم استبداله.")
+        if "\\n" in replacement or "\\r" in replacement:
+            raise ValueError("يدعم الاستبدال حاليًا سطرًا عربيًا واحدًا فقط.")
         fontsize = max(4.0, min(72.0, float(target.get("size") or 11)))
         color_int = int(target.get("color") or 0)
-        color_hex = f"#{color_int:06X}"
+        color = ((color_int >> 16) & 255, (color_int >> 8) & 255, color_int & 255, 255)
         expected = [span["text"] for index, (_rect, span) in enumerate(spans) if index != span_index]
+        font_candidates = (
+            Path("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"),
+            Path("/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"),
+        )
+        font_path = next((path for path in font_candidates if path.is_file()), None)
+        if font_path is None:
+            raise ValueError("خط Noto Arabic غير مثبت على الخادم؛ لم يتم تعديل الملف.")
+        if not getattr(ImageFont, "Layout", None) or not hasattr(ImageFont.Layout, "RAQM"):
+            raise ValueError("محرك تشكيل العربية RAQM غير متاح على الخادم؛ لم يتم تعديل الملف.")
+        scale_factor = 4
+        canvas_width = max(1, int(math.ceil(target_rect.width * scale_factor)))
+        canvas_height = max(1, int(math.ceil(target_rect.height * scale_factor)))
+        if canvas_width * canvas_height > 2_000_000:
+            raise ValueError("مساحة النص كبيرة جدًا للمعالجة الآمنة.")
+        artwork = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(artwork)
+        chosen_font = None
+        for factor in (1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70):
+            pixel_size = max(8, int(round(fontsize * scale_factor * factor)))
+            font = ImageFont.truetype(str(font_path), pixel_size, layout_engine=ImageFont.Layout.RAQM)
+            try:
+                bounds = draw.textbbox((0, 0), replacement, font=font, direction="rtl", language="ar")
+            except (TypeError, ValueError) as exc:
+                raise ValueError("محرك تشكيل العربية لا يدعم اتجاه RTL المطلوب.") from exc
+            text_width, text_height = bounds[2] - bounds[0], bounds[3] - bounds[1]
+            if text_width <= canvas_width - 8 and text_height <= canvas_height - 4:
+                chosen_font = font
+                x = canvas_width - 4 - bounds[2]
+                y = (canvas_height - text_height) // 2 - bounds[1]
+                draw.text((x, y), replacement, font=font, fill=color, direction="rtl", language="ar")
+                break
+        if chosen_font is None:
+            raise ValueError("النص البديل أطول أو أعلى من المساحة الأصلية؛ اختصره للحفاظ على التخطيط.")
+        image_buffer = io.BytesIO()
+        artwork.save(image_buffer, format="PNG", optimize=True)
+        logical_font_size = chosen_font.size / scale_factor
         page.add_redact_annot(target_rect, fill=None, cross_out=False)
         page.apply_redactions(images=0, graphics=0, text=0)
-        safe_text = html_lib.escape(replacement).replace("\\n", "<br>")
-        html = f'<div dir="rtl" style="font-family: Noto Naskh Arabic; font-size: {fontsize:.2f}pt; color: {color_hex}; text-align: right; direction: rtl; line-height: 1.15">{safe_text}</div>'
+        page.insert_image(target_rect, stream=image_buffer.getvalue(), overlay=True, keep_proportion=False)
+        # Visible Arabic is RAQM-shaped artwork; the invisible layer carries
+        # the logical Unicode string for search and copy/paste.
         try:
-            spare_height, scale = page.insert_htmlbox(target_rect, html, css="div { margin: 0; padding: 0; }", scale_low=0.95)
+            spare_height = page.insert_textbox(
+                target_rect, replacement, fontsize=logical_font_size,
+                fontname="AlfalqiArabicLogical", fontfile=str(font_path),
+                render_mode=3, align=2, color=(0, 0, 0),
+            )
         except Exception as exc:
-            raise ValueError("تعذّر تشكيل النص العربي بالخط المتاح؛ لم يتم اعتماد التعديل.") from exc
-        if spare_height < 0 or scale < 0.95:
-            raise ValueError("النص العربي البديل لا يتسع في المساحة الأصلية؛ اختصره للحفاظ على التخطيط.")
-        # Verify that the original target text was removed and neighboring text survived.
+            raise ValueError("تعذّر إنشاء طبقة النص العربية القابلة للبحث؛ أُلغي التعديل.") from exc
+        if spare_height < 0:
+            raise ValueError("تعذّر احتواء طبقة النص العربية في المساحة الأصلية؛ أُلغي التعديل.")
         after = page.get_text("text")
-        normalized_after = unicodedata.normalize("NFKC", after)
+        normalized_after = unicodedata.normalize("NFKC", after).replace("\\u200e", "").replace("\\u200f", "")
+        normalized_replacement = unicodedata.normalize("NFKC", replacement)
         if normalized_original in normalized_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
+        if normalized_replacement not in normalized_after:
+            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل.")
         for neighbor in expected:
             normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
             if normalized_neighbor and normalized_neighbor not in normalized_after:
