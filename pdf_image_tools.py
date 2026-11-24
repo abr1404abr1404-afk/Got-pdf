@@ -648,7 +648,7 @@ def scale_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
         width=max(0.1,min(20.0,float(drawing.get("width") or 1)))
         caps=drawing.get("lineCap") or (0,0,0)
         cap=int(caps[0] if isinstance(caps,(list,tuple)) else caps)
-        common={"color":stroke,"width":width,"dashes":drawing.get("dashes") or "[] 0",
+        common={"width":width,"dashes":drawing.get("dashes") or "[] 0",
                 "lineCap":cap,"lineJoin":int(float(drawing.get("lineJoin") or 0)),
                 "stroke_opacity":float(drawing.get("stroke_opacity") or 1),"overlay":True}
         page.add_redact_annot(old_rect,fill=None,cross_out=False)
@@ -659,7 +659,7 @@ def scale_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
             p1,p2=items[0][1],items[0][2]
             new_p1=pymupdf.Point(center.x+(p1.x-center.x)*scale,center.y+(p1.y-center.y)*scale)
             new_p2=pymupdf.Point(center.x+(p2.x-center.x)*scale,center.y+(p2.y-center.y)*scale)
-            page.draw_line(new_p1,new_p2,**common)
+            page.draw_line(new_p1,new_p2,color=stroke,**common)
         output=doc.tobytes(garbage=4,deflate=True,clean=True)
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
