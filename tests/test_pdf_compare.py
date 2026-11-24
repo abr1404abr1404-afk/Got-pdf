@@ -19,6 +19,9 @@ class PdfCompareTests(unittest.TestCase):
     def test_reports_added_and_removed_text_without_changing_source(self):
         original = make_pdf(["Alpha", "Keep"])
         revised = make_pdf(["Beta", "Keep", "New"])
+        source_doc = pymupdf.open(stream=original, filetype="pdf")
+        original_text = source_doc[0].get_text()
+        source_doc.close()
 
         result = compare_pdf_bytes(original, revised)
 
@@ -27,13 +30,15 @@ class PdfCompareTests(unittest.TestCase):
         self.assertIn("Beta", result["pages"][0]["text"]["added_lines"])
         self.assertIn("Alpha", result["pages"][0]["text"]["removed_lines"])
         self.assertIn("New", result["pages"][0]["text"]["added_lines"])
-        self.assertEqual(make_pdf(["Alpha", "Keep"]), original)
+        source_after = pymupdf.open(stream=original, filetype="pdf")
+        self.assertEqual(source_after[0].get_text(), original_text)
+        source_after.close()
 
     def test_detects_added_pages(self):
         one_page = make_pdf(["Page one"])
         doc = pymupdf.open()
-        doc.new_page().insert_text((72, 72), "Page one")
-        doc.new_page().insert_text((72, 72), "Page two")
+        doc.new_page().insert_textbox(pymupdf.Rect(72, 72, 500, 700), "Page one", fontsize=12)
+        doc.new_page().insert_textbox(pymupdf.Rect(72, 72, 500, 700), "Page two", fontsize=12)
         two_pages = doc.tobytes()
         doc.close()
 
