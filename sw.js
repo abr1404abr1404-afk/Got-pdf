@@ -2,7 +2,7 @@
    Cache public UI fonts for offline use; never cache API responses, OAuth tokens,
    user documents, or Drive content. */
 const CACHE_PREFIX = "alfalqi-pdf-";
-const CACHE_VERSION = "shell-v3";
+const CACHE_VERSION = "shell-v4";
 const CACHE_NAME = CACHE_PREFIX + CACHE_VERSION;
 const APP_SHELL = [
   "./",
