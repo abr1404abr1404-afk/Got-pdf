@@ -3037,9 +3037,28 @@ async function pdfToDocxLayout(){
     form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
     const response=await fetch(base+"/api/convert/pdf-to-docx",{method:"POST",body:form});
     if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تحويل PDF إلى Word.");}
+    const quality={
+      status:response.headers.get("X-Conversion-Analysis")||"analysis_unavailable",
+      coverage:response.headers.get("X-Conversion-Text-Coverage"),
+      precision:response.headers.get("X-Conversion-Text-Precision"),
+      sourceWords:response.headers.get("X-Conversion-Source-Words")||"0",
+      outputWords:response.headers.get("X-Conversion-Output-Words")||"0",
+      tables:response.headers.get("X-Conversion-Output-Tables")||"0",
+      images:response.headers.get("X-Conversion-Output-Images")||"0",
+      sourceImages:response.headers.get("X-Conversion-Source-Images")||"0"
+    };
     const output=new Uint8Array(await response.arrayBuffer());
     await saveFile(safeName()+"-formatted.docx",output,"application/vnd.openxmlformats-officedocument.wordprocessingml.document");
-    toast("تم إنشاء Word بالتنسيق المستخرج. راجع التخطيط والجداول والخطوط قبل الاعتماد.");
+    if(quality.status==="no_extractable_source_text"){
+      toast("تم إنشاء Word، لكن الملف الأصلي يبدو ممسوحًا ضوئيًا؛ لا يمكن قياس تغطية النص. راجع النص والصور يدويًا.");
+    }else if(quality.coverage!==null&&quality.coverage!==undefined){
+      const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision);
+      const qualityText="تغطية النص "+coverage+"%"+(precision===null?"":"، دقة المطابقة "+precision+"%")+
+        "، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
+      toast("تم إنشاء Word. "+qualityText+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
+    }else{
+      toast("تم إنشاء Word. تعذر استخراج مؤشرات الجودة آليًا؛ راجع النص والتخطيط والجداول والصور قبل الاعتماد.");
+    }
   }catch(error){console.error(error);toast(error.message||"فشل تحويل PDF إلى Word.");}
   finally{button.disabled=false}
 }
