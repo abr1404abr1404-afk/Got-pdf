@@ -9,9 +9,12 @@ class PdfImageToolsTests(unittest.TestCase):
     def source_pdf(self):
         doc = pymupdf.open()
         page = doc.new_page(width=300, height=200)
-        pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 30, 20), 0)
-        pix.clear_with(0xCC2222)
-        page.insert_image(pymupdf.Rect(60, 50, 180, 130), pixmap=pix)
+        from PIL import Image
+        import io
+        image = Image.new("RGB", (30, 20), (220, 34, 34))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        page.insert_image(pymupdf.Rect(60, 50, 180, 130), stream=buffer.getvalue())
         page.insert_text((30, 180), "Keep this text")
         data = doc.tobytes()
         doc.close()
