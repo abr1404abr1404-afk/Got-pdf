@@ -49,3 +49,8 @@ The inspector exposes path type and line style metadata. Recoloring is currently
 ## Safe vector scaling
 
 The editor also scales isolated single rectangles and straight lines between 50% and 200% around their center. Both the original and proposed bounds are checked against text, raster images, other vector paths, annotations, and page edges before the old drawing is removed. Only simple one-item rectangle/line paths are supported; complex paths and grouped graphics are rejected.
+
+
+## Vector stroke styling
+
+Isolated simple rectangles and straight lines can also change stroke width (0.1–20 pt) and stroke opacity (0–1). The same overlap and object-identity checks apply. Filled-only shapes without a stroke and complex/grouped paths are rejected. The original PDF remains unchanged.
