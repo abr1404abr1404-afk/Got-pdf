@@ -561,6 +561,116 @@ def replace_isolated_latin_pdf_text(data: bytes, operation: dict[str, Any]) -> b
     finally:
         doc.close()
 
+
+def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> bytes:
+    """Replace one isolated horizontal Arabic span using HarfBuzz-backed Story layout."""
+    import html as html_lib
+
+    if not isinstance(operation, dict) or operation.get("action") != "replace_ar":
+        raise ValueError("عملية استبدال النص العربي غير صالحة.")
+    replacement = operation.get("replacement")
+    if not isinstance(replacement, str) or not replacement.strip() or len(replacement) > MAX_TEXT_EDIT_CHARS:
+        raise ValueError("اكتب نصًا عربيًا بديلًا من 1 إلى 240 حرفًا.")
+    replacement = replacement.strip()
+    if not re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", replacement):
+        raise ValueError("يجب أن يحتوي النص البديل على حروف عربية.")
+    if any(ord(ch) < 32 and ch not in "\n\t" for ch in replacement):
+        raise ValueError("النص البديل يحتوي على محارف غير مدعومة.")
+    try:
+        page_number = int(operation["page"])
+        object_id = str(operation["object_id"])
+        text_hash = str(operation["text_hash"])
+        coords = operation["rect"]
+        if not isinstance(coords, list) or len(coords) != 4:
+            raise ValueError
+        normalized = [float(v) for v in coords]
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("بيانات النص العربي أو إحداثياته غير صالحة.") from exc
+    if not all(math.isfinite(v) for v in normalized) or not re.fullmatch(r"[0-9a-f]{64}", text_hash):
+        raise ValueError("بصمة النص أو الإحداثيات غير صالحة؛ أعد الفهرسة.")
+    if not 1 <= page_number <= 200 or not re.fullmatch(rf"p{page_number}-text-[0-9]+", object_id):
+        raise ValueError("مرجع النص غير صالح.")
+    x0, y0, x1, y1 = normalized
+    if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
+        raise ValueError("مستطيل النص يجب أن يقع داخل الصفحة.")
+    doc = _open(data)
+    try:
+        if page_number > doc.page_count:
+            raise ValueError("الصفحة المحددة خارج نطاق الملف.")
+        page = doc.load_page(page_number - 1)
+        page_rect = page.rect
+        span_index = int(object_id.rsplit("-", 1)[1]) - 1
+        spans = []
+        for block in page.get_text("dict").get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    value = str(span.get("text", "")).strip()
+                    if value:
+                        spans.append((pymupdf.Rect(span.get("bbox", (0, 0, 0, 0))),
+                                      {**span, "text": value, "direction": line.get("dir", (1, 0))}))
+        if not 0 <= span_index < len(spans):
+            raise ValueError("لم يتم العثور على النص العربي؛ أعد فهرسة الملف.")
+        target_rect, target = spans[span_index]
+        original = target["text"]
+        if len(original) > MAX_TEXT_EDIT_CHARS or hashlib.sha256(original.encode("utf-8")).hexdigest() != text_hash:
+            raise ValueError("تغيّر النص أو تجاوز الحد؛ أعد فهرسة الملف.")
+        direction = target["direction"]
+        if not re.search(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]", original):
+            raise ValueError("المقطع المحدد ليس نصًا عربيًا.")
+        if abs(float(direction[1])) > 0.01 or float(direction[0]) >= 0:
+            raise ValueError("يدعم الاستبدال حاليًا النص العربي الأفقي من اليمين إلى اليسار فقط.")
+        supplied = pymupdf.Rect(page_rect.x0+x0*page_rect.width, page_rect.y0+y0*page_rect.height,
+                                page_rect.x0+x1*page_rect.width, page_rect.y0+y1*page_rect.height)
+        if any(abs(a-b) > 1.5 for a, b in zip(target_rect, supplied)):
+            raise ValueError("موضع النص تغيّر؛ أعد فهرسة الملف.")
+        for index, (other_rect, _) in enumerate(spans):
+            if index != span_index and _overlap_ratio(target_rect, other_rect) > 0:
+                raise ValueError("يتداخل النص مع مقطع آخر؛ لن يتم استبداله.")
+        for info in page.get_image_info(xrefs=True):
+            if _overlap_ratio(target_rect, pymupdf.Rect(info.get("bbox", (0, 0, 0, 0)))) > 0:
+                raise ValueError("يتداخل النص مع صورة؛ لن يتم استبداله.")
+        for drawing in page.get_drawings():
+            if drawing.get("rect") and _overlap_ratio(target_rect, pymupdf.Rect(drawing["rect"])) > 0:
+                raise ValueError("يتداخل النص مع رسم؛ لن يتم استبداله.")
+        for annotation in page.annots() or []:
+            if _overlap_ratio(target_rect, pymupdf.Rect(annotation.rect)) > 0:
+                raise ValueError("يتداخل النص مع تعليق؛ لن يتم استبداله.")
+        fontsize = max(4.0, min(72.0, float(target.get("size") or 11)))
+        color_int = int(target.get("color") or 0)
+        color_hex = f"#{color_int:06X}"
+        expected = [span["text"] for index, (_rect, span) in enumerate(spans) if index != span_index]
+        page.add_redact_annot(target_rect, fill=None, cross_out=False)
+        page.apply_redactions(images=0, graphics=0, text=0)
+        safe_text = html_lib.escape(replacement).replace("\\n", "<br>")
+        html = f'<div dir="rtl" style="font-family: Noto Naskh Arabic; font-size: {fontsize:.2f}pt; color: {color_hex}; text-align: right; direction: rtl; line-height: 1.15">{safe_text}</div>'
+        try:
+            spare_height, scale = page.insert_htmlbox(target_rect, html, css="div { margin: 0; padding: 0; }", scale_low=0.95)
+        except Exception as exc:
+            raise ValueError("تعذّر تشكيل النص العربي بالخط المتاح؛ لم يتم اعتماد التعديل.") from exc
+        if spare_height < 0 or scale < 0.95:
+            raise ValueError("النص العربي البديل لا يتسع في المساحة الأصلية؛ اختصره للحفاظ على التخطيط.")
+        after = []
+        for block in page.get_text("dict").get("blocks", []):
+            if block.get("type") != 0:
+                continue
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    value = str(span.get("text", "")).strip()
+                    if value:
+                        after.append(value)
+        from collections import Counter
+        if Counter(after) != Counter(expected + [replacement]):
+            raise ValueError("تعذّر التحقق من النص العربي الناتج؛ أُلغي التعديل.")
+        output = doc.tobytes(garbage=4, deflate=True, clean=True)
+        if not output.startswith(b"%PDF-"):
+            raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
+        return output
+    finally:
+        doc.close()
+
+
 def delete_isolated_pdf_text(data: bytes, operation: dict[str, Any]) -> bytes:
     """Delete one isolated, revalidated text span and verify no neighboring text changed."""
     if not isinstance(operation, dict) or operation.get("action") != "delete":
