@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector, edit_pdf_images
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, replace_isolated_arabic_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector, edit_pdf_images
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -532,6 +532,44 @@ class PdfImageToolsTests(unittest.TestCase):
 
 
 
+
+    def arabic_text_pdf(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=360, height=220)
+        page.insert_htmlbox(
+            pymupdf.Rect(70, 65, 290, 115),
+            '<div dir="rtl" style="font-family:Noto Naskh Arabic;font-size:18pt;text-align:right">مرحبا بالعالم</div>',
+        )
+        data = doc.tobytes()
+        doc.close()
+        return data
+
+    def test_arabic_text_replacement_uses_rtl_shaping_and_preserves_other_content(self):
+        source = self.arabic_text_pdf()
+        report = inspect_pdf_objects(source)
+        target = next(item for item in report["objects"] if item["type"] == "text")
+        output = replace_isolated_arabic_pdf_text(source, {
+            "action": "replace_ar", "page": target["page"], "object_id": target["id"],
+            "text_hash": target["text_hash"], "rect": target["rect"],
+            "replacement": "أهلاً وسهلاً",
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            text = result[0].get_text()
+            self.assertIn("أهلاً وسهلاً", text)
+            pix = result[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
+            self.assertGreater(sum(pix.samples), 0)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertIn("مرحبا بالعالم", original[0].get_text())
+
+    def test_arabic_text_replacement_rejects_non_arabic_replacement(self):
+        source = self.arabic_text_pdf()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "text")
+        with self.assertRaisesRegex(ValueError, "حروف عربية"):
+            replace_isolated_arabic_pdf_text(source, {
+                "action": "replace_ar", "page": 1, "object_id": target["id"],
+                "text_hash": target["text_hash"], "rect": target["rect"],
+                "replacement": "hello",
+            })
 
     def test_rotate_image_90_swaps_placement_dimensions_and_preserves_source(self):
         source = self.source_pdf()
