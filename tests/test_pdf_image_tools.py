@@ -551,11 +551,11 @@ class PdfImageToolsTests(unittest.TestCase):
         output = replace_isolated_arabic_pdf_text(source, {
             "action": "replace_ar", "page": target["page"], "object_id": target["id"],
             "text_hash": target["text_hash"], "rect": target["rect"],
-            "replacement": "أهلاً وسهلاً",
+            "replacement": "أهلًا",
         })
         with pymupdf.open(stream=output, filetype="pdf") as result:
             text = result[0].get_text()
-            self.assertIn("أهلاً وسهلاً", text)
+            self.assertIn("أهلًا", text)
             pix = result[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
             self.assertGreater(sum(pix.samples), 0)
         with pymupdf.open(stream=source, filetype="pdf") as original:
