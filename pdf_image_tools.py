@@ -185,6 +185,7 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
             page_rect = page.rect
             text_spans: list[tuple[pymupdf.Rect, str]] = []
             page_images: list[tuple[pymupdf.Rect, dict[str, Any]]] = []
+            page_vectors: list[tuple[pymupdf.Rect, dict[str, Any]]] = []
 
             for block in page.get_text("dict").get("blocks", []):
                 if block.get("type") != 0:
@@ -196,12 +197,21 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                             continue
                         rect = pymupdf.Rect(span.get("bbox", (0, 0, 0, 0)))
                         text_spans.append((rect, raw_text))
+                        color_value = span.get("color")
+                        color_hex = f"#{int(color_value):06X}" if isinstance(color_value, int) else None
+                        direction = line.get("dir")
                         objects.append({
                             "id": f"p{page_index + 1}-text-{len(text_spans)}",
                             "type": "text",
                             "page": page_index + 1,
                             "text": raw_text[:MAX_TEXT_PREVIEW_CHARS],
                             "truncated": len(raw_text) > MAX_TEXT_PREVIEW_CHARS,
+                            "font": str(span.get("font", ""))[:120],
+                            "font_size": round(float(span.get("size") or 0), 2),
+                            "font_flags": int(span.get("flags") or 0),
+                            "color": color_hex,
+                            "writing_direction": [round(float(v), 4) for v in direction] if isinstance(direction, (list, tuple)) and len(direction) == 2 else None,
+                            "origin": [round(float(v), 2) for v in span.get("origin", [])[:2]] if isinstance(span.get("origin"), (list, tuple)) else None,
                             "rect": _normalized_rect(rect, page_rect),
                         })
                         if len(objects) >= MAX_OBJECT_ITEMS:
@@ -234,7 +244,7 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                     if not rect_value:
                         continue
                     rect = pymupdf.Rect(rect_value)
-                    objects.append({
+                    vector_item = {
                         "id": f"p{page_index + 1}-vector-{drawing_index}",
                         "type": "vector",
                         "page": page_index + 1,
@@ -242,7 +252,9 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                         "fill": list(drawing["fill"]) if drawing.get("fill") else None,
                         "stroke": list(drawing["color"]) if drawing.get("color") else None,
                         "rect": _normalized_rect(rect, page_rect),
-                    })
+                    }
+                    page_vectors.append((rect, vector_item))
+                    objects.append(vector_item)
                     if len(objects) >= MAX_OBJECT_ITEMS:
                         break
 
@@ -258,6 +270,39 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                     })
                     if len(objects) >= MAX_OBJECT_ITEMS:
                         break
+
+            # Surface vector overlaps as well: an apparently isolated drawing may
+            # be part of a composite icon or sit over raster/text content.
+            for vector_rect, vector_obj in page_vectors:
+                for text_rect, _text in text_spans:
+                    if _overlap_ratio(vector_rect, text_rect) >= 0.10:
+                        warnings.append({
+                            "type": "vector_text_overlap",
+                            "page": page_index + 1,
+                            "object_id": vector_obj["id"],
+                            "message": "يتداخل الرسم المتجهي مع نص؛ لا تحذفه قبل مراجعة المنطقة.",
+                        })
+                        break
+                for image_rect, image_obj in page_images:
+                    if _overlap_ratio(vector_rect, image_rect) >= 0.10:
+                        warnings.append({
+                            "type": "vector_image_overlap",
+                            "page": page_index + 1,
+                            "object_id": vector_obj["id"],
+                            "other_object_id": image_obj["id"],
+                            "message": "يتداخل الرسم المتجهي مع صورة؛ راجع الطبقات قبل التعديل.",
+                        })
+                        break
+            for vector_index, (vector_rect, vector_obj) in enumerate(page_vectors):
+                for other_rect, other_obj in page_vectors[vector_index + 1:]:
+                    if _overlap_ratio(vector_rect, other_rect) >= 0.10:
+                        warnings.append({
+                            "type": "vector_vector_overlap",
+                            "page": page_index + 1,
+                            "object_id": vector_obj["id"],
+                            "other_object_id": other_obj["id"],
+                            "message": "يتداخل هذا الرسم مع رسم متجهي آخر؛ قد يكونان جزءًا من شكل مركب.",
+                        })
 
             for image_index, (image_rect, image_obj) in enumerate(page_images):
                 for text_rect, _text in text_spans:
