@@ -57,6 +57,10 @@ for (const feature of ["ocrReviewPrev", "ocrReviewNext", "ocrReviewCounter", "oc
   if (!html.includes(feature)) failures.push("Multi-page OCR review feature is missing: " + feature);
 }
 
+for (const feature of ['id="secureRedactPdf"', '/api/pdf/redact', 'regions', 'تطبيق الحجب النهائي', 'لن يتغير الملف الأصلي']) {
+  if (!html.includes(feature)) failures.push("Permanent PDF redaction UI is missing: " + feature);
+}
+
 for (const feature of ["ocrReviewSaveCurrent()", "v:2", "ocr:Array.isArray(p.ocr)", "tables:Array.isArray(p.tables)", "searchablePdf", "/api/pdf/searchable", "ocr_data", "سيتم إرسال نسخة PDF الحالية"]) {
   if (!html.includes(feature)) failures.push("OCR project persistence is missing: " + feature);
 }
