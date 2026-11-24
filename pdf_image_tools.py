@@ -711,14 +711,16 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         except Exception as exc:
             raise ValueError("تعذّر التحقق من طبقة النص العربية الناتجة؛ أُلغي التعديل.") from exc
         normalized_after = unicodedata.normalize("NFKC", after).replace("\\u200e", "").replace("\\u200f", "")
+        compact_after = "".join(normalized_after.split())
         normalized_replacement = unicodedata.normalize("NFKC", replacement)
-        if normalized_original in normalized_after:
+        compact_replacement = "".join(normalized_replacement.split())
+        if "".join(normalized_original.split()) in compact_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
-        if normalized_replacement not in normalized_after:
-            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل. المستخرج=" + repr(normalized_after[-120:]) + " المطلوب=" + repr(normalized_replacement))
+        if compact_replacement not in compact_after:
+            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل.")
         for neighbor in expected:
-            normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
-            if normalized_neighbor and normalized_neighbor not in normalized_after:
+            compact_neighbor = "".join(unicodedata.normalize("NFKC", neighbor).split())
+            if compact_neighbor and compact_neighbor not in compact_after:
                 raise ValueError("تغيّر نص مجاور أثناء الاستبدال؛ أُلغي التعديل.")
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
