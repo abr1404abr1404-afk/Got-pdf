@@ -556,3 +556,18 @@ body.ann-tools-open #anp{display:flex;}
   #anp{left:5px!important;right:5px!important;max-height:min(56dvh,390px)!important;gap:5px!important;padding:7px!important;}
   #anp>button:not(#annToolsClose){min-width:calc(50% - 5px)!important;max-width:calc(50% - 3px)!important;font-size:.78rem!important;padding-inline:6px!important;}
 }
+
+
+/* Final mobile fixes: keep both drawers above browser chrome and make toggles reliable. */
+@media(max-width:640px){
+  #anp{
+    bottom:max(96px,calc(env(safe-area-inset-bottom,0px) + 82px))!important;
+    max-height:min(54dvh,calc(100dvh - 190px))!important;
+    z-index:2147483000!important;
+    overscroll-behavior-y:contain!important;
+  }
+  #anp .ann-tools-head{top:-8px!important;z-index:20!important;}
+  #anp .ann-tools-head #annToolsClose{position:relative!important;z-index:21!important;touch-action:manipulation!important;}
+  #mnm{padding-top:calc(env(safe-area-inset-top,0px) + 8px)!important;padding-bottom:max(96px,calc(env(safe-area-inset-bottom,0px) + 82px))!important;z-index:2147482000!important;}
+  #mnm .bx{max-height:calc(100dvh - 190px)!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;}
+}
