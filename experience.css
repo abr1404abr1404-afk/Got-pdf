@@ -402,3 +402,8 @@ main { min-height: calc(100vh - 105px); }
   .pwa-help-card{max-height:calc(88dvh - env(safe-area-inset-bottom,0px));padding:15px;border-radius:18px}
 }
 
+/* Local autosave status */
+.autosave-status{display:inline-flex;align-items:center;max-width:190px;padding:5px 9px;border:1px solid var(--line);border-radius:999px;color:var(--mut);font-size:.72rem;white-space:nowrap}
+.autosave-status[data-state="saved"]{color:#16834a;border-color:color-mix(in srgb,#16834a 35%,var(--line))}
+.autosave-status[data-state="error"]{color:#b45309;border-color:color-mix(in srgb,#b45309 40%,var(--line))}
+@media(max-width:640px){.autosave-status{max-width:112px;overflow:hidden;text-overflow:ellipsis;font-size:.64rem;padding:4px 6px}}
