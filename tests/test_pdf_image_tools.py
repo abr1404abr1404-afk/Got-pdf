@@ -131,6 +131,38 @@ class PdfImageToolsTests(unittest.TestCase):
         with pymupdf.open(stream=source, filetype="pdf") as original:
             self.assertEqual(len(original[0].get_images(full=True)), 1)
 
+    def test_enhance_image_grayscale_preserves_placement_and_source(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        output = edit_pdf_images(source, [{
+            "page": item["page"], "xref": item["xref"],
+            "occurrence": item["occurrence"], "rect": item["rect"],
+            "action": "enhance", "filter": "grayscale",
+        }])
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            xref = result[0].get_images(full=True)[0][0]
+            extracted = result.extract_image(xref)["image"]
+            from PIL import Image
+            import io
+            with Image.open(io.BytesIO(extracted)) as enhanced:
+                pixel = enhanced.convert("RGB").getpixel((10, 10))
+                self.assertEqual(pixel[0], pixel[1])
+                self.assertEqual(pixel[1], pixel[2])
+            rect = result[0].get_image_rects(xref)[0]
+            self.assertAlmostEqual(rect.width, 120, delta=2)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertEqual(len(original[0].get_images(full=True)), 1)
+
+    def test_enhance_image_rejects_invalid_factor(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        with self.assertRaisesRegex(ValueError, "قيمة التحسين"):
+            edit_pdf_images(source, [{
+                "page": 1, "xref": item["xref"], "occurrence": 0,
+                "rect": item["rect"], "action": "enhance",
+                "filter": "brightness", "factor": 4,
+            }])
+
     def test_invalid_scale_is_rejected(self):
         source = self.source_pdf()
         item = list_pdf_images(source)[0]
