@@ -684,6 +684,7 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         def normalized(value):
             import unicodedata
             value = unicodedata.normalize("NFKC", value)
+            value = "".join(char for char in value if not unicodedata.combining(char))
             value = value.replace("\\u200e", "").replace("\\u200f", "")
             return " ".join(value.split()).strip()
         extracted = normalized(" ".join(after))
