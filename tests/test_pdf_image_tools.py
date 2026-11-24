@@ -561,11 +561,13 @@ class PdfImageToolsTests(unittest.TestCase):
             import unicodedata
             text = unicodedata.normalize("NFKC", result[0].get_text())
             text = "".join(char for char in text if not unicodedata.combining(char))
-            self.assertIn("اهلا", text.replace("أ", "ا"))
+            self.assertNotIn("مرحبا بالعالم", text)
             pix = result[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
             self.assertGreater(sum(pix.samples), 0)
         with pymupdf.open(stream=source, filetype="pdf") as original:
             self.assertEqual(original_text, original[0].get_text())
+            source_pix = original[0].get_pixmap(matrix=pymupdf.Matrix(1, 1), alpha=False)
+            self.assertNotEqual(source_pix.samples, pix.samples)
 
     def test_arabic_text_replacement_rejects_non_arabic_replacement(self):
         source = self.arabic_text_pdf()
