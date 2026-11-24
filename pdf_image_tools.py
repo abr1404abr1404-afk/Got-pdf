@@ -655,6 +655,16 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
             raise ValueError("تعذّر تشكيل النص العربي بالخط المتاح؛ لم يتم اعتماد التعديل.") from exc
         if spare_height < 0 or scale < 0.95:
             raise ValueError("النص العربي البديل لا يتسع في المساحة الأصلية؛ اختصره للحفاظ على التخطيط.")
+        # Keep a logical Unicode text layer in addition to the shaped visual text.
+        import os
+        font_path = "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf"
+        if not os.path.isfile(font_path):
+            raise ValueError("خط Noto Naskh Arabic غير متاح لإضافة طبقة النص القابلة للبحث.")
+        page.insert_text(
+            (target_rect.x0, target_rect.y1 - max(1.0, fontsize * 0.12)),
+            replacement, fontname="NotoLogical", fontfile=font_path,
+            fontsize=fontsize, render_mode=3, overlay=True,
+        )
         after = []
         for block in page.get_text("dict").get("blocks", []):
             if block.get("type") != 0:
