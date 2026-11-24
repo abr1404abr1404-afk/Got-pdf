@@ -524,6 +524,7 @@ def health():
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
             "office_conversion_available": bool(GOTENBERG_URL),
             "searchable_pdf_available": True,
+            "secure_redaction_available": True,
             "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None}
 
 
