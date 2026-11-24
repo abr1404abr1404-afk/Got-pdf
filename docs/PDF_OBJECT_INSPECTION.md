@@ -74,3 +74,8 @@ The raster image editor supports 90°, 180°, and 270° rotation for an isolated
 ## Batch image operations
 
 The image manager supports selecting multiple distinct embedded images and applying their requested actions in one request. The UI includes select-all and clear-selection controls. The service validates each operation before returning an output; a failed operation rejects the request, and the caller's original PDF bytes remain unchanged. Identical image resources reused multiple times on one page remain limited to one selected occurrence per request.
+
+
+## Raster image enhancement
+
+The editor supports grayscale conversion and bounded brightness, contrast, color, and sharpness adjustments on embedded raster images. Processing is capped at 20 million pixels per image; images with separate transparency masks are rejected rather than risk losing transparency. Enhancements preserve the selected image's placement and return a new PDF copy. Visual fidelity depends on the source image's color profile and format.
