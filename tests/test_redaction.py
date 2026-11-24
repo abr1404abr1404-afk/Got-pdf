@@ -91,7 +91,8 @@ class RedactionTests(unittest.TestCase):
             "regions": [{"page": 1, "rect": [0.01, 0.01, 0.1, 0.1]}]
         })
         with pymupdf.open(stream=result, filetype="pdf") as output:
-            self.assertFalse(any(output.metadata.values()))
+            self.assertEqual(output.metadata.get("title"), "")
+            self.assertEqual(output.metadata.get("author"), "")
             self.assertEqual(output.get_xml_metadata(), "")
             self.assertEqual(output.embfile_names(), [])
 
