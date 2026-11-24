@@ -30,6 +30,9 @@ from pdf_tools import compress_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
+from pdf_security import unlock_pdf_bytes
+from pdf_to_docx import convert_pdf_to_docx
+from pdf_image_tools import list_pdf_images, edit_pdf_images
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -536,6 +539,9 @@ def health():
             "office_conversion_available": bool(GOTENBERG_URL),
             "searchable_pdf_available": True,
             "secure_redaction_available": True,
+            "password_unlock_available": True,
+            "pdf_to_docx_available": True,
+            "pdf_image_edit_available": True,
             "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None}
 
 
@@ -611,6 +617,77 @@ async def searchable_pdf(request: Request, file: UploadFile = File(...), ocr_dat
             "X-OCR-Text-Layer": "invisible",
         },
     )
+
+
+@app.post("/api/pdf/unlock")
+async def unlock_pdf(request: Request, file: UploadFile = File(...), password: str = Form(...)):
+    """Remove PDF encryption only after a valid password and permission check."""
+    _guard_expensive_request(request, "pdf-unlock", client_limit=3, global_limit=10)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        output = await _run_cpu(unlock_pdf_bytes, data, password)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if len(output) > MAX_CONVERTED_MB * 1024 * 1024:
+        raise HTTPException(413, "حجم PDF الناتج يتجاوز الحد المسموح.")
+    return Response(content=output, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="alfalqi-unlocked.pdf"',
+                             "X-PDF-Password-Verified": "true"})
+
+
+@app.post("/api/convert/pdf-to-docx")
+async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: str = Form("")):
+    """Convert PDF layout to editable DOCX; fidelity depends on source structure."""
+    _guard_expensive_request(request, "pdf-to-docx", client_limit=3, global_limit=8)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        output = await _run_cpu(convert_pdf_to_docx, data, password)
+    except PermissionError as exc:
+        raise HTTPException(403, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return Response(content=output,
+                    media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    headers={"Content-Disposition": 'attachment; filename="alfalqi-converted.docx"',
+                             "X-Conversion-Engine": "pdf2docx"})
+
+
+@app.post("/api/pdf/images/list")
+async def pdf_images_list(request: Request, file: UploadFile = File(...)):
+    """Analyze embedded raster image occurrences in a PDF."""
+    _guard_expensive_request(request, "pdf-images", client_limit=4, global_limit=12)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        items = await _run_cpu(list_pdf_images, data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return {"images": items, "count": len(items)}
+
+
+@app.post("/api/pdf/images/edit")
+async def pdf_images_edit(request: Request, file: UploadFile = File(...), operations: str = Form(...)):
+    """Delete or resize selected embedded raster image occurrences."""
+    _guard_expensive_request(request, "pdf-images-edit", client_limit=3, global_limit=8)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    if len(operations.encode("utf-8")) > 256 * 1024:
+        raise HTTPException(413, "بيانات تعديل الصور تتجاوز الحد المسموح.")
+    try:
+        import json
+        parsed = json.loads(operations)
+        output = await _run_cpu(edit_pdf_images, data, parsed)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if len(output) > MAX_CONVERTED_MB * 1024 * 1024:
+        raise HTTPException(413, "حجم PDF الناتج يتجاوز الحد المسموح.")
+    return Response(content=output, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="alfalqi-image-edited.pdf"',
+                             "X-PDF-Images-Edited": "true"})
 
 
 @app.post("/api/pdf/redact")
