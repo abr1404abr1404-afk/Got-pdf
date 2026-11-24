@@ -692,15 +692,15 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         # Visible Arabic is RAQM-shaped artwork; the invisible layer carries
         # the logical Unicode string for search and copy/paste.
         try:
-            spare_height = page.insert_textbox(
-                target_rect, replacement, fontsize=logical_font_size,
-                fontname="AlfalqiArabicLogical", fontfile=str(font_path),
-                render_mode=3, align=2, color=(0, 0, 0),
+            hidden_font_size = max(1.0, min(4.0, logical_font_size * 0.30))
+            page.insert_text(
+                (target_rect.x0, target_rect.y1 - 1.0), replacement,
+                fontsize=hidden_font_size, fontname="AlfalqiArabicLogical",
+                fontfile=str(font_path), render_mode=3, overlay=True,
+                color=(0, 0, 0),
             )
         except Exception as exc:
             raise ValueError("تعذّر إنشاء طبقة النص العربية القابلة للبحث؛ أُلغي التعديل.") from exc
-        if spare_height < 0:
-            raise ValueError("تعذّر احتواء طبقة النص العربية في المساحة الأصلية؛ أُلغي التعديل.")
         after = page.get_text("text")
         normalized_after = unicodedata.normalize("NFKC", after).replace("\\u200e", "").replace("\\u200f", "")
         normalized_replacement = unicodedata.normalize("NFKC", replacement)
