@@ -620,16 +620,28 @@ def scale_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
             for line in block.get("lines",[]):
                 for span in line.get("spans",[]):
                     text_rect=pymupdf.Rect(span.get("bbox",(0,0,0,0)))
+                    if old_rect.intersects(text_rect):
+                        raise ValueError("الرسم الأصلي يتداخل مع نص؛ لم يتم التعديل.")
                     if new_rect.intersects(text_rect):
                         raise ValueError("الحجم الجديد سيتداخل مع نص؛ لم يتم التعديل.")
         for info in page.get_image_info(xrefs=True):
-            if new_rect.intersects(pymupdf.Rect(info.get("bbox",(0,0,0,0)))):
+            image_rect=pymupdf.Rect(info.get("bbox",(0,0,0,0)))
+            if old_rect.intersects(image_rect):
+                raise ValueError("الرسم الأصلي يتداخل مع صورة؛ لم يتم التعديل.")
+            if new_rect.intersects(image_rect):
                 raise ValueError("الحجم الجديد سيتداخل مع صورة؛ لم يتم التعديل.")
         for other_index,other in enumerate(drawings):
-            if other_index!=index and new_rect.intersects(pymupdf.Rect(other.get("rect") or (0,0,0,0))):
+            if other_index==index: continue
+            other_rect=pymupdf.Rect(other.get("rect") or (0,0,0,0))
+            if old_rect.intersects(other_rect):
+                raise ValueError("الرسم الأصلي يتداخل مع رسم آخر؛ لم يتم التعديل.")
+            if new_rect.intersects(other_rect):
                 raise ValueError("الحجم الجديد سيتداخل مع رسم آخر؛ لم يتم التعديل.")
         for annotation in page.annots() or []:
-            if new_rect.intersects(pymupdf.Rect(annotation.rect)):
+            annotation_rect=pymupdf.Rect(annotation.rect)
+            if old_rect.intersects(annotation_rect):
+                raise ValueError("الرسم الأصلي يتداخل مع تعليق؛ لم يتم التعديل.")
+            if new_rect.intersects(annotation_rect):
                 raise ValueError("الحجم الجديد سيتداخل مع تعليق؛ لم يتم التعديل.")
         stroke=tuple(drawing["color"]) if drawing.get("color") else None
         fill=tuple(drawing["fill"]) if drawing.get("fill") else None
