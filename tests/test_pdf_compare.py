@@ -9,7 +9,7 @@ from pdf_compare import compare_pdf_bytes
 def make_pdf(lines):
     doc = pymupdf.open()
     page = doc.new_page()
-    page.insert_textbox(pymupdf.Rect(72, 72, 500, 700), "\\n".join(lines), fontsize=12)
+    page.insert_textbox(pymupdf.Rect(72, 72, 500, 700), "\n".join(lines), fontsize=12)
     data = doc.tobytes()
     doc.close()
     return data
