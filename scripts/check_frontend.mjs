@@ -53,6 +53,11 @@ for (const feature of ["openOcrReview", "ocrReviewText", "ocrReviewSave", "ocrRe
   if (!html.includes(feature)) failures.push("OCR text review feature is missing: " + feature);
 }
 
+for (const feature of ["ocrReviewPrev", "ocrReviewNext", "ocrReviewCounter", "ocrReviewAllCopy", "ocrReviewAllDownload", "allOcrReviewText", "ocrReviewMove"]) {
+  if (!html.includes(feature)) failures.push("Multi-page OCR review feature is missing: " + feature);
+}
+
+
 
 if (failures.length) {
   console.error("Frontend checks failed:");
