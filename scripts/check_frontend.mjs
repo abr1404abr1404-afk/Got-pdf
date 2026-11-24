@@ -152,4 +152,6 @@ if (failures.length) {
   process.exit(1);
 }
 
+if (!html.includes("ann-tools-head")) failures.push("Annotation panel must keep its close control in a dedicated header.");
+
 console.log("Frontend checks passed: " + inlineScripts + " inline scripts parsed; local assets resolved.");
