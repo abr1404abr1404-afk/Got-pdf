@@ -2049,8 +2049,8 @@ const fontWarmupPromise=(async()=>{
 })();
 function fontOpts(sel,val){const g1=document.createElement("optgroup"),g2=document.createElement("optgroup"),g3=document.createElement("optgroup");g1.label="خطوط عربية";g2.label="خطوط إنجليزية";g3.label="خط الملف الأصلي";FONTS.forEach((f,i)=>{const op=new Option(f[0],i);(i>=FBASE?g3:f[3]==="en"?g2:g1).append(op)});sel.append(g1,g2);if(FONTS.length>FBASE)sel.append(g3);sel.value=val}
 const def={f:0,c:"#000000",s:14};let cur=null;
-const toast=m=>{const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display="none",3500)};
-const showToolHint=m=>{const h=$("toolHint");if(!h||!m)return;h.textContent=m;h.classList.add("on");clearTimeout(showToolHint.h);showToolHint.h=setTimeout(()=>h.classList.remove("on"),2000)};
+const toast=m=>{const t=$("toast");t.textContent=m;t.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>{t.style.display="none";t.textContent=""},2000)};
+const showToolHint=m=>{const h=$("toolHint");if(!h||!m)return;h.textContent=m;h.classList.add("on");clearTimeout(showToolHint.h);showToolHint.h=setTimeout(()=>{h.classList.remove("on");h.textContent=""},1800)};
 
 async function readFileBytes(file){
   if(file && typeof file.arrayBuffer === "function") return new Uint8Array(await file.arrayBuffer());
