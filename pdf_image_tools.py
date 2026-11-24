@@ -380,7 +380,7 @@ def edit_pdf_vector_objects(data: bytes, operations: list[dict[str, Any]]) -> by
             page = doc.load_page(page_number - 1)
             for rect in rects:
                 page.add_redact_annot(rect, fill=None, cross_out=False)
-            page.apply_redactions(images=0, graphics=1, text=0)
+            page.apply_redactions(images=0, graphics=2, text=0)
 
         output = doc.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
