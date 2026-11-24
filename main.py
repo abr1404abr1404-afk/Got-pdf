@@ -27,6 +27,7 @@ from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
+from pdf_compare import compare_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
@@ -955,3 +956,25 @@ async def ocr_pdf(request: Request, file: UploadFile = File(...), language: str 
         return {"pages": pages, "page_count": len(pages)}
     finally:
         doc.close()
+
+
+
+@app.post("/api/pdf/compare")
+async def compare_pdf_endpoint(
+    request: Request,
+    original: UploadFile = File(...),
+    revised: UploadFile = File(...),
+):
+    """Compare two PDFs without modifying or retaining either uploaded source."""
+    _guard_expensive_request(request, "pdf-compare", client_limit=5, global_limit=15)
+    original_data = await original.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    revised_data = await revised.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(original_data)
+    _check_size(revised_data)
+    try:
+        return await _run_cpu(compare_pdf_bytes, original_data, revised_data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    finally:
+        original_data = b""
+        revised_data = b""
