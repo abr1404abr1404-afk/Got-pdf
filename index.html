@@ -2094,7 +2094,7 @@ async function openPdfDocument(bytes){
     throw new Error(msg);
   }
 }
-async function load(files){
+async function load(files,recordHistory=true){
   const had=pages.length;
   for(const f of files){
     try{
@@ -2102,6 +2102,7 @@ async function load(files){
       const pdf=await openPdfDocument(bytes);
       const effectiveBytes=openedPdfBytes||bytes;openedPdfBytes=null;
       const d=docs.push({bytes:effectiveBytes,pdf,name:f.name})-1;
+      if(recordHistory)recordPdfVersion(f.name,effectiveBytes).catch(error=>console.warn("PDF source history:",error));
       for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);pages.push({d,i,rot:0,nat:p.rotate||0,sel:false,ov:[]})}
     }catch(e){console.error("PDF open error:",e);toast("تعذّر فتح «"+f.name+"»: "+((e&&e.message)||"تأكد أنه ملف PDF سليم."))}
   }
@@ -2681,7 +2682,7 @@ const pdfVersionDB=(()=>{
 })();
 function recordPdfVersion(name,bytes){return pdfVersionDB.add(name,bytes)}
 async function showPdfVersions(){const host=$("pdfVersionList"),status=$("pdfVersionStatus");host.replaceChildren();status.textContent="جارٍ تحميل السجل…";try{const rows=(await pdfVersionDB.all()).sort((a,b)=>b.createdAt-a.createdAt);if(!rows.length){status.textContent="لا توجد نسخ بعد. ستظهر هنا النسخ التي تنشئها أو تنزّلها من البرنامج.";return}status.textContent=rows.length+" نسخ محفوظة محليًا.";for(const x of rows){const card=document.createElement("div");card.className="pdf-image-card";const title=document.createElement("strong");title.textContent=x.name;const meta=document.createElement("div");meta.className="pdf-image-meta";meta.textContent=new Date(x.createdAt).toLocaleString("ar-SA")+" · "+(x.size/1048576).toFixed(2)+" MB";const actions=document.createElement("div");actions.className="qa";const restore=document.createElement("button");restore.textContent="استعادة";restore.onclick=()=>restorePdfVersion(x.id);const del=document.createElement("button");del.textContent="حذف";del.onclick=async()=>{if(confirm("حذف هذه النسخة من هذا الجهاز؟")){await pdfVersionDB.remove(x.id);showPdfVersions()}};actions.append(restore,del);card.append(title,meta,actions);host.append(card)}}catch(e){status.textContent=e.message||"تعذّر تحميل السجل."}}
-async function restorePdfVersion(id){const x=(await pdfVersionDB.all()).find(v=>v.id===id);if(!x)return toast("النسخة غير موجودة.");if(!confirm("سيتم استبدال مساحة العمل الحالية بهذه النسخة. صدّر مشروعك الحالي أولًا إذا أردت الاحتفاظ به. متابعة؟"))return;const oldDocs=docs.slice(),oldPages=pages.slice(),oldName=$("fn").value,oldFit=window.__fit;try{const bytes=new Uint8Array(x.data);await PDFLib.PDFDocument.load(bytes.slice());docs.splice(0);pages.splice(0);$("fn").value=x.name.replace(/\.pdf$/i,"")+"-مستعاد";window.__fit=0;await load([new File([bytes],x.name,{type:"application/pdf"})]);if(!docs.length||!pages.length)throw new Error("لم يتم تحميل النسخة.");$("pdfVersionModal").style.display="none";toast("تمت استعادة النسخة إلى مساحة العمل.")}catch(e){docs.splice(0,docs.length,...oldDocs);pages.splice(0,pages.length,...oldPages);$("fn").value=oldName;window.__fit=oldFit;render();toast(e.message||"تعذّرت الاستعادة.")}}
+async function restorePdfVersion(id){const x=(await pdfVersionDB.all()).find(v=>v.id===id);if(!x)return toast("النسخة غير موجودة.");if(!confirm("سيتم استبدال مساحة العمل الحالية بهذه النسخة. صدّر مشروعك الحالي أولًا إذا أردت الاحتفاظ به. متابعة؟"))return;const oldDocs=docs.slice(),oldPages=pages.slice(),oldName=$("fn").value,oldFit=window.__fit;try{const bytes=new Uint8Array(x.data);await PDFLib.PDFDocument.load(bytes.slice());docs.splice(0);pages.splice(0);$("fn").value=x.name.replace(/\.pdf$/i,"")+"-مستعاد";window.__fit=0;await load([new File([bytes],x.name,{type:"application/pdf"})],false);if(!docs.length||!pages.length)throw new Error("لم يتم تحميل النسخة.");$("pdfVersionModal").style.display="none";toast("تمت استعادة النسخة إلى مساحة العمل.")}catch(e){docs.splice(0,docs.length,...oldDocs);pages.splice(0,pages.length,...oldPages);$("fn").value=oldName;window.__fit=oldFit;render();toast(e.message||"تعذّرت الاستعادة.")}}
 $("pdfVersionOpen").onclick=async()=>{$("pdfVersionModal").style.display="flex";await showPdfVersions()};$("pdfVersionClose").onclick=()=>$("pdfVersionModal").style.display="none";$("pdfVersionModal").addEventListener("click",e=>{if(e.target===$("pdfVersionModal"))$("pdfVersionModal").style.display="none"});
 async function buildPdf(list){
   const {PDFDocument,degrees,rgb}=PDFLib;
