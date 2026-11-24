@@ -412,3 +412,16 @@ main { min-height: calc(100vh - 105px); }
 .pdf-search-result{display:grid;gap:5px;text-align:start;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer}
 .pdf-search-result span{font-size:.88rem;line-height:1.55;overflow-wrap:anywhere;color:var(--mut)}
 .wrap.search-hit{outline:4px solid var(--acc);outline-offset:4px;border-radius:4px}
+
+
+/* PDF image analysis and editing */
+.pdf-image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:10px;max-height:55vh;overflow:auto;padding:4px}
+.pdf-image-card{border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:8px;min-width:0}
+.pdf-image-card img{display:block;width:100%;height:112px;object-fit:contain;background:#f1f3f5;border-radius:6px}
+.pdf-image-meta{font-size:.82rem;color:var(--mut);margin:7px 0;direction:rtl}
+.pdf-image-controls{display:flex;align-items:center;gap:7px}
+.pdf-image-controls input{width:20px;height:20px}
+.pdf-image-controls select{min-width:0;width:100%;font:inherit;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+#pdfImageManager{position:fixed;inset:0;z-index:90;background:#0008;align-items:center;justify-content:center;padding:12px}
+#pdfImageManager .bx{width:min(760px,100%);max-height:90dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 18px 60px #0004}
+@media(max-width:480px){.pdf-image-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}#pdfImageManager .bx{padding:12px}}
