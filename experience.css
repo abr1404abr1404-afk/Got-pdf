@@ -571,3 +571,23 @@ body.ann-tools-open #anp{display:flex;}
   #mnm{padding-top:calc(env(safe-area-inset-top,0px) + 8px)!important;padding-bottom:max(96px,calc(env(safe-area-inset-bottom,0px) + 82px))!important;z-index:2147482000!important;}
   #mnm .bx{max-height:calc(100dvh - 190px)!important;overscroll-behavior:contain!important;-webkit-overflow-scrolling:touch!important;}
 }
+
+
+/* Distinguish sharing from downloading: share gets a recognizable network icon and outlined blue treatment. */
+#dshare.share-action{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:40px;padding:0 14px;border:1.5px solid #2563eb!important;
+  border-radius:11px;background:rgba(37,99,235,.08)!important;
+  color:#1d4ed8!important;font-weight:700;
+}
+#dshare.share-action .ic{width:19px;height:19px;stroke-width:2.2}
+#dshare.share-action:hover{background:rgba(37,99,235,.15)!important}
+#dshare.share-action:focus-visible{outline:2px solid #2563eb;outline-offset:2px}
+@media(max-width:640px){
+  .hr2 #dshare.share-action{height:42px!important;min-height:42px!important;padding:0 12px!important;min-width:112px!important;gap:6px!important}
+  .hr2 #dshare.share-action .lb{display:inline!important;font-size:.78rem!important}
+}
+@media(prefers-color-scheme:dark){
+  #dshare.share-action{color:#93c5fd!important;border-color:#60a5fa!important;background:rgba(37,99,235,.16)!important}
+  #dshare.share-action:hover{background:rgba(37,99,235,.25)!important}
+}
