@@ -347,6 +347,7 @@ label.btn{position:relative}
    <button class="hb" id="mrg" title="دمج الملفات وترتيبها"><svg class="ic" viewBox="0 0 24 24"><path d="M6 4v6a4 4 0 0 0 4 4h8M18 4v6a4 4 0 0 1-4 4"/><path d="m15 11 3 3-3 3"/></svg><span class="lb">دمج</span></button>
    <button class="hb" id="ai" type="button" title="اسأل عن محتوى المستند"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v2a3 3 0 0 0 3 3h1v-5H7a5 5 0 0 1 10 0h-2v5h1a3 3 0 0 0 3-3v-2a7 7 0 0 0-7-7Z"/><path d="M9 19h6"/></svg><span class="lb">مساعد AI</span></button>
    <button class="hb" id="compress" type="button" title="ضغط نسخة من الملف لتقليل الحجم"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M7 4v6m10-6v6M6 13h12l-2 7H8z"/><path d="M10 16h4"/></svg><span class="lb">ضغط PDF</span></button>
+   <button class="hb" id="pdfSearchBtn" type="button" title="بحث داخل نص الصفحات"><span class="lb">بحث</span><span class="q">⌕</span></button>
    <button class="hb" id="tls" title="أدوات: علامة مائية، خصائص، عمليات سريعة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="lb">أدوات</span></button>
   </div><span id="info"></span></div>
 </header>
@@ -365,6 +366,7 @@ label.btn{position:relative}
 <div class="r"><button id="spx">إلغاء</button><span class="sp"></span><button id="spok" class="p">تقسيم وتنزيل ZIP</button></div></div></div>
 <div id="ocm"><div class="bx" role="dialog" aria-label="قراءة نص صورة"><h2>قراءة النص من صورة وتعديله</h2><p>اختر صورة (مستند، شاشة، لافتة…)، فتتحول إلى صفحة PDF ويُقرأ نصها ثم تُفعَّل أداة «تعديل النص» لتعدّل السطور مباشرة. القراءة تحتاج إنترنت، وأول مرة قد تستغرق دقيقة، وتعمل من المتصفح مباشرة وليس داخل تطبيق Claude.</p><label class="oc-l">لغة النص في الصورة<select id="ocl2"><option value="ara+eng" selected>عربي + English</option><option value="ara">عربي فقط</option><option value="eng">English فقط</option></select></label><div class="r"><label for="focr" class="btn p">اختيار صورة وتحليلها</label><input id="focr" type="file" accept="image/*,.heic,.heif" class="native-picker"><span class="sp"></span><button id="ocx">إلغاء</button></div></div></div>
 <div id="ocrReview" aria-hidden="true"><div class="ocrbox" role="dialog" aria-modal="true" aria-labelledby="ocrReviewTitle"><h2 id="ocrReviewTitle">مراجعة النص المستخرج</h2><p>راجع النص وصحّح الأخطاء. التعديلات تحفظ داخل جلسة العمل وتُستخدم في استخراج النص، ولا تغيّر محتوى ملف PDF الأصلي.</p><div class="ocr-multipage"><button id="ocrReviewPrev" type="button">السابق</button><strong id="ocrReviewCounter">صفحة 1 من 1</strong><button id="ocrReviewNext" type="button">التالي</button><span class="sp"></span><button id="ocrReviewAllCopy" type="button">نسخ كل الصفحات</button><button id="ocrReviewAllDownload" type="button">تنزيل كل الصفحات</button></div><textarea id="ocrReviewText" spellcheck="false" aria-label="النص المستخرج"></textarea><div class="ocr-note">للحفاظ على تطابق السطور مع مواضعها في الصفحة، لا تغيّر عدد الأسطر أثناء التصحيح. يمكنك نسخ النص أو تنزيله TXT.</div><div class="ocr-actions"><button id="ocrReviewCancel">إغلاق</button><button id="ocrReviewCopy">نسخ النص</button><button id="ocrReviewDownload">تنزيل TXT</button><span class="sp"></span><button id="ocrReviewSave" class="p">حفظ التصحيحات</button></div></div></div>
+<div id="pdfSearch" aria-hidden="true" style="position:fixed;inset:0;z-index:34;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px"><section role="dialog" aria-modal="true" aria-labelledby="pdfSearchTitle" style="background:var(--panel);color:var(--ink);width:min(100%,680px);max-height:90vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)"><h2 id="pdfSearchTitle">بحث داخل المستند</h2><p style="color:var(--mut);font-size:.9rem">يبحث محليًا داخل النص المستخرج أو النص القابل للتحديد في PDF. لا يرسل ملفاتك إلى الخادم. للصفحات المصوّرة شغّل OCR أولًا.</p><div class="r"><input id="pdfSearchInput" type="search" dir="auto" placeholder="اكتب كلمة أو عبارة للبحث" style="flex:1;min-width:0"><button id="pdfSearchGo" class="p" type="button">بحث</button></div><p id="pdfSearchStatus" role="status" aria-live="polite"></p><div id="pdfSearchResults" style="display:grid;gap:7px"></div><div class="r" style="margin-top:12px"><span class="sp"></span><button id="pdfSearchClose" type="button">إغلاق</button></div></section></div>
 <div id="mnm"><div class="bx" role="dialog" aria-label="القائمة الرئيسية"><div class="mh"><span class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg></span><h2>الفلقي لتعديل PDF</h2></div><p>شرح الأزرار واستخدامها. تُعالج ملفاتك محليًا، لكن عند تفعيل خادم OCR تُرسل الصفحة المراد تحليلها إلى ذلك الخادم.</p><div id="mnl"></div><div class="r"><button id="mnh" type="button">الدليل السريع</button><span class="sp"></span><button id="mnx" class="p" type="button">إغلاق</button></div></div></div>
 <div id="mgm"><div class="bx" role="dialog" aria-label="دمج الملفات"><h2>دمج الملفات</h2><p>رتّب الملفات بالأسهم أو احذف ما لا تريده، ثم اضغط «تطبيق». لإضافة ملف جديد استخدم «إضافة ملف».</p><div id="mglist"></div><div class="r"><label for="file" class="btn">+ إضافة ملف</label><span class="sp"></span><button id="mgx">إلغاء</button><button id="mgok" class="p">تطبيق</button></div></div></div>
 <div id="tlm"><div class="bx" role="dialog" aria-label="أدوات"><h2>أدوات إضافية</h2>
@@ -2672,6 +2674,41 @@ function closeAi(){aiModal.classList.remove("on");aiModal.setAttribute("aria-hid
 function openCompress(){if(!pages.length)return toast("افتح ملف PDF أولًا.");compressModal.classList.add("on");compressModal.setAttribute("aria-hidden","false");$("cpStatus").textContent=apiBase()?"يمكنك اختيار الضغط على الخادم أو تركه فارغًا للمعالجة المحلية." :"لا يوجد خادم ضغط متصل؛ ستتم محاولة التحسين المحلي دون فقد جودة. خيارات تقليل جودة الصور تحتاج ربط الخادم."}
 function closeCompress(){compressModal.classList.remove("on");compressModal.setAttribute("aria-hidden","true")}
 $("ai").onclick=openAi;$("aiClose").onclick=closeAi;$("compress").onclick=openCompress;$("cpClose").onclick=closeCompress;
+function closePdfSearch(){const box=$("pdfSearch");box.style.display="none";box.setAttribute("aria-hidden","true")}
+function openPdfSearch(){if(!pages.length)return toast("افتح ملف PDF أولًا.");const box=$("pdfSearch");box.style.display="flex";box.setAttribute("aria-hidden","false");$("pdfSearchInput").focus()}
+$("pdfSearchBtn").onclick=openPdfSearch;$("pdfSearchClose").onclick=closePdfSearch;
+$("pdfSearch").addEventListener("click",e=>{if(e.target===$("pdfSearch"))closePdfSearch()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("pdfSearch").style.display==="flex")closePdfSearch();if(e.key==="Enter"&&$("pdfSearch").style.display==="flex"&&e.target===$("pdfSearchInput"))runPdfSearch()});
+async function runPdfSearch(){
+  const query=$("pdfSearchInput").value.trim();
+  if(query.length<2){$("pdfSearchStatus").textContent="اكتب حرفين على الأقل.";return}
+  const chosen=pages.some(p=>p.sel)?pages.map((p,i)=>p.sel?i:-1).filter(i=>i>=0):pages.map((p,i)=>i);
+  const results=$("pdfSearchResults");results.replaceChildren();$("pdfSearchStatus").textContent="جارٍ البحث محليًا…";
+  const needle=query.toLocaleLowerCase();let total=0,checked=0;
+  for(const index of chosen){
+    const pg=pages[index];let source="";
+    if(Array.isArray(pg.ocr)&&pg.ocr.length)source=pg.ocr.map(line=>line.t||"").join("\n");
+    else{
+      try{const page=await docs[pg.d].pdf.getPage(pg.i),content=await page.getTextContent();source=content.items.map(item=>item.str||"").join(" ")}
+      catch(error){console.warn("PDF text search failed",index,error)}
+    }
+    checked++;
+    const lower=source.toLocaleLowerCase();let at=lower.indexOf(needle),count=0;
+    if(at>=0){
+      for(let pos=at;pos>=0;pos=lower.indexOf(needle,pos+needle.length))count++;
+      total+=count;
+      const start=Math.max(0,at-65),end=Math.min(source.length,at+query.length+95);
+      const snippet=(start?"…":"")+source.slice(start,end)+(end<source.length?"…":"");
+      const button=document.createElement("button");button.type="button";button.className="pdf-search-result";
+      const heading=document.createElement("strong");heading.textContent="الصفحة "+(index+1)+" · "+count+" نتيجة";
+      const excerpt=document.createElement("span");excerpt.textContent=snippet;button.append(heading,excerpt);
+      button.onclick=()=>{closePdfSearch();const wrap=document.querySelectorAll("#main .wrap")[index];if(wrap){wrap.scrollIntoView({behavior:"smooth",block:"center"});wrap.classList.add("search-hit");setTimeout(()=>wrap.classList.remove("search-hit"),1800)}};
+      results.append(button);
+    }
+  }
+  $("pdfSearchStatus").textContent=total?"عُثر على "+total+" نتيجة في "+results.children.length+" صفحة من أصل "+checked+" صفحة مفحوصة.":"لم يُعثر على العبارة في النص المتاح. إذا كانت الصفحة صورة، شغّل OCR ثم أعد البحث.";
+}
+$("pdfSearchGo").onclick=runPdfSearch;
 async function extractLocalDocumentText(){
   const chosen=pages.some(p=>p.sel)?pages.map((p,i)=>p.sel?i:-1).filter(i=>i>=0):pages.map((p,i)=>i);
   const chunks=[];let total=0;
