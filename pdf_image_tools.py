@@ -103,8 +103,8 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
             if target_key in seen_targets:
                 raise ValueError("عدّل موضع صورة واحد من كل مجموعة صور متطابقة في الطلب الواحد.")
             seen_targets.add(target_key)
-            if action not in {"delete", "resize"}:
-                raise ValueError("العملية المدعومة هي الحذف أو تغيير الحجم.")
+            if action not in {"delete", "resize", "move"}:
+                raise ValueError("العمليات المدعومة هي الحذف أو تغيير الحجم أو النقل.")
             if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
                 raise ValueError("إحداثيات الصورة غير صالحة.")
             if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
@@ -125,21 +125,61 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
             if not original.intersects(target_rect) or abs(original.width - target_rect.width) / max(original.width, 1) > 0.12 or abs(original.height - target_rect.height) / max(original.height, 1) > 0.12:
                 raise ValueError("موضع الصورة تغيّر؛ أعد تحليل الصور ثم حاول مجددًا.")
             image_bytes = b""
-            if action == "resize":
+            replacement_rect = None
+            if action in {"resize", "move"}:
                 image_bytes = doc.extract_image(xref).get("image", b"")
-                scale = float(operation.get("scale", 1))
-                if not math.isfinite(scale) or not 0.1 <= scale <= 4:
-                    raise ValueError("حجم الصورة يجب أن يكون بين 10% و400%.")
-                width, height = original.width * scale, original.height * scale
-                center = original.tl + (original.br - original.tl) * 0.5
-                replacement_rect = pymupdf.Rect(
-                    center.x - width / 2, center.y - height / 2,
-                    center.x + width / 2, center.y + height / 2,
-                )
+                if not image_bytes:
+                    raise ValueError("تعذّر استخراج بيانات الصورة الأصلية.")
+                if action == "resize":
+                    scale = float(operation.get("scale", 1))
+                    if not math.isfinite(scale) or not 0.1 <= scale <= 4:
+                        raise ValueError("حجم الصورة يجب أن يكون بين 10% و400%.")
+                    width, height = original.width * scale, original.height * scale
+                    center = original.tl + (original.br - original.tl) * 0.5
+                    replacement_rect = pymupdf.Rect(
+                        center.x - width / 2, center.y - height / 2,
+                        center.x + width / 2, center.y + height / 2,
+                    )
+                else:
+                    dx, dy = float(operation.get("dx", 0)), float(operation.get("dy", 0))
+                    if not math.isfinite(dx) or not math.isfinite(dy) or abs(dx) > 500 or abs(dy) > 500:
+                        raise ValueError("إزاحة الصورة يجب أن تكون بين -500 و500 نقطة.")
+                    replacement_rect = original + (dx, dy, dx, dy)
                 if not page_rect.contains(replacement_rect):
-                    raise ValueError("الحجم الجديد يتجاوز حدود الصفحة. اختر نسبة أصغر.")
-            else:
-                replacement_rect = None
+                    raise ValueError("الموضع أو الحجم الجديد يتجاوز حدود الصفحة.")
+            # Redaction changes page content, so refuse all existing overlaps rather
+            # than risk erasing text, another image, a vector path, or an annotation.
+            for block in page.get_text("dict").get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        span_rect = pymupdf.Rect(span.get("bbox", (0, 0, 0, 0)))
+                        if original.intersects(span_rect):
+                            raise ValueError("الصورة تتداخل مع نص؛ لم يتم تعديل الملف.")
+                        if replacement_rect is not None and replacement_rect.intersects(span_rect):
+                            raise ValueError("الموضع الجديد للصورة سيتداخل مع نص.")
+            for other_info in page.get_image_info(xrefs=True):
+                other_xref = int(other_info.get("xref") or 0)
+                other_rect = pymupdf.Rect(other_info.get("bbox", (0, 0, 0, 0)))
+                if other_xref == xref and abs(other_rect.x0-original.x0)<0.01 and abs(other_rect.y0-original.y0)<0.01 and abs(other_rect.x1-original.x1)<0.01 and abs(other_rect.y1-original.y1)<0.01:
+                    continue
+                if original.intersects(other_rect):
+                    raise ValueError("الصورة تتداخل مع صورة أخرى؛ لم يتم التعديل.")
+                if replacement_rect is not None and replacement_rect.intersects(other_rect):
+                    raise ValueError("الموضع الجديد للصورة سيتداخل مع صورة أخرى.")
+            for drawing in page.get_drawings():
+                drawing_rect = pymupdf.Rect(drawing.get("rect") or (0, 0, 0, 0))
+                if original.intersects(drawing_rect):
+                    raise ValueError("الصورة تتداخل مع رسم متجهي؛ لم يتم التعديل.")
+                if replacement_rect is not None and replacement_rect.intersects(drawing_rect):
+                    raise ValueError("الموضع الجديد للصورة سيتداخل مع رسم متجهي.")
+            for annotation in page.annots() or []:
+                annotation_rect = pymupdf.Rect(annotation.rect)
+                if original.intersects(annotation_rect):
+                    raise ValueError("الصورة تتداخل مع تعليق؛ لم يتم التعديل.")
+                if replacement_rect is not None and replacement_rect.intersects(annotation_rect):
+                    raise ValueError("الموضع الجديد للصورة سيتداخل مع تعليق.")
             page.add_redact_annot(original, fill=None, cross_out=False)
             page.apply_redactions(images=2, graphics=0, text=0)
             if replacement_rect is not None:
