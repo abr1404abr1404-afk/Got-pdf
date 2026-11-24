@@ -54,3 +54,8 @@ The editor also scales isolated single rectangles and straight lines between 50%
 ## Vector stroke styling
 
 Isolated simple rectangles and straight lines can also change stroke width (0.1–20 pt) and stroke opacity (0–1). The same overlap and object-identity checks apply. Filled-only shapes without a stroke and complex/grouped paths are rejected. The original PDF remains unchanged.
+
+
+## Moving vector objects
+
+Simple isolated rectangles and straight lines can be moved by a bounded offset of −500 to +500 PDF points. The original and proposed bounds are checked against page edges, text, raster images, other vectors, and annotations. Complex paths and overlapping objects are rejected. The editor returns a new PDF copy.
