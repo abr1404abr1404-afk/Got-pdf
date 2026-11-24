@@ -68,6 +68,36 @@ def _extract_text(lines) -> str:
     )
 
 
+def summarize_results(results: list[dict], engines: list[str]) -> tuple[list[dict], list[dict]]:
+    """Summarize engine performance overall and within each labeled sample category."""
+    def metrics(rows: list[dict]) -> dict:
+        successful = [row for row in rows if not row.get("error")]
+        return {
+            "samples": len(rows),
+            "successful_samples": len(successful),
+            "failed_samples": len(rows) - len(successful),
+            "mean_cer": round(sum(r["cer"] for r in rows) / len(rows), 4) if rows else None,
+            "mean_wer": round(sum(r["wer"] for r in rows) / len(rows), 4) if rows else None,
+            "mean_seconds": round(sum(r["seconds"] for r in rows) / len(rows), 4) if rows else None,
+        }
+
+    overall = []
+    for engine_name in engines:
+        rows = [row for row in results if row["engine"] == engine_name]
+        overall.append({"engine": engine_name, **metrics(rows)})
+
+    by_category = []
+    categories = sorted({str(row.get("category") or "uncategorized") for row in results})
+    for category in categories:
+        for engine_name in engines:
+            rows = [row for row in results
+                    if row["engine"] == engine_name
+                    and str(row.get("category") or "uncategorized") == category]
+            if rows:
+                by_category.append({"category": category, "engine": engine_name, **metrics(rows)})
+    return overall, by_category
+
+
 def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) -> dict:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     samples = manifest.get("samples", [])
@@ -89,6 +119,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
         image_path = (manifest_path.parent / sample["image"]).resolve()
         reference = str(sample.get("reference", ""))
         language = str(sample.get("language") or manifest.get("language") or "ara")
+        category = str(sample.get("category") or "uncategorized").strip() or "uncategorized"
         if not image_path.is_file():
             raise FileNotFoundError(f"{sample_id}: image not found: {image_path}")
 
@@ -120,6 +151,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
             elapsed = time.perf_counter() - started
             results.append({
                 "sample_id": sample_id,
+                "category": category,
                 "engine": engine_name,
                 "cer": error_rate(reference, prediction, "characters"),
                 "wer": error_rate(reference, prediction, "words"),
@@ -129,19 +161,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
                 "error": error,
             })
 
-    summary = []
-    for engine_name in engines:
-        group = [row for row in results if row["engine"] == engine_name]
-        successful = [row for row in group if not row["error"]]
-        summary.append({
-            "engine": engine_name,
-            "samples": len(group),
-            "successful_samples": len(successful),
-            "failed_samples": len(group) - len(successful),
-            "mean_cer": round(sum(r["cer"] for r in group) / len(group), 4) if group else None,
-            "mean_wer": round(sum(r["wer"] for r in group) / len(group), 4) if group else None,
-            "mean_seconds": round(sum(r["seconds"] for r in group) / len(group), 4) if group else None,
-        })
+    summary, category_summary = summarize_results(results, engines)
 
     report = {
         "schema_version": 1,
@@ -149,6 +169,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
         "normalization": "NFKC; remove Arabic diacritics and tatweel; collapse whitespace; casefold",
         "metrics_note": "Lower CER/WER is better. Results depend on sample quality and reference transcription.",
         "summary": summary,
+        "category_summary": category_summary,
         "results": results,
     }
     output_path.parent.mkdir(parents=True, exist_ok=True)
