@@ -715,7 +715,7 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         if normalized_original in normalized_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
         if normalized_replacement not in normalized_after:
-            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل.")
+            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل. المستخرج=" + repr(normalized_after[-120:]) + " المطلوب=" + repr(normalized_replacement))
         for neighbor in expected:
             normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
             if normalized_neighbor and normalized_neighbor not in normalized_after:
