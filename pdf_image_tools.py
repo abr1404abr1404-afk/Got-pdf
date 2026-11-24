@@ -288,3 +288,103 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                 "objects": objects, "warnings": warnings}
     finally:
         doc.close()
+
+
+MAX_VECTOR_EDIT_OPS = 20
+
+
+def edit_pdf_vector_objects(data: bytes, operations: list[dict[str, Any]]) -> bytes:
+    """Delete isolated vector drawings only; reject intersecting content and preserve input bytes."""
+    if not isinstance(operations, list) or not 1 <= len(operations) <= MAX_VECTOR_EDIT_OPS:
+        raise ValueError("حدد رسمًا واحدًا على الأقل، وبحد أقصى 20 عملية في المرة.")
+    doc = _open(data)
+    try:
+        seen: set[tuple[int, int]] = set()
+        page_targets: dict[int, list[pymupdf.Rect]] = {}
+        for operation in operations:
+            if not isinstance(operation, dict) or operation.get("action") != "delete":
+                raise ValueError("العملية المدعومة حاليًا هي حذف رسم متجهي معزول فقط.")
+            try:
+                page_number = int(operation["page"])
+                object_id = str(operation["object_id"])
+                coords = operation["rect"]
+                if not isinstance(coords, list) or len(coords) != 4:
+                    raise ValueError
+                normalized = [float(value) for value in coords]
+            except (KeyError, TypeError, ValueError, OverflowError) as exc:
+                raise ValueError("بيانات الرسم أو إحداثياته غير صالحة.") from exc
+            prefix = f"p{page_number}-vector-"
+            if not object_id.startswith(prefix):
+                raise ValueError("معرّف الرسم لا يطابق الصفحة المحددة.")
+            try:
+                drawing_index = int(object_id[len(prefix):]) - 1
+            except ValueError as exc:
+                raise ValueError("معرّف الرسم غير صالح.") from exc
+            if not 1 <= page_number <= doc.page_count or drawing_index < 0:
+                raise ValueError("مرجع الرسم خارج نطاق الملف.")
+            if not all(math.isfinite(value) for value in normalized):
+                raise ValueError("إحداثيات الرسم غير صالحة.")
+            x0, y0, x1, y1 = normalized
+            if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
+                raise ValueError("مستطيل الرسم يجب أن يقع داخل الصفحة.")
+            target_key = (page_number, drawing_index)
+            if target_key in seen:
+                raise ValueError("لا تكرر الرسم نفسه في الطلب.")
+            seen.add(target_key)
+            page = doc.load_page(page_number - 1)
+            page_rect = page.rect
+            drawings = page.get_drawings()
+            if drawing_index >= len(drawings):
+                raise ValueError("لم يتم العثور على الرسم المحدد؛ أعد فهرسة الملف.")
+            drawing = drawings[drawing_index]
+            target_rect = pymupdf.Rect(drawing.get("rect") or (0, 0, 0, 0))
+            supplied_rect = pymupdf.Rect(
+                page_rect.x0 + x0 * page_rect.width,
+                page_rect.y0 + y0 * page_rect.height,
+                page_rect.x0 + x1 * page_rect.width,
+                page_rect.y0 + y1 * page_rect.height,
+            )
+            if (not target_rect.intersects(supplied_rect)
+                    or abs(target_rect.x0 - supplied_rect.x0) > 1.5
+                    or abs(target_rect.y0 - supplied_rect.y0) > 1.5
+                    or abs(target_rect.x1 - supplied_rect.x1) > 1.5
+                    or abs(target_rect.y1 - supplied_rect.y1) > 1.5):
+                raise ValueError("تغيّر موضع الرسم؛ أعد فهرسة الملف ثم حاول مجددًا.")
+
+            # A vector drawing may be visually layered over other content. Reject any
+            # bounding-box intersection rather than risk removing unrelated content.
+            for block in page.get_text("dict").get("blocks", []):
+                if block.get("type") != 0:
+                    continue
+                for line in block.get("lines", []):
+                    for span in line.get("spans", []):
+                        text_rect = pymupdf.Rect(span.get("bbox", (0, 0, 0, 0)))
+                        if target_rect.intersects(text_rect):
+                            raise ValueError("الرسم يتداخل مع نص؛ لم يتم إجراء أي تعديل. اختر رسمًا منفصلًا.")
+            for info in page.get_image_info(xrefs=True):
+                image_rect = pymupdf.Rect(info.get("bbox", (0, 0, 0, 0)))
+                if target_rect.intersects(image_rect):
+                    raise ValueError("الرسم يتداخل مع صورة؛ لم يتم إجراء أي تعديل. اختر رسمًا منفصلًا.")
+            for other_index, other in enumerate(drawings):
+                if other_index == drawing_index:
+                    continue
+                other_rect = pymupdf.Rect(other.get("rect") or (0, 0, 0, 0))
+                if target_rect.intersects(other_rect):
+                    raise ValueError("الرسم يتداخل مع رسم متجهي آخر؛ لم يتم إجراء أي تعديل.")
+
+            page_targets.setdefault(page_number, []).append(target_rect)
+
+        # Apply only after every requested target passed validation, so failures
+        # never produce a partially edited output.
+        for page_number, rects in page_targets.items():
+            page = doc.load_page(page_number - 1)
+            for rect in rects:
+                page.add_redact_annot(rect, fill=None, cross_out=False)
+            page.apply_redactions(images=0, graphics=1, text=0)
+
+        output = doc.tobytes(garbage=4, deflate=True, clean=True)
+        if not output.startswith(b"%PDF-"):
+            raise ValueError("تعذّر إنشاء نسخة PDF المعدّلة.")
+        return output
+    finally:
+        doc.close()
