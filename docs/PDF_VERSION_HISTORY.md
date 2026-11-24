@@ -1,20 +1,27 @@
 # Local PDF version history
 
-The app stores generated PDF outputs in browser IndexedDB under `alfalqi-pdf-versions`. This is device- and browser-local storage; it is not synchronized to an account or uploaded to the server.
+The optional PDF version history uses browser IndexedDB under `alfalqi-pdf-versions`. It is stored on the current browser and device only; it is not synchronized to an account or uploaded to the server.
 
-## Retention and controls
+## Consent and controls
 
-- Keeps up to the 5 newest versions.
-- Enforces a 100 MiB total retained-data limit; a single output larger than that limit is not added.
-- Each item records its filename, timestamp, byte size, and PDF bytes.
+- Automatic capture is off until the user accepts an explicit consent prompt. The consent explains that opened source PDFs and generated PDF outputs may be stored locally.
+- The user can turn automatic capture off or on from the version-history dialog.
+- A manual snapshot can be created from the current workspace even when automatic capture is off.
 - Users can inspect the list, delete individual entries, save a snapshot of the current workspace, and restore a selected version.
 - Before restoring a version, the current workspace is rendered to a PDF and added to the history so the pre-restore state remains recoverable.
-- Generated PDFs are added before the browser download/share handoff. If IndexedDB is unavailable or full, the download itself continues and a warning is written to the browser console.
+- Each item records its filename, timestamp, byte size, and PDF bytes.
 
-## Limitations
+## Retention and failure behavior
+
+- Keeps up to the 5 newest versions.
+- Enforces a 100 MiB total retained-data limit; a single PDF larger than the limit is skipped.
+- If IndexedDB is unavailable or full, the PDF download/open action continues; the history operation fails without blocking the primary action.
+- Restore validates that the selected bytes can be parsed as a PDF before replacing the in-memory workspace.
+
+## Limitations and privacy
 
 - Browser storage can be cleared by the user or evicted by the operating system/browser. Export important files and projects separately.
 - Versions are not shared across browsers or devices.
-- The version history stores exported PDF outputs, not every individual keystroke or intermediate editing operation.
-- Restoring replaces the current in-memory workspace after confirmation; it does not overwrite the saved history item or original input file.
-- This is not a substitute for an external backup.
+- The history is a bounded snapshot list, not a full keystroke-level undo log or cloud backup.
+- Restoring replaces the current in-memory workspace after confirmation; it does not overwrite the saved history item or the original file.
+- Automatic capture is consent-based; manually saving a snapshot is an explicit user action.
