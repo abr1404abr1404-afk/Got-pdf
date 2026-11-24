@@ -15,7 +15,7 @@ WORKDIR /app
 COPY requirements-free.txt ./
 RUN pip install --upgrade pip && pip install -r requirements-free.txt
 # main.py imports office_conversion at startup; include it in the runtime image.
-COPY main.py pdf_tools.py searchable_pdf.py request_limits.py office_conversion.py ./
+COPY main.py pdf_tools.py searchable_pdf.py redaction.py request_limits.py office_conversion.py ./
 
 EXPOSE 10000
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}"]
