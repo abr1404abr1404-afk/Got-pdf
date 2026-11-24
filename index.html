@@ -387,7 +387,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
 <div class="r"><button id="tlx">إغلاق</button><span class="sp"></span><button id="tlok" class="p">حفظ الإعدادات</button></div></div></div>
-<div id="pdfImageManager" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfImageTitle"><h2 id="pdfImageTitle">الصور داخل ملف PDF</h2><p class="dshint" id="pdfImageStatus">جارٍ تحميل الصور…</p><div class="r"><button id="pdfImageSelectAll" type="button">تحديد الكل</button><button id="pdfImageClearAll" type="button">إلغاء التحديد</button></div><div id="pdfImageList" class="pdf-image-grid"></div><div class="r"><button id="pdfImageClose" type="button">إغلاق</button><span class="sp"></span><button id="pdfImageApply" class="p" type="button" disabled>تطبيق التعديلات الجماعية وتنزيل نسخة</button></div></div></div>\n<div id="pdfVersionModal" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfVersionTitle"><h2 id="pdfVersionTitle">سجل نسخ PDF المحلي</h2><p class="dshint" id="pdfVersionStatus">الحفظ التلقائي يتطلب موافقتك. النسخ اليدوية تبقى في هذا المتصفح فقط.</p><div class="r"><button id="pdfVersionSnapshot" type="button">حفظ نسخة من العمل الحالي</button><button id="pdfVersionAutoToggle" type="button">إعداد الحفظ التلقائي</button></div><div id="pdfVersionList" class="pdf-image-grid"></div><div class="r"><button id="pdfVersionClose" type="button">إغلاق</button></div></div></div>
+<div id="pdfImageManager" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfImageTitle"><h2 id="pdfImageTitle">الصور داخل ملف PDF</h2><p class="dshint" id="pdfImageStatus">جارٍ تحميل الصور…</p><div class="r"><button id="pdfImageSelectAll" type="button">تحديد الكل</button><button id="pdfImageClearAll" type="button">إلغاء التحديد</button></div><div id="pdfImageList" class="pdf-image-grid"></div><div class="r"><button id="pdfImageClose" type="button">إغلاق</button><span class="sp"></span><button id="pdfImageApply" class="p" type="button" disabled>تطبيق التعديلات الجماعية وتنزيل نسخة</button></div></div></div>\n<div id="pdfVersionModal" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfVersionTitle"><h2 id="pdfVersionTitle">سجل نسخ PDF المحلي</h2><p class="dshint" id="pdfVersionStatus">الحفظ التلقائي يتطلب موافقتك. النسخ اليدوية تبقى في هذا المتصفح فقط.</p><div class="r"><button id="pdfVersionSnapshot" type="button">حفظ نسخة من العمل الحالي</button><button id="pdfVersionAutoToggle" type="button">إعداد الحفظ التلقائي</button></div><div class="r"><button id="pdfVersionCompare" type="button" disabled>مقارنة النسختين المحددتين</button></div><div id="pdfVersionCompareStatus" class="dshint" role="status" aria-live="polite">حدّد نسختين من القائمة لبدء المقارنة.</div><div id="pdfVersionCompareResult" class="pdf-image-grid"></div><div id="pdfVersionList" class="pdf-image-grid"></div><div class="r"><button id="pdfVersionClose" type="button">إغلاق</button></div></div></div>
 <div id="pdfObjectInspector" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfObjectTitle"><h2 id="pdfObjectTitle">عناصر ملف PDF</h2><p class="dshint" id="pdfObjectStatus">جارٍ الفحص…</p><div id="pdfObjectWarnings" class="pdf-image-grid"></div><div id="pdfObjectList" class="pdf-image-grid"></div><div class="r"><button id="pdfObjectClose" type="button">إغلاق</button></div></div></div>
 <div id="dsm"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="dsh"><h2 id="dsh">مشاركة PDF عبر Google Drive وQR</h2>
 <p class="dshint">سيُنشئ الفلقي نسخة نهائية من الصفحات المفتوحة ويرفعها مباشرة إلى Google Drive بعد موافقتك. لن يُرسل الملف إلى خادم الفلقي.</p>
@@ -2690,7 +2690,99 @@ const pdfVersionDB=(()=>{
  return{all,add,remove:id=>run("readwrite",s=>s.delete(id))};
 })();
 function recordPdfVersion(name,bytes){return pdfVersionDB.add(name,bytes)}
-async function showPdfVersions(){const host=$("pdfVersionList"),status=$("pdfVersionStatus");host.replaceChildren();status.textContent="جارٍ تحميل السجل…";try{const rows=(await pdfVersionDB.all()).sort((a,b)=>b.createdAt-a.createdAt);if(!rows.length){status.textContent="لا توجد نسخ بعد. ستظهر هنا النسخ التي تنشئها أو تنزّلها من البرنامج.";return}status.textContent=rows.length+" نسخ محفوظة محليًا.";for(const x of rows){const card=document.createElement("div");card.className="pdf-image-card";const title=document.createElement("strong");title.textContent=x.name;const meta=document.createElement("div");meta.className="pdf-image-meta";meta.textContent=new Date(x.createdAt).toLocaleString("ar-SA")+" · "+(x.size/1048576).toFixed(2)+" MB";const actions=document.createElement("div");actions.className="qa";const restore=document.createElement("button");restore.textContent="استعادة";restore.onclick=()=>restorePdfVersion(x.id);const download=document.createElement("button");download.textContent="تنزيل نسخة احتياطية";download.onclick=()=>downloadPdfVersion(x.id);const del=document.createElement("button");del.textContent="حذف";del.onclick=async()=>{if(confirm("حذف هذه النسخة من هذا الجهاز؟")){await pdfVersionDB.remove(x.id);showPdfVersions()}};actions.append(restore,download,del);card.append(title,meta,actions);host.append(card)}}catch(e){status.textContent=e.message||"تعذّر تحميل السجل."}}
+const selectedPdfCompareIds=new Set();
+function updatePdfCompareControl(){
+ const button=$("pdfVersionCompare");
+ if(button)button.disabled=selectedPdfCompareIds.size!==2;
+ $("pdfVersionCompareStatus").textContent=selectedPdfCompareIds.size===2?"تم تحديد نسختين. ستتم المقارنة محليًا داخل المتصفح.":"حدّد نسختين من القائمة لبدء المقارنة.";
+}
+async function showPdfVersions(){
+ const host=$("pdfVersionList"),status=$("pdfVersionStatus");host.replaceChildren();$("pdfVersionCompareResult").replaceChildren();status.textContent="جارٍ تحميل السجل…";
+ try{
+  const rows=(await pdfVersionDB.all()).sort((a,b)=>b.createdAt-a.createdAt);
+  for(const id of [...selectedPdfCompareIds])if(!rows.some(x=>x.id===id))selectedPdfCompareIds.delete(id);
+  if(!rows.length){status.textContent="لا توجد نسخ بعد. ستظهر هنا النسخ التي تنشئها أو تنزّلها من البرنامج.";updatePdfCompareControl();return}
+  status.textContent=rows.length+" نسخ محفوظة محليًا.";
+  for(const x of rows){
+   const card=document.createElement("div");card.className="pdf-image-card";
+   const title=document.createElement("strong");title.textContent=x.name;
+   const meta=document.createElement("div");meta.className="pdf-image-meta";meta.textContent=new Date(x.createdAt).toLocaleString("ar-SA")+" · "+(x.size/1048576).toFixed(2)+" MB";
+   const actions=document.createElement("div");actions.className="qa";
+   const chooseLabel=document.createElement("label");chooseLabel.className="dscheck";
+   const choose=document.createElement("input");choose.type="checkbox";choose.checked=selectedPdfCompareIds.has(x.id);choose.setAttribute("aria-label","تحديد "+x.name+" للمقارنة");
+   choose.onchange=()=>{if(choose.checked){if(selectedPdfCompareIds.size>=2){choose.checked=false;toast("يمكن مقارنة نسختين فقط في كل مرة.");return}selectedPdfCompareIds.add(x.id)}else selectedPdfCompareIds.delete(x.id);updatePdfCompareControl()};
+   chooseLabel.append(choose,document.createTextNode(" تحديد للمقارنة"));
+   const restore=document.createElement("button");restore.textContent="استعادة";restore.onclick=()=>restorePdfVersion(x.id);
+   const download=document.createElement("button");download.textContent="تنزيل نسخة احتياطية";download.onclick=()=>downloadPdfVersion(x.id);
+   const del=document.createElement("button");del.textContent="حذف";del.onclick=async()=>{if(confirm("حذف هذه النسخة من هذا الجهاز؟")){await pdfVersionDB.remove(x.id);selectedPdfCompareIds.delete(x.id);await showPdfVersions()}};
+   actions.append(chooseLabel,restore,download,del);card.append(title,meta,actions);host.append(card);
+  }
+  updatePdfCompareControl();
+ }catch(e){status.textContent=e.message||"تعذّر تحميل السجل."}
+}
+function normalizePdfCompareText(value){return String(value||"").normalize("NFKC").replace(/[\u200e\u200f\u202a-\u202e]/g,"").replace(/\s+/g," ").trim()}
+async function renderPdfComparePage(pdf,pageNumber){
+ const page=await pdf.getPage(pageNumber),base=page.getViewport({scale:1});
+ const scale=Math.min(1,Math.sqrt(1500000/Math.max(1,base.width*base.height)));
+ const viewport=page.getViewport({scale});
+ const canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.ceil(viewport.width));canvas.height=Math.max(1,Math.ceil(viewport.height));
+ const context=canvas.getContext("2d",{willReadFrequently:true});
+ await page.render({canvasContext:context,viewport}).promise;
+ const image=context.getImageData(0,0,canvas.width,canvas.height);
+ const content=await page.getTextContent();
+ const text=content.items.map(item=>item.str||"").join(" ").replace(/\s+/g," ").trim();
+ return{width:canvas.width,height:canvas.height,pixels:image.data,text};
+}
+async function compareSelectedPdfVersions(){
+ const ids=[...selectedPdfCompareIds];if(ids.length!==2)return;
+ const status=$("pdfVersionCompareStatus"),result=$("pdfVersionCompareResult"),button=$("pdfVersionCompare");button.disabled=true;result.replaceChildren();
+ let oldPdf,newPdf;
+ try{
+  const rows=await pdfVersionDB.all(),first=rows.find(x=>x.id===ids[0]),second=rows.find(x=>x.id===ids[1]);
+  if(!first||!second)throw new Error("إحدى النسختين لم تعد موجودة.");
+  status.textContent="جارٍ فتح النسختين محليًا…";
+  if(!window.pdfjsLib||!pdfjsLib.getDocument)throw new Error("مكتبة PDF غير متاحة. أعد تحميل البرنامج مع اتصال بالإنترنت.");
+  oldPdf=await pdfjsLib.getDocument({data:new Uint8Array(first.data).slice()}).promise;
+  newPdf=await pdfjsLib.getDocument({data:new Uint8Array(second.data).slice()}).promise;
+  if(oldPdf.numPages>30||newPdf.numPages>30)throw new Error("المقارنة المرئية محدودة إلى 30 صفحة لكل نسخة حاليًا.");
+  const summary={pagesA:oldPdf.numPages,pagesB:newPdf.numPages,changed:0,added:Math.max(0,newPdf.numPages-oldPdf.numPages),removed:Math.max(0,oldPdf.numPages-newPdf.numPages),details:[]};
+  const count=Math.max(oldPdf.numPages,newPdf.numPages);
+  for(let n=1;n<=count;n++){
+   status.textContent="جارٍ مقارنة الصفحة "+n+" من "+count+"…";
+   if(n>oldPdf.numPages){summary.details.push({page:n,kind:"added"});continue}
+   if(n>newPdf.numPages){summary.details.push({page:n,kind:"removed"});continue}
+   const [a,b]=await Promise.all([renderPdfComparePage(oldPdf,n),renderPdfComparePage(newPdf,n)]);
+   const width=Math.max(a.width,b.width),height=Math.max(a.height,b.height),total=width*height;
+   let changed=0,minX=width,minY=height,maxX=-1,maxY=-1;
+   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const ia=(y*a.width+x)*4,ib=(y*b.width+x)*4;
+    let different=x>=a.width||y>=a.height||x>=b.width||y>=b.height;
+    if(!different){different=Math.abs(a.pixels[ia]-b.pixels[ib])>32||Math.abs(a.pixels[ia+1]-b.pixels[ib+1])>32||Math.abs(a.pixels[ia+2]-b.pixels[ib+2])>32}
+    if(different){changed++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y)}
+   }
+   const textA=normalizePdfCompareText(a.text),textB=normalizePdfCompareText(b.text);
+   const textChanged=textA!==textB,visualPercent=changed/Math.max(1,total)*100;
+   if(textChanged||visualPercent>0.15||a.width!==b.width||a.height!==b.height){
+    summary.changed++;
+    summary.details.push({page:n,textChanged,visualPercent,box:maxX>=0?{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}:null,dimensions:a.width+"×"+a.height+" / "+b.width+"×"+b.height});
+   }
+  }
+  const heading=document.createElement("strong");heading.textContent="نتيجة المقارنة";result.append(heading);
+  const overview=document.createElement("p");overview.textContent="النسخة الأولى: "+first.name+" ("+summary.pagesA+" صفحات) · النسخة الثانية: "+second.name+" ("+summary.pagesB+" صفحات). صفحات بها اختلافات: "+summary.changed+" · صفحات مضافة: "+summary.added+" · صفحات محذوفة: "+summary.removed+".";
+  result.append(overview);
+  if(!summary.details.length){const p=document.createElement("p");p.textContent="لم تُرصد اختلافات نصية أو مرئية ضمن حدود الفحص.";result.append(p)}
+  for(const d of summary.details){
+   const p=document.createElement("p");p.className="pdf-image-meta";
+   if(d.kind==="added")p.textContent="صفحة "+d.page+": مضافة في النسخة الثانية.";
+   else if(d.kind==="removed")p.textContent="صفحة "+d.page+": موجودة في النسخة الأولى وغير موجودة في الثانية.";
+   else p.textContent="صفحة "+d.page+": اختلاف نصي "+(d.textChanged?"نعم":"لا")+" · فرق مرئي تقريبي "+d.visualPercent.toFixed(2)+"%"+(d.box?" · منطقة الفرق x:"+d.box.x+" y:"+d.box.y+" w:"+d.box.w+" h:"+d.box.h:"")+".";
+   result.append(p);
+  }
+  status.textContent="اكتملت المقارنة محليًا. النسبة المرئية تقريبية وقد تتأثر باختلاف الخطوط أو طريقة العرض.";
+ }catch(e){status.textContent=e.message||"تعذّرت مقارنة النسختين."}
+ finally{if(oldPdf)oldPdf.destroy();if(newPdf)newPdf.destroy();button.disabled=selectedPdfCompareIds.size!==2}
+}
+$("pdfVersionCompare").onclick=compareSelectedPdfVersions;
 async function downloadPdfVersion(id){const x=(await pdfVersionDB.all()).find(v=>v.id===id);if(!x)return toast("النسخة غير موجودة.");const blob=new Blob([x.data],{type:"application/pdf"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=/\.pdf$/i.test(x.name)?x.name:x.name+".pdf";document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
 async function snapshotCurrentPdfVersion(){if(!pages.length)throw new Error("لا توجد صفحات مفتوحة لحفظها.");const bytes=await buildPdf(pages);await recordPdfVersion(safeName()+"-قبل-الاستعادة.pdf",bytes)}
 async function restorePdfVersion(id){const x=(await pdfVersionDB.all()).find(v=>v.id===id);if(!x)return toast("النسخة غير موجودة.");if(!confirm("سيتم حفظ نسخة تلقائية من مساحة العمل الحالية أولًا، ثم استعادة النسخة المختارة. هل تريد المتابعة؟"))return;const oldDocs=docs.slice(),oldPages=pages.slice(),oldName=$("fn").value,oldFit=window.__fit;try{if(pages.length)await snapshotCurrentPdfVersion();const bytes=new Uint8Array(x.data);await PDFLib.PDFDocument.load(bytes.slice());docs.splice(0);pages.splice(0);$("fn").value=x.name.replace(/\.pdf$/i,"")+"-مستعاد";window.__fit=0;await load([new File([bytes],x.name,{type:"application/pdf"})],false);if(!docs.length||!pages.length)throw new Error("لم يتم تحميل النسخة.");$("pdfVersionModal").style.display="none";toast("تمت استعادة النسخة. حُفظت مساحة العمل السابقة تلقائيًا في السجل.")}catch(e){docs.splice(0,docs.length,...oldDocs);pages.splice(0,pages.length,...oldPages);$("fn").value=oldName;window.__fit=oldFit;render();toast(e.message||"تعذّرت الاستعادة.")}}
