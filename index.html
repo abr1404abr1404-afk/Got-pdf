@@ -2593,7 +2593,7 @@ const HU=[],HR=[];let hLast=null,hP=null;
 const hJ=()=>JSON.stringify(pages.map(p=>[p.d,p.i,p.rot,p.nat,p.ov.filter(o=>o.t.trim()||o.cover),(p.img||[]).map(({b,u,fresh,...r})=>r),p.an||[]]));
 const hC=()=>pages.map(p=>({...p,sel:false,ov:JSON.parse(JSON.stringify(p.ov.filter(o=>o.t.trim()||o.cover))),img:(p.img||[]).map(im=>({...im,fresh:0})),an:JSON.parse(JSON.stringify(p.an||[]))}));
 const updUR=()=>{$("ud").disabled=!HU.length;$("rd").disabled=!HR.length};
-function track(){const j=hJ();if(j===hLast)return;if(hLast!==null){HU.push({j:hLast,p:hP});if(HU.length>100)HU.shift()}hLast=j;hP=hC();HR.length=0;updUR();scheduleAutosave()}
+function track(){const j=hJ();if(j===hLast)return;if(hLast!==null){HU.push({j:hLast,p:hP});if(HU.length>100)HU.shift()}hLast=j;hP=hC();HR.length=0;updUR();if(typeof window.scheduleAutosave==="function")window.scheduleAutosave()}
 function hApply(s){pages=s.p.map(p=>({...p,sel:false,ov:JSON.parse(JSON.stringify(p.ov)),img:p.img.map(im=>({...im})),an:JSON.parse(JSON.stringify(p.an||[]))}));hLast=s.j;hP=hC();cur=null;render();updUR()}
 function undo(){track();if(!HU.length)return;HR.push({j:hLast,p:hP});hApply(HU.pop())}
 function redo(){if(!HR.length)return;HU.push({j:hLast,p:hP});hApply(HR.pop())}
