@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
-from pdf_tools import compress_pdf_bytes
+from pdf_tools import compress_pdf_bytes\nfrom searchable_pdf import add_searchable_text_layer
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -520,7 +520,7 @@ def health():
             "english_ocr_ready": "eng" in languages,
             "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
-            "office_conversion_available": bool(GOTENBERG_URL),
+            "office_conversion_available": bool(GOTENBERG_URL),\n            "searchable_pdf_available": True,
             "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None}
 
 
@@ -574,6 +574,28 @@ async def office_to_pdf(request: Request, file: UploadFile = File(...)):
         )
     finally:
         _office_semaphore.release()
+
+
+@app.post("/api/pdf/searchable")
+async def searchable_pdf(request: Request, file: UploadFile = File(...), ocr_data: str = Form(...)):
+    """Add an invisible OCR text layer to a PDF after explicit user action."""
+    _guard_expensive_request(request, "searchable-pdf", client_limit=4, global_limit=12)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    if len(ocr_data.encode("utf-8")) > 5 * 1024 * 1024:
+        raise HTTPException(413, "بيانات OCR تتجاوز الحد المسموح.")
+    try:
+        output = await _run_cpu(add_searchable_text_layer, data, ocr_data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return Response(
+        content=output,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="alfalqi-searchable.pdf"',
+            "X-OCR-Text-Layer": "invisible",
+        },
+    )
 
 
 @app.post("/api/compress/pdf")
