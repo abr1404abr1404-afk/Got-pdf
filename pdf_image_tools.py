@@ -252,6 +252,10 @@ def inspect_pdf_objects(data: bytes) -> dict[str, Any]:
                         "type": "vector",
                         "page": page_index + 1,
                         "items": min(len(drawing.get("items", [])), 10000),
+                        "path_types": [str(item[0]) for item in drawing.get("items", [])[:20]],
+                        "line_width": round(float(drawing.get("width") or 0), 3),
+                        "fill_opacity": drawing.get("fill_opacity"),
+                        "stroke_opacity": drawing.get("stroke_opacity"),
                         "fill": list(drawing["fill"]) if drawing.get("fill") else None,
                         "stroke": list(drawing["color"]) if drawing.get("color") else None,
                         "rect": _normalized_rect(rect, page_rect),
@@ -561,6 +565,104 @@ def delete_isolated_pdf_text(data: bytes, operation: dict[str, Any]) -> bytes:
 
 MAX_VECTOR_EDIT_OPS = 20
 
+
+
+def recolor_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
+    """Recolor an isolated single rectangle or line without changing its geometry."""
+    if not isinstance(operation, dict) or operation.get("action") != "recolor":
+        raise ValueError("عملية تغيير لون الرسم غير صالحة.")
+    def parse_color(value, label):
+        if value is None or value == "":
+            return None
+        if not isinstance(value, str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            raise ValueError(f"لون {label} يجب أن يكون بصيغة #RRGGBB.")
+        return tuple(int(value[i:i+2], 16)/255 for i in (1,3,5))
+    stroke_color = parse_color(operation.get("stroke_color"), "الحد")
+    fill_color = parse_color(operation.get("fill_color"), "التعبئة")
+    if stroke_color is None and fill_color is None:
+        raise ValueError("حدد لون الحد أو لون التعبئة على الأقل.")
+    try:
+        page_number = int(operation["page"])
+        object_id = str(operation["object_id"])
+        coords = operation["rect"]
+        if not isinstance(coords, list) or len(coords) != 4:
+            raise ValueError
+        normalized = [float(v) for v in coords]
+    except (KeyError, TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("بيانات الرسم أو إحداثياته غير صالحة.") from exc
+    if not 1 <= page_number <= 200 or not re.fullmatch(rf"p{page_number}-vector-[0-9]+", object_id):
+        raise ValueError("مرجع الرسم غير صالح.")
+    if not all(math.isfinite(v) for v in normalized):
+        raise ValueError("إحداثيات الرسم غير صالحة.")
+    x0,y0,x1,y1=normalized
+    if x0<0 or y0<0 or x1>1 or y1>1 or x1<=x0 or y1<=y0:
+        raise ValueError("مستطيل الرسم يجب أن يقع داخل الصفحة.")
+    doc=_open(data)
+    try:
+        if page_number>doc.page_count:
+            raise ValueError("الصفحة المحددة خارج نطاق الملف.")
+        page=doc.load_page(page_number-1)
+        drawings=page.get_drawings()
+        index=int(object_id.rsplit("-",1)[1])-1
+        if not 0<=index<len(drawings):
+            raise ValueError("لم يتم العثور على الرسم؛ أعد الفهرسة.")
+        drawing=drawings[index]
+        rect=pymupdf.Rect(drawing.get("rect") or (0,0,0,0))
+        page_rect=page.rect
+        supplied=pymupdf.Rect(page_rect.x0+x0*page_rect.width,page_rect.y0+y0*page_rect.height,
+                              page_rect.x0+x1*page_rect.width,page_rect.y0+y1*page_rect.height)
+        if any(abs(a-b)>1.5 for a,b in zip(rect,supplied)):
+            raise ValueError("تغيّر موضع الرسم؛ أعد فهرسة الملف.")
+        items=drawing.get("items",[])
+        if len(items)!=1 or items[0][0] not in {"re","l"}:
+            raise ValueError("يدعم تغيير اللون حاليًا المستطيل والخط المستقيم المنفرد فقط.")
+        if stroke_color is not None and not drawing.get("color"):
+            raise ValueError("هذا الرسم لا يحتوي على حد يمكن تغيير لونه.")
+        if fill_color is not None and not drawing.get("fill"):
+            raise ValueError("هذا الرسم لا يحتوي على تعبئة يمكن تغيير لونها.")
+        for block in page.get_text("dict").get("blocks",[]):
+            if block.get("type")!=0: continue
+            for line in block.get("lines",[]):
+                for span in line.get("spans",[]):
+                    if rect.intersects(pymupdf.Rect(span.get("bbox",(0,0,0,0)))):
+                        raise ValueError("الرسم يتداخل مع نص؛ لن يتم تغيير لونه.")
+        for info in page.get_image_info(xrefs=True):
+            if rect.intersects(pymupdf.Rect(info.get("bbox",(0,0,0,0)))):
+                raise ValueError("الرسم يتداخل مع صورة؛ لن يتم تغيير لونه.")
+        for other_index,other in enumerate(drawings):
+            if other_index!=index and rect.intersects(pymupdf.Rect(other.get("rect") or (0,0,0,0))):
+                raise ValueError("الرسم يتداخل مع رسم آخر؛ لن يتم تغيير لونه.")
+        for annotation in page.annots() or []:
+            if rect.intersects(pymupdf.Rect(annotation.rect)):
+                raise ValueError("الرسم يتداخل مع تعليق؛ لن يتم تغيير لونه.")
+        item=items[0]
+        old_stroke=tuple(drawing["color"]) if drawing.get("color") else None
+        old_fill=tuple(drawing["fill"]) if drawing.get("fill") else None
+        new_stroke=stroke_color if stroke_color is not None else old_stroke
+        new_fill=fill_color if fill_color is not None else old_fill
+        width=max(0.1,min(20.0,float(drawing.get("width") or 1)))
+        stroke_opacity=float(drawing.get("stroke_opacity") or 1)
+        fill_opacity=float(drawing.get("fill_opacity") or 1)
+        dashes=drawing.get("dashes") or "[] 0"
+        line_caps=drawing.get("lineCap") or (0,0,0)
+        line_cap=int(line_caps[0] if isinstance(line_caps,(list,tuple)) else line_caps)
+        line_join=int(float(drawing.get("lineJoin") or 0))
+        page.add_redact_annot(rect,fill=None,cross_out=False)
+        page.apply_redactions(images=0,graphics=2,text=0)
+        if item[0]=="re":
+            shape_rect=pymupdf.Rect(item[1])
+            page.draw_rect(shape_rect,color=new_stroke,fill=new_fill,width=width,
+                           dashes=dashes,lineCap=line_cap,lineJoin=line_join,
+                           stroke_opacity=stroke_opacity,fill_opacity=fill_opacity,overlay=True)
+        else:
+            page.draw_line(item[1],item[2],color=new_stroke,width=width,dashes=dashes,
+                           lineCap=line_cap,lineJoin=line_join,stroke_opacity=stroke_opacity,overlay=True)
+        output=doc.tobytes(garbage=4,deflate=True,clean=True)
+        if not output.startswith(b"%PDF-"):
+            raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
+        return output
+    finally:
+        doc.close()
 
 def edit_pdf_vector_objects(data: bytes, operations: list[dict[str, Any]]) -> bytes:
     """Delete isolated vector drawings only; reject intersecting content and preserve input bytes."""
