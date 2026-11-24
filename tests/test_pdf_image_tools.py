@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -63,6 +63,39 @@ class PdfImageToolsTests(unittest.TestCase):
                 "page": 1, "xref": item["xref"], "occurrence": 0,
                 "rect": item["rect"], "action": "resize", "scale": 8,
             }])
+
+    def test_inspect_reports_text_images_and_vector_objects(self):
+        source = self.source_pdf()
+        with pymupdf.open(stream=source, filetype="pdf") as doc:
+            doc[0].draw_rect(pymupdf.Rect(200, 40, 260, 90), color=(0, 0, 1), fill=(0, 1, 0))
+            source = doc.tobytes()
+        report = inspect_pdf_objects(source)
+        self.assertEqual(report["pages"], 1)
+        self.assertGreaterEqual(report["counts"]["text"], 1)
+        self.assertGreaterEqual(report["counts"]["image"], 1)
+        self.assertGreaterEqual(report["counts"]["vector"], 1)
+        self.assertTrue(all(len(item["rect"]) == 4 for item in report["objects"]))
+
+    def test_inspect_flags_image_text_overlap(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        from PIL import Image
+        import io
+        image = Image.new("RGB", (30, 20), (220, 34, 34))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        page.insert_image(pymupdf.Rect(30, 40, 180, 120), stream=buffer.getvalue())
+        page.insert_text((60, 80), "Overlapping text")
+        source = doc.tobytes()
+        doc.close()
+        report = inspect_pdf_objects(source)
+        self.assertTrue(any(w["type"] == "image_text_overlap" for w in report["warnings"]))
+
+
+
+if __name__ == "__main__":
+    unittest.main()
+
 
 
 if __name__ == "__main__":
