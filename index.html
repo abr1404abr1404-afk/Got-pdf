@@ -3080,6 +3080,8 @@ comparePicker.onchange=async()=>{
       for(const value of (diff.added_lines||[]).slice(0,12))lines.push("  + "+value);
       for(const value of (diff.removed_lines||[]).slice(0,12))lines.push("  − "+value);
       if(page.geometry_changed)lines.push("  • تغيرت أبعاد الصفحة");
+      if(page.visual&&page.visual.comparable&&page.visual.changed)lines.push("  • تغير بصري في "+page.visual.changed_percent+"% من مساحة الصفحة تقريبًا");
+      if(page.visual&&!page.visual.comparable)lines.push("  • تعذرت المقارنة البصرية بسبب اختلاف أبعاد العرض");
     }
     lines.push("","حدود المقارنة: النص القابل للاستخراج وأبعاد الصفحات فقط؛ لا تشمل التغييرات البصرية في الصور أو المسح الضوئي.");
     const layer=document.createElement("div");
