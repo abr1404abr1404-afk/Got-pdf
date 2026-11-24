@@ -17,12 +17,16 @@ def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
     except Exception as exc:
         raise ValueError("الملف ليس PDF صالحًا.") from exc
     try:
+        auth = 0
         if source.needs_pass:
-            if not password or source.authenticate(password) <= 0:
+            if not password:
                 raise ValueError("الملف محمي. أدخل كلمة المرور الصحيحة أولًا.")
+            auth = source.authenticate(password)
+            if auth <= 0:
+                raise ValueError("كلمة مرور الملف غير صحيحة.")
         if not 1 <= source.page_count <= MAX_CONVERT_PAGES:
             raise ValueError(f"التحويل يدعم من صفحة واحدة إلى {MAX_CONVERT_PAGES} صفحة في الطلب الواحد.")
-        if source.needs_pass and not (source.permissions & pymupdf.PDF_PERM_MODIFY):
+        if source.needs_pass and auth != 4 and not (source.permissions & pymupdf.PDF_PERM_MODIFY):
             raise PermissionError("كلمة المرور لا تسمح بالتعديل؛ يلزم إذن مالك الملف.")
         with tempfile.TemporaryDirectory(prefix="alfalqi-docx-") as temp_dir:
             pdf_path = Path(temp_dir) / "source.pdf"
