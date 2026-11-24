@@ -2668,7 +2668,7 @@ function showReady(name,bytes,mime){
   sh.onclick=async()=>{try{await navigator.share({files:[file],title:name})}catch(e){if(!e||e.name!=="AbortError")toast("تعذّرت المشاركة، استخدم «تنزيل الملف».")}};
   $("rdm").classList.add("on");
 }
-async function saveFile(name,bytes,mime){mime=mime||"application/pdf";if(mime==="application/pdf")recordPdfVersion(name,bytes).catch(e=>console.warn("PDF history:",e));const mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform));if(!mob){try{dl??=await claude.use("downloads");if(dl){await dl.save({filename:name,data:bytes});return}}catch(e){}}showReady(name,bytes,mime)}
+async function saveFile(name,bytes,mime){mime=mime||"application/pdf";if(mime==="application/pdf"){try{await recordPdfVersion(name,bytes)}catch(e){console.warn("PDF history:",e)}}const mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform));if(!mob){try{dl??=await claude.use("downloads");if(dl){await dl.save({filename:name,data:bytes});return}}catch(e){}}showReady(name,bytes,mime)}
 $("rdx").onclick=()=>$("rdm").classList.remove("on");
 const WM={t:"",op:.18},META={title:"",author:""};
 const pdfVersionDB=(()=>{
