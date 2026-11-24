@@ -64,3 +64,8 @@ Simple isolated rectangles and straight lines can be moved by a bounded offset o
 ## Raster image movement and safer editing
 
 The embedded-image editor supports deleting, resizing (10%–400%), and moving an isolated image occurrence by up to 500 PDF points in either direction. Before destructive redaction, the service rejects overlap with text spans, other image occurrences, vector drawings, annotations, and page boundaries; proposed placement is checked against the same content types. These are conservative bounding-box checks, not pixel-level semantic understanding. Repeated uses of the same image resource on one page must be edited one occurrence at a time in separate requests. The source PDF is never modified in place.
+
+
+## Safe raster image rotation
+
+The raster image editor supports 90°, 180°, and 270° rotation for an isolated embedded image occurrence. Quarter-turn rotations swap the placement width and height around the image center; half-turn rotation retains the original placement bounds. The same overlap checks used by move/resize run before redaction and reinsertion. Rotation can be included in the existing multi-image operation batch (up to 200 operations), while duplicate placements of the same image resource on one page must still be submitted separately. Only a new PDF copy is returned.
