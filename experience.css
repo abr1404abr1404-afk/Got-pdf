@@ -434,3 +434,64 @@ main { min-height: calc(100vh - 105px); }
 .pdf-fill-import{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0;padding:10px;border:1px dashed var(--line);border-radius:10px}
 .pdf-fill-import small{flex-basis:100%;color:var(--mut);font-size:.8rem;line-height:1.6}
 @media(max-width:520px){.ann-width-control{gap:4px}.ann-width-control input[type=range]{width:72px}.pdf-fill-import button{flex:1}}
+
+
+/* Mobile-first toolbar refinement: clear hierarchy, safe-area spacing and touch targets. */
+@media(max-width:640px){
+  header{gap:0!important;overflow:visible!important;padding:0!important}
+  .hr1{
+    display:grid!important;
+    grid-template-columns:40px minmax(36px,1fr) auto auto!important;
+    grid-template-areas:
+      "menu brand status install"
+      "filename filename filename filename"
+      "history history share save"!important;
+    align-items:center!important;
+    gap:7px!important;
+    padding:9px 10px 10px!important;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,var(--panel),color-mix(in srgb,var(--panel) 94%,var(--acc)));
+  }
+  .hr1 #mnb{grid-area:menu;justify-content:center;width:40px;height:40px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .hr1 .brand{grid-area:brand;min-width:0;justify-self:start}
+  .hr1 .brand .logo{width:36px;height:36px}
+  .hr1 #autosaveStatus{grid-area:status;justify-self:end;max-width:112px;font-size:.64rem;padding:5px 7px}
+  .hr1 #pwaInstall{grid-area:install;width:38px;min-width:38px;height:38px;padding:0;justify-content:center;border:1px solid var(--line);border-radius:11px}
+  .hr1 #pwaInstall .lb{display:none}
+  .hr1 #fn{grid-area:filename;width:100%!important;min-width:0!important;height:42px;padding:0 12px;border-radius:12px;font-size:.9rem}
+  .hr1 .grp{grid-area:history;justify-self:start;min-width:0;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+  .hr1 .grp .hb{min-width:42px;height:38px;justify-content:center;padding:0 8px;border-radius:9px}
+  .hr1 #dshare{grid-area:share;justify-self:stretch;min-width:42px;height:40px;justify-content:center;border:1px solid var(--line);border-radius:11px;background:var(--bg)}
+  .hr1 #save{grid-area:save;justify-self:stretch;min-width:58px;height:40px;justify-content:center;padding:0 12px;border-radius:11px}
+  .hr2{
+    display:flex!important;align-items:center!important;gap:7px!important;
+    padding:8px 10px!important;margin:0!important;
+    overflow-x:auto!important;overflow-y:hidden!important;
+    border-top:0!important;border-bottom:1px solid var(--line);
+    background:var(--panel);
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    box-shadow:0 5px 16px rgba(20,39,66,.07);
+  }
+  .hr2::-webkit-scrollbar{display:none}
+  .hr2>.grp{flex:none;gap:3px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--surface,var(--bg))}
+  .hr2 .hb,.hr2 label.btn{height:42px;min-width:42px;justify-content:center;padding:0 10px;border-radius:10px}
+  .hr2 .grp .hb{height:38px;min-width:38px;padding:0 8px}
+  .hr2 .ic{width:19px;height:19px}
+  #imgfit{height:38px;min-width:62px;padding:0 8px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  #anp{left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom,0px));display:none;justify-content:flex-start;gap:6px;padding:9px;border-radius:16px;max-height:34dvh;overflow:auto;overscroll-behavior:contain}
+  body.ann #anp{display:flex}
+  #anp button{height:40px;min-width:42px;padding:0 10px;border-radius:10px;font-size:.84rem}
+  #anp .ann-width-control{flex:1 1 100%;justify-content:space-between;padding:3px 5px}
+  #anp .ann-width-control input[type=range]{flex:1;max-width:180px}
+}
+@media(max-width:380px){
+  .hr1{grid-template-columns:38px minmax(30px,1fr) auto!important;grid-template-areas:"menu brand status" "filename filename filename" "history history save" "share share share"!important}
+  .hr1 #pwaInstall{display:none!important}
+  .hr1 #dshare{justify-self:start;width:100%;max-width:140px}
+  .hr1 #save{min-width:64px}
+  .hr1 #autosaveStatus{max-width:104px}
+}
+@media(min-width:641px){
+  .hr1{min-width:0}
+  .hr2{scrollbar-width:thin}
+}
