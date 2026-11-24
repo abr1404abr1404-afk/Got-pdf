@@ -374,11 +374,15 @@ label.btn{position:relative}
 <div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" placeholder="المؤلف"></div>
 <div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>\n<div class="tsec"><h3>OCR وتصدير متقدم</h3><p class="dshint">أنشئ نسخة PDF قابلة للبحث بطبقة نص مخفية بعد مراجعة النصوص. تتطلب اتصالًا بخادم الفلقي، ولن يُرسل الملف إلا بعد تأكيدك.</p><div class="qa"><button id="searchablePdf" class="p" type="button">إنشاء PDF قابل للبحث</button></div></div>
 <div class="tsec"><h3>حجب آمن نهائي</h3><p class="dshint">ارسم مستطيلات سوداء بأداة «حجب بصري» فوق البيانات المراد إزالتها، ثم طبّق الحجب النهائي. سيُرسل ملف PDF ومناطق الحجب إلى خادم الفلقي بعد موافقتك. احتفظ بالأصل؛ الحجب النهائي لا يمكن التراجع عنه داخل النسخة الناتجة. يزيل بيانات المستند الوصفية والمرفقات المضمنة من النسخة الناتجة.</p><div class="qa"><button id="secureRedactPdf" class="p" type="button">تطبيق الحجب النهائي</button></div></div>
+<div class="tsec"><h3>فتح PDF محمي</h3><p class="dshint">عند فتح ملف محمي سيطلب البرنامج كلمة المرور. لفك الحماية إلى نسخة قابلة للتحرير، تُرسل النسخة المشفرة وكلمة المرور إلى خادم الفلقي بعد موافقتك. لا يمكن تجاوز كلمة مرور مفقودة أو صلاحيات المالك.</p></div>
+<div class="tsec"><h3>تحويل PDF إلى Word مع التنسيق</h3><p class="dshint">تحويل تخطيط الصفحة والنصوص والصور إلى مستند Word قابل للتحرير. قد تختلف النتيجة عن الأصل، خصوصًا في الخطوط العربية والجداول والصفحات المصوّرة. الحد الحالي 20 صفحة.</p><div class="qa"><button id="pdfToDocxLayout" class="p" type="button">تحويل PDF إلى Word بالتنسيق</button></div></div>
+<div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها في نسخة جديدة. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
 <div class="r"><button id="tlx">إغلاق</button><span class="sp"></span><button id="tlok" class="p">حفظ الإعدادات</button></div></div></div>
+<div id="pdfImageManager" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfImageTitle"><h2 id="pdfImageTitle">الصور داخل ملف PDF</h2><p class="dshint" id="pdfImageStatus">جارٍ تحميل الصور…</p><div id="pdfImageList" class="pdf-image-grid"></div><div class="r"><button id="pdfImageClose" type="button">إغلاق</button><span class="sp"></span><button id="pdfImageApply" class="p" type="button" disabled>تطبيق التعديلات وتنزيل نسخة</button></div></div></div>
 <div id="dsm"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="dsh"><h2 id="dsh">مشاركة PDF عبر Google Drive وQR</h2>
 <p class="dshint">سيُنشئ الفلقي نسخة نهائية من الصفحات المفتوحة ويرفعها مباشرة إلى Google Drive بعد موافقتك. لن يُرسل الملف إلى خادم الفلقي.</p>
 <div class="tsec"><label class="dscheck"><input id="dspub" type="checkbox"> أسمح بفتح الملف لأي شخص لديه الرابط (مشاركة عامة)</label><p class="dshint">إذا لم تحدد هذا الخيار، يبقى الملف خاصًا بحساب Google الذي ربطته، ولن يتمكن الآخرون من فتح QR إلا إذا كانوا يملكون صلاحية في Drive.</p></div>
@@ -2058,10 +2062,23 @@ async function openPdfDocument(bytes){
   let firstError;
   try{return await pdfjsLib.getDocument({data:bytes.slice()}).promise}
   catch(err){firstError=err;}
+  const firstMessage=(firstError&&firstError.message)||"";
+  if((firstError&&firstError.name==="PasswordException")||/password|encrypted/i.test(firstMessage)){
+    const base=apiBase();
+    if(!base)throw new Error("هذا الملف محمي بكلمة مرور. يلزم ربط خادم الفلقي لفتح نسخة قابلة للتحرير.");
+    const password=prompt("أدخل كلمة مرور ملف PDF. لن تُحفظ كلمة المرور.");
+    if(password===null)throw new Error("ألغيت إدخال كلمة المرور.");
+    if(!password)throw new Error("لم تُدخل كلمة المرور.");
+    if(!confirm("لفك الحماية والتحرير، ستُرسل نسخة PDF المشفرة وكلمة المرور إلى خادم الفلقي. تابع فقط إذا كنت توافق."))throw new Error("ألغيت إرسال الملف.");
+    const form=new FormData();form.append("file",new Blob([bytes],{type:"application/pdf"}),"protected.pdf");form.append("password",password);
+    const response=await fetch(base+"/api/pdf/unlock",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر فتح الملف المحمي.");}
+    const clearBytes=new Uint8Array(await response.arrayBuffer());
+    return await pdfjsLib.getDocument({data:clearBytes.slice()}).promise;
+  }
   try{return await pdfjsLib.getDocument({data:bytes.slice(),disableWorker:true}).promise}
   catch(err){
-    const msg=(err&&err.message)||((firstError&&firstError.message)||"تعذّرت قراءة الملف");
-    if(/password|encrypted/i.test(msg))throw new Error("هذا الملف محمي بكلمة مرور. أزل الحماية ثم أعد فتحه.");
+    const msg=(err&&err.message)||firstMessage||"تعذّرت قراءة الملف";
     if(/worker|fetch|network|loading/i.test(msg))throw new Error("تعذّر تحميل مكوّن قراءة PDF. افتح البرنامج في Safari مع اتصال بالإنترنت ثم أعد المحاولة.");
     throw new Error(msg);
   }
@@ -2927,6 +2944,87 @@ async function exportOfficeFile(kind){
 }
 $("exportDocx").onclick=()=>exportOfficeFile("docx");
 $("exportXlsx").onclick=()=>exportOfficeFile("xlsx");
+async function pdfToDocxLayout(){
+  if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  const selected=pages.filter(p=>p.sel),list=selected.length?selected:pages;
+  if(list.length>20)return toast("التحويل بالتنسيق يدعم حتى 20 صفحة في المرة.");
+  if(!confirm("سيتم إرسال نسخة PDF من الصفحات المحددة إلى خادم الفلقي لتحويلها إلى Word. إذا احتوى الملف على بيانات خاصة فلا تتابع إلا بعد الموافقة."))return;
+  const button=$("pdfToDocxLayout");button.disabled=true;
+  try{
+    toast("جارٍ تجهيز نسخة PDF…");
+    const bytes=await buildPdf(list),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
+    const response=await fetch(base+"/api/convert/pdf-to-docx",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تحويل PDF إلى Word.");}
+    const output=new Uint8Array(await response.arrayBuffer());
+    await saveFile(safeName()+"-formatted.docx",output,"application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+    toast("تم إنشاء Word بالتنسيق المستخرج. راجع التخطيط والجداول والخطوط قبل الاعتماد.");
+  }catch(error){console.error(error);toast(error.message||"فشل تحويل PDF إلى Word.");}
+  finally{button.disabled=false}
+}
+$("pdfToDocxLayout").onclick=pdfToDocxLayout;
+
+let pdfImageItems=[];
+function renderPdfImageItems(){
+  const host=$("pdfImageList");host.replaceChildren();
+  for(const item of pdfImageItems){
+    const card=document.createElement("div");card.className="pdf-image-card";
+    const img=document.createElement("img");img.alt="معاينة صورة من الصفحة "+item.page;img.src="data:"+item.mime+";base64,"+item.data;
+    const meta=document.createElement("div");meta.className="pdf-image-meta";meta.textContent="صفحة "+item.page+" · "+item.width+"×"+item.height+" px";
+    const check=document.createElement("input");check.type="checkbox";check.setAttribute("aria-label","اختيار الصورة");
+    const action=document.createElement("select");action.setAttribute("aria-label","إجراء الصورة");
+    [["none","بدون تعديل"],["delete","حذف الصورة"],["0.5","تصغير 50%"],["0.75","تصغير 75%"],["1.25","تكبير 125%"],["1.5","تكبير 150%"],["2","تكبير 200%"]].forEach(([v,t])=>{const option=document.createElement("option");option.value=v;option.textContent=t;action.append(option)});
+    const controls=document.createElement("div");controls.className="pdf-image-controls";controls.append(check,action);
+    card.append(img,meta,controls);item._check=check;item._action=action;host.append(card);
+  }
+  $("pdfImageApply").disabled=!pdfImageItems.length;
+}
+async function analyzePdfImages(){
+  if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  if(!confirm("سيتم إرسال نسخة PDF الحالية إلى خادم الفلقي لتحليل الصور المضمنة وإرجاع معايناتها. تابع فقط إذا كنت توافق."))return;
+  const button=$("pdfImageAnalyze");button.disabled=true;
+  $("pdfImageManager").style.display="flex";$("pdfImageStatus").textContent="جارٍ تحليل الصور…";$("pdfImageList").replaceChildren();pdfImageItems=[];
+  try{
+    const selected=pages.filter(p=>p.sel),bytes=await buildPdf(selected.length?selected:pages),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
+    const response=await fetch(base+"/api/pdf/images/list",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تحليل الصور.");}
+    const result=await response.json();pdfImageItems=result.images||[];
+    $("pdfImageStatus").textContent=pdfImageItems.length?"عُثر على "+pdfImageItems.length+" موضع صورة. اختر إجراءً لكل صورة. عدّل موضعًا واحدًا فقط من الصورة المتكررة في كل مرة.":"لم يُعثر على صور نقطية مضمنة قابلة للتعديل في الصفحات المحددة.";
+    renderPdfImageItems();
+  }catch(error){console.error(error);$("pdfImageStatus").textContent=error.message||"تعذّر تحليل الصور.";}
+  finally{button.disabled=false}
+}
+$("pdfImageAnalyze").onclick=analyzePdfImages;
+$("pdfImageClose").onclick=()=>$("pdfImageManager").style.display="none";
+$("pdfImageManager").addEventListener("click",e=>{if(e.target===$("pdfImageManager"))$("pdfImageManager").style.display="none"});
+$("pdfImageApply").onclick=async()=>{
+  const base=apiBase(),operations=[];
+  for(const item of pdfImageItems){
+    if(!item._check.checked||item._action.value==="none")continue;
+    const action=item._action.value==="delete"?"delete":"resize";
+    const operation={page:item.page,xref:item.xref,occurrence:item.occurrence,rect:item.rect,action};
+    if(action==="resize")operation.scale=Number(item._action.value);
+    operations.push(operation);
+  }
+  if(!operations.length)return toast("اختر صورة وحدد حذفًا أو نسبة تغيير حجم.");
+  const keys=new Set();for(const op of operations){const key=op.page+":"+op.xref;if(keys.has(key))return toast("اختر موضعًا واحدًا فقط من كل صورة متكررة في الصفحة.");keys.add(key)}
+  if(!confirm("سيتم تطبيق التغييرات على نسخة PDF جديدة. هل تريد المتابعة؟"))return;
+  const button=$("pdfImageApply");button.disabled=true;
+  try{
+    const selected=pages.filter(p=>p.sel),bytes=await buildPdf(selected.length?selected:pages),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");form.append("operations",JSON.stringify(operations));
+    const response=await fetch(base+"/api/pdf/images/edit",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تعديل الصور.");}
+    const output=new Uint8Array(await response.arrayBuffer());
+    $("pdfImageManager").style.display="none";
+    await saveFile(safeName()+"-images-edited.pdf",output,"application/pdf");
+    toast("تم إنشاء نسخة PDF بتعديلات الصور. الملف الأصلي لم يتغير.");
+  }catch(error){console.error(error);toast(error.message||"تعذّر تعديل الصور.");}
+  finally{button.disabled=false}
+};
 function jszipLoad(){if(window.JSZip)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";s.onload=res;s.onerror=()=>rej(new Error("تعذّر تحميل مكتبة الضغط"));document.head.append(s)})}
 $("spl").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");const n=pages.filter(p=>p.sel).length;$("spinfo").textContent=n?"سيُقسَّم المحدد فقط ("+n+" صفحة).":"سيُقسَّم الملف كله ("+pages.length+" صفحة). حدّد صفحات بالمربعات لتقسيمها وحدها.";$("spm").classList.add("on")};
 $("spx").onclick=()=>$("spm").classList.remove("on");
