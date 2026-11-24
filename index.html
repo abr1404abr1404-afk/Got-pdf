@@ -3357,8 +3357,17 @@ function annLayer(pg,wrap,W,H){
 }
 function annSet(m){annMode=m;document.body.classList.toggle("ann",!!m);[["ah","hl"],["ap","pen"],["ack","ck"],["axx","xx"],["aci","ci"],["acif","cif"],["asq","sq"],["asqf","sqf"],["ab","bk"]].forEach(([id,k])=>$(id).classList.toggle("on",k===m));
   if(m){document.body.classList.add("ann-tools-open");$("ann").setAttribute("aria-expanded","true");$("ann").classList.add("on");if(addMode)$("txt").click();if(typeof editing!=="undefined"&&editing)$("edt").click();dropSel();const help={hl:"التظليل: اسحب فوق النص أو المنطقة التي تريد إبرازها بلون شفاف.",pen:"القلم الحر: ارسم بإصبعك أو بالفأرة، ويمكنك تغيير اللون والسماكة.",ck:"علامة صح: اسحب على الصفحة لرسم علامة ✓.",xx:"علامة خطأ: اسحب على الصفحة لرسم علامة ✕.",ci:"دائرة مفرغة: اسحب لتحديد حجم دائرة بإطار فقط.",cif:"دائرة ممتلئة: اسحب لرسم دائرة بلون التعبئة المختار.",sq:"مربع مفرغ: اسحب لرسم مربع بإطار فقط.",sqf:"مربع ممتلئ: اسحب لرسم مربع بلون التعبئة المختار.",bk:"الحجب البصري يغطي ما تحته فقط؛ لا يزيل النص الأصلي من PDF."};showToolHint(help[m]||"اختر موضع الأداة على الصفحة لتنفيذها.")}}
-$("ann").onclick=()=>{const open=!document.body.classList.contains("ann-tools-open");document.body.classList.toggle("ann-tools-open",open);$("ann").classList.toggle("on",open);$("ann").setAttribute("aria-expanded",String(open));if(!open){annSet(null);showToolHint("أُغلقت لوحة الرموز والقلم.")}else{showToolHint("اختر رمزًا أو القلم، ثم اسحب على الصفحة لوضع العلامة.")}};
-$("annToolsClose").onclick=()=>$("ann").click();
+function setAnnotationPanelOpen(open){
+  const isOpen=!!open;
+  document.body.classList.toggle("ann-tools-open",isOpen);
+  $("ann").classList.toggle("on",isOpen);
+  $("ann").setAttribute("aria-expanded",String(isOpen));
+  $("anp").setAttribute("aria-hidden",String(!isOpen));
+  if(!isOpen){annSet(null);showToolHint("أُغلقت لوحة الرموز والقلم.");}
+  else showToolHint("اختر رمزًا أو القلم، ثم اسحب على الصفحة لوضع العلامة.");
+}
+$("ann").onclick=()=>setAnnotationPanelOpen(!document.body.classList.contains("ann-tools-open"));
+$("annToolsClose").onclick=e=>{e.preventDefault();e.stopPropagation();setAnnotationPanelOpen(false);};
 $("ah").onclick=()=>annSet("hl");$("ap").onclick=()=>annSet("pen");$("ack").onclick=()=>annSet("ck");$("axx").onclick=()=>annSet("xx");$("aci").onclick=()=>annSet("ci");$("acif").onclick=()=>annSet("cif");$("asq").onclick=()=>annSet("sq");$("asqf").onclick=()=>annSet("sqf");$("ab").onclick=()=>{annSet("bk");toast("المربع الأسود يخفي ما تحته في الملف المنزَّل، لكن النص الأصلي يبقى داخل الملف.")};
 $("aq").onclick=()=>annSet(null);$("ac").oninput=e=>{annColor=e.target.value};$("aw").oninput=e=>{annW=+e.target.value;$("awv").textContent=annW+" pt"};
 // ===== دليل =====
@@ -3564,10 +3573,10 @@ document.addEventListener("click",event=>{
   if(description)showToolHint(description);
 });
 function buildMenu(){const box=document.getElementById("mnl");if(box.dataset.built)return;box.dataset.built="1";MENU.forEach(([id,t,d])=>{let el=document.getElementById(id);if(el&&el.tagName==="INPUT")el=el.closest("label")||el;const sv=el&&el.querySelector("svg"),row=document.createElement("div");row.className="mrow2";const mi=document.createElement("span");mi.className="mi";if(sv)mi.append(sv.cloneNode(true));const bd=document.createElement("div"),b=document.createElement("b"),de=document.createElement("div");b.textContent=t;de.className="mdesc";de.textContent=d;bd.append(b,de);row.append(mi,bd);box.append(row)});const z=document.createElement("div");z.className="mrow2";z.innerHTML='<span class="mi">±</span><div><b>تكبير / تصغير</b><div class="mdesc">زرّا + و − أو القرص بإصبعين على الملف فقط (دون تكبير البرنامج).</div></div>';box.append(z)}
-$("mnb").onclick=()=>{buildMenu();$("mnm").classList.add("on")};
-$("mnx").onclick=()=>$("mnm").classList.remove("on");
-$("mnm").addEventListener("click",e=>{if(e.target.id==="mnm")$("mnm").classList.remove("on")});
-$("mnh").onclick=()=>{$("mnm").classList.remove("on");$("hlpb").click()};
+$("mnb").onclick=()=>{buildMenu();const menu=$("mnm"),open=!menu.classList.contains("on");menu.classList.toggle("on",open);$("mnb").setAttribute("aria-expanded",String(open));};
+$("mnx").onclick=()=>{$("mnm").classList.remove("on");$("mnb").setAttribute("aria-expanded","false");};
+$("mnm").addEventListener("click",e=>{if(e.target.id==="mnm"){$("mnm").classList.remove("on");$("mnb").setAttribute("aria-expanded","false");}});
+$("mnh").onclick=()=>{$("mnm").classList.remove("on");$("mnb").setAttribute("aria-expanded","false");$("hlpb").click()};
 $("rdm").addEventListener("click",e=>{if(e.target.id==="rdm")$("rdm").classList.remove("on")});
 
 /* Local recovery: project snapshots stay in this browser's IndexedDB only. */
@@ -3644,7 +3653,10 @@ $("rdm").addEventListener("click",e=>{if(e.target.id==="rdm")$("rdm").classList.
       const when=new Date(saved.updatedAt||Date.now()).toLocaleString("ar-SA");
       if(!confirm("عُثر على جلسة محفوظة تلقائيًا («"+(saved.title||"مشروع سابق")+"») بتاريخ "+when+". هل تريد استعادتها؟\nلن تُرسل الملفات إلى أي خادم."))return;
       const file=new File([saved.data],"recovery.afq",{type:"application/json"});
+      const beforeDocs=docs.length,beforePages=pages.length;
       await $("pro").onchange({target:{files:[file],value:""}});
+      if(!docs.length||!pages.length)throw new Error("لم تُحمّل صفحات المشروع المستعاد؛ لم يتم تأكيد الاستعادة.");
+      if(docs.length===beforeDocs&&pages.length===beforePages)throw new Error("لم يتغير محتوى مساحة العمل بعد الاستيراد.");
       setStatus("تمت استعادة الجلسة المحفوظة","saved");
     }catch(error){
       console.warn("Alfalqi recovery restore failed:",error);
