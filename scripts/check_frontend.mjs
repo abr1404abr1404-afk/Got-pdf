@@ -57,6 +57,10 @@ for (const feature of ["ocrReviewPrev", "ocrReviewNext", "ocrReviewCounter", "oc
   if (!html.includes(feature)) failures.push("Multi-page OCR review feature is missing: " + feature);
 }
 
+for (const feature of ["ocrReviewSaveCurrent()", "v:2", "ocr:Array.isArray(p.ocr)", "tables:Array.isArray(p.tables)"]) {
+  if (!html.includes(feature)) failures.push("OCR project persistence is missing: " + feature);
+}
+
 
 
 if (failures.length) {
