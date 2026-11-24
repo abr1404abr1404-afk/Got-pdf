@@ -26,6 +26,33 @@ class RedactionTests(unittest.TestCase):
             self.assertFalse(doc[0].search_for("SECRET-CODE"))
             self.assertIn("PUBLIC TEXT", text)
 
+    def test_redaction_blanks_overlapping_image_pixels_and_removes_vector_graphics(self):
+        from PIL import Image
+        import io
+
+        image = Image.new("RGB", (40, 40), (220, 30, 30))
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_image(pymupdf.Rect(40, 50, 140, 150), stream=buffer.getvalue())
+        page.draw_rect(pymupdf.Rect(160, 50, 250, 150), color=(0, 0, 1), fill=(0, 0, 1))
+        source = doc.tobytes()
+        doc.close()
+
+        result = redact_pdf_bytes(source, {
+            "regions": [{"page": 1, "rect": [0.15, 0.25, 0.33, 0.75]}]
+        })
+        with pymupdf.open(stream=result, filetype="pdf") as output:
+            page = output[0]
+            pix = page.get_pixmap(alpha=False)
+            inside = pix.pixel(70, 100)
+            outside = pix.pixel(120, 100)
+            self.assertLess(max(inside[:3]), 20)
+            self.assertGreater(outside[0], outside[1] * 2)
+            self.assertFalse(any(d["rect"].intersects(pymupdf.Rect(160, 50, 250, 150))
+                                 for d in page.get_drawings()))
+
     def test_redaction_regions_are_page_scoped_and_validated(self):
         grouped = _parse_regions({"regions": [
             {"page": 1, "rect": [0.1, 0.1, 0.2, 0.2]},
