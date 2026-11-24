@@ -43,6 +43,23 @@ class PdfCompareTests(unittest.TestCase):
         self.assertEqual(result["changed_pages"], 1)
         self.assertEqual(result["pages"][1]["status"], "added")
 
+
+    def test_detects_visual_only_changes(self):
+        def image_pdf(color):
+            doc = pymupdf.open()
+            page = doc.new_page()
+            page.draw_rect(pymupdf.Rect(100, 100, 220, 220), color=color, fill=color)
+            data = doc.tobytes()
+            doc.close()
+            return data
+
+        result = compare_pdf_bytes(image_pdf((1, 0, 0)), image_pdf((0, 0, 1)))
+
+        self.assertEqual(result["pages"][0]["status"], "changed")
+        self.assertTrue(result["pages"][0]["visual"]["changed"])
+        self.assertGreater(result["pages"][0]["visual"]["changed_percent"], 0)
+        self.assertIsNotNone(result["pages"][0]["visual"]["changed_bounds_px"])
+
     def test_rejects_empty_and_invalid_pdfs(self):
         valid = make_pdf(["valid"])
         for bad in (b"", b"not pdf"):
