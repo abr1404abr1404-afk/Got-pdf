@@ -33,7 +33,7 @@ from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
 from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -721,6 +721,9 @@ async def pdf_objects_edit(request: Request, file: UploadFile = File(...), opera
         elif isinstance(parsed_operations, dict) and parsed_operations.get("action") == "scale":
             output = await _run_cpu(scale_isolated_pdf_vector, data, parsed_operations)
             filename = "alfalqi-vector-resized.pdf"
+        elif isinstance(parsed_operations, dict) and parsed_operations.get("action") == "restyle":
+            output = await _run_cpu(restyle_isolated_pdf_vector, data, parsed_operations)
+            filename = "alfalqi-vector-restyled.pdf"
         else:
             output = await _run_cpu(edit_pdf_vector_objects, data, parsed_operations)
             filename = "alfalqi-vector-edited.pdf"
