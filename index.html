@@ -380,7 +380,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>فتح PDF محمي</h3><p class="dshint">عند فتح ملف محمي سيطلب البرنامج كلمة المرور. لفك الحماية إلى نسخة قابلة للتحرير، تُرسل النسخة المشفرة وكلمة المرور إلى خادم الفلقي بعد موافقتك. لا يمكن تجاوز كلمة مرور مفقودة أو صلاحيات المالك.</p></div>
 <div class="tsec"><h3>تحويل PDF إلى Word مع التنسيق</h3><p class="dshint">تحويل تخطيط الصفحة والنصوص والصور إلى مستند Word قابل للتحرير. قد تختلف النتيجة عن الأصل، خصوصًا في الخطوط العربية والجداول والصفحات المصوّرة. الحد الحالي 20 صفحة.</p><div class="qa"><button id="pdfToDocxLayout" class="p" type="button">تحويل PDF إلى Word بالتنسيق</button></div></div>
 <div class="tsec"><h3>مقارنة ملفين PDF</h3><p class="dshint">قارن الملف المفتوح بملف آخر لاكتشاف النص المضاف والمحذوف والصفحات وأبعادها والفروق البصرية التقريبية. تتم المقارنة على الخادم بعد موافقتك؛ وقد لا تكشف التفاصيل الدقيقة أو تحدد نوع العنصر الذي تغيّر.</p><div class="qa"><button id="comparePdf" type="button">اختيار ملف للمقارنة</button><input id="comparePdfFile" class="native-picker" type="file" accept="application/pdf,.pdf"></div></div>
-<div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها في نسخة جديدة. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف رسم أو نص منفصل، واستبدال مقطع لاتيني أفقي بسيط إذا أمكن الحفاظ على خطه ومساحته. العربية والنصوص المعقدة غير مدعومة في الاستبدال الأولي. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
+<div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف صورة أو تغيير حجمها في نسخة جديدة. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف العناصر المعزولة، واستبدال نص لاتيني بسيط، وتغيير لون المستطيلات والخطوط المتجهية المنفردة. الأشكال المعقدة والعربية في الاستبدال غير مدعومة حاليًا. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
@@ -3169,6 +3169,32 @@ async function replacePdfTextObject(item){
   }catch(error){console.error(error);toast(error.message||"تعذّر استبدال النص.")}
   finally{button.disabled=false}
 }
+function pdfRgbHex(value){
+  if(!Array.isArray(value)||value.length<3)return "";
+  return "#"+value.slice(0,3).map(v=>Math.max(0,Math.min(255,Math.round(Number(v)*255))).toString(16).padStart(2,"0")).join("").toUpperCase();
+}
+async function recolorPdfVectorObject(item){
+  if(!item||item.type!=="vector")return;
+  const stroke=item.stroke?prompt("لون الحد الجديد بصيغة #RRGGBB (اتركه فارغًا للإبقاء على اللون):",pdfRgbHex(item.stroke)):"";
+  if(stroke===null)return;
+  const fill=item.fill?prompt("لون التعبئة الجديد بصيغة #RRGGBB (اتركه فارغًا للإبقاء على اللون):",pdfRgbHex(item.fill)):"";
+  if(fill===null)return;
+  if(!stroke.trim()&&!fill.trim())return toast("لم يتم اختيار لون جديد.");
+  if(!confirm("سيُعاد رسم المستطيل أو الخط المعزول بلونه الجديد في نسخة PDF منفصلة. الأشكال المعقدة أو المتداخلة سيرفضها الخادم. هل تريد المتابعة؟"))return;
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  const button=$("pdfObjectInspect");button.disabled=true;
+  try{
+    const selected=pages.filter(p=>p.sel),bytes=await buildPdf(selected.length?selected:pages),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
+    form.append("operations",JSON.stringify({page:item.page,object_id:item.id,rect:item.rect,action:"recolor",stroke_color:stroke.trim()||null,fill_color:fill.trim()||null}));
+    const response=await fetch(base+"/api/pdf/objects/edit",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تغيير لون الرسم.")}
+    const output=new Uint8Array(await response.arrayBuffer());
+    await saveFile(safeName()+"-vector-recolored.pdf",output,"application/pdf");
+    toast("أُنشئت نسخة جديدة بلون الرسم المحدّث.");
+  }catch(error){console.error(error);toast(error.message||"تعذّر تغيير اللون.")}
+  finally{button.disabled=false}
+}
 async function inspectPdfObjects(){
   if(!pages.length)return toast("افتح ملف PDF أولًا.");
   const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
@@ -3194,16 +3220,22 @@ async function inspectPdfObjects(){
       heading.textContent=(names[item.type]||item.type)+" · صفحة "+item.page;
       const detail=document.createElement("p");detail.className="dshint";
       const r=item.rect||[];const box=r.length===4?"الموقع: "+r.map(v=>Math.round(v*1000)/10+"%").join("، "):"";
-      const extra=item.type==="text"?(item.text||""):(item.type==="image"?(item.width||0)+"×"+(item.height||0)+" px":(item.subtype||""));
+      const extra=item.type==="text"?(item.text||""):(item.type==="image"?(item.width||0)+"×"+(item.height||0)+" px":item.type==="vector"?(item.path_types||[]).join(", ")+" · "+(item.items||0)+" جزء":(item.subtype||""));
       const style=item.type==="text"?[
         item.font||"",
         item.font_size?item.font_size+" pt":"",
         item.color||"",
         item.writing_direction?(item.writing_direction[0]<0?"اتجاه الكتابة RTL":"اتجاه الكتابة LTR"):""
+      ].filter(Boolean).join(" · "):item.type==="vector"?[
+        item.stroke?"حد "+pdfRgbHex(item.stroke):"",
+        item.fill?"تعبئة "+pdfRgbHex(item.fill):"",
+        item.line_width?"سماكة "+item.line_width:""
       ].filter(Boolean).join(" · "):"";
       detail.textContent=[extra,style,box].filter(Boolean).join(" · ");
       card.append(heading,detail);
       if(item.type==="vector"){
+        const recolor=document.createElement("button");recolor.type="button";recolor.textContent="تغيير لون الرسم";
+        recolor.addEventListener("click",()=>recolorPdfVectorObject(item));card.append(recolor);
         const remove=document.createElement("button");remove.type="button";remove.textContent="حذف هذا الرسم من نسخة جديدة";
         remove.addEventListener("click",()=>deletePdfVectorObject(item));card.append(remove);
       }else if(item.type==="text"&&!item.truncated&&item.text_hash){
