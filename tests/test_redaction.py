@@ -41,7 +41,10 @@ class RedactionTests(unittest.TestCase):
         doc.close()
 
         result = redact_pdf_bytes(source, {
-            "regions": [{"page": 1, "rect": [0.15, 0.25, 0.33, 0.75]}]
+            "regions": [
+                {"page": 1, "rect": [0.15, 0.25, 0.33, 0.75]},
+                {"page": 1, "rect": [0.53, 0.25, 0.84, 0.75]},
+            ]
         })
         with pymupdf.open(stream=result, filetype="pdf") as output:
             page = output[0]
