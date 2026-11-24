@@ -2872,48 +2872,106 @@ async function dsGetFolder(){
   const q="name = 'الفلقي PDF' and mimeType = 'application/vnd.google-apps.folder' and trashed = false";
   const found=await dsApi("https://www.googleapis.com/drive/v3/files?q="+encodeURIComponent(q)+"&pageSize=10&fields=files(id,name)");
   if(found.files&&found.files.length)return found.files[0].id;
-  const folder=await dsApi("https://www.googleapis.com/drive/v3/files?fields=id,name",{
-    method:"POST",headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({name:"الفلقي PDF",mimeType:"application/vnd.google-apps.folder"})
+  try{
+    const folder=await dsApi("https://www.googleapis.com/drive/v3/files?fields=id,name",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:"الفلقي PDF",mimeType:"application/vnd.google-apps.folder"})});
+    return folder.id;
+  }catch(error){
+    const retry=await dsApi("https://www.googleapis.com/drive/v3/files?q="+encodeURIComponent(q)+"&pageSize=10&fields=files(id,name)");
+    if(retry.files&&retry.files.length)return retry.files[0].id;
+    throw error;
+  }
+}
+async function dsSha256(bytes){
+  if(!window.crypto||!crypto.subtle)throw new Error("المتصفح لا يدعم التحقق الآمن من الملف. حدّث المتصفح ثم حاول مجددًا.");
+  const digest=await crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("");
+}
+async function dsFindExisting(folderId,hash){
+  const q="'"+folderId+"' in parents and appProperties has { key='alfalqiSha256' and value='"+hash+"' } and trashed = false";
+  const result=await dsApi("https://www.googleapis.com/drive/v3/files?q="+encodeURIComponent(q)+"&pageSize=1&fields=files(id,name,webViewLink,modifiedTime)");
+  return result.files&&result.files.length?result.files[0]:null;
+}
+async function dsUploadResumable(bytes,metadata,fileId){
+  const base="https://www.googleapis.com/upload/drive/v3/files";
+  const endpoint=fileId?base+"/"+encodeURIComponent(fileId):base;
+  const init=await fetch(endpoint+"?uploadType=resumable&fields=id,name,webViewLink,appProperties",{
+    method:fileId?"PATCH":"POST",
+    headers:{Authorization:"Bearer "+dsToken,"Content-Type":"application/json; charset=UTF-8","X-Upload-Content-Type":"application/pdf","X-Upload-Content-Length":String(bytes.byteLength)},
+    body:JSON.stringify(metadata)
   });
-  return folder.id;
+  if(!init.ok){const err=await init.json().catch(()=>({}));throw new Error((err.error&&err.error.message)||("تعذّر بدء الرفع ("+init.status+")."));}
+  let session=init.headers.get("Location");
+  if(!session)throw new Error("بدأ Google الرفع لكنه لم يُرجع عنوان جلسة الرفع. تحقق من إعدادات المتصفح ثم أعد المحاولة.");
+  const total=bytes.byteLength,chunkSize=8*1024*1024;
+  let offset=0,completed=null;
+  const readOffset=response=>{const range=response.headers.get("Range");if(!range)return 0;const m=range.match(/bytes=0-(\\d+)/i);return m?Number(m[1])+1:0};
+  while(offset<total){
+    const end=Math.min(offset+chunkSize,total),chunk=bytes.slice(offset,end);
+    let response=null,lastError=null;
+    for(let attempt=0;attempt<3;attempt++){
+      try{
+        response=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Type":"application/pdf","Content-Range":"bytes "+offset+"-"+(end-1)+"/"+total},body:chunk});
+        if(response.status===200||response.status===201){completed=await response.json();offset=total;break;}
+        if(response.status===308){offset=readOffset(response);break;}
+        if(response.status>=500){lastError=new Error("استجابة مؤقتة من Google ("+response.status+").");}
+        else{const err=await response.json().catch(()=>({}));throw new Error((err.error&&err.error.message)||("فشل رفع الملف ("+response.status+")."));}
+      }catch(error){lastError=error;}
+      if(attempt<2){
+        try{
+          const probe=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Length":"0","Content-Range":"bytes */"+total}});
+          if(probe.status===200||probe.status===201){completed=await probe.json();offset=total;break;}
+          if(probe.status===308){offset=readOffset(probe);break;}
+          if(probe.status===404||probe.status===410)throw new Error("انتهت صلاحية جلسة الرفع؛ أعد بدء المشاركة.");
+        }catch(probeError){lastError=probeError;}
+        await new Promise(resolve=>setTimeout(resolve,500*Math.pow(2,attempt)));
+      }
+    }
+    if(completed)break;
+    if(offset===0||offset<end&&response&&response.status!==308){if(lastError)throw lastError;throw new Error("توقف الرفع قبل اكتمال الملف.");}
+    dsStatus("جارٍ رفع الملف إلى Google Drive… "+Math.min(100,Math.round(offset/total*100))+"٪");
+  }
+  if(!completed){
+    const verify=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Length":"0","Content-Range":"bytes */"+total}});
+    if(verify.status===200||verify.status===201)completed=await verify.json();
+    else throw new Error("لم يؤكد Google اكتمال رفع الملف. أعد المحاولة؛ لن ننشئ نسخة جديدة تلقائيًا.");
+  }
+  return completed;
+}
+async function dsGetPublicPermission(fileId){
+  const result=await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(fileId)+"/permissions?fields=permissions(id,type,role)");
+  return (result.permissions||[]).find(p=>p.type==="anyone"&&p.role==="reader")||null;
 }
 async function dsUpload(){
   if(!pages.length)throw new Error("افتح ملف PDF أولًا.");
   const sel=pages.filter(p=>p.sel),list=sel.length?sel:pages;
   dsStatus("جارٍ تجهيز نسخة PDF النهائية…");
   const bytes=await buildPdf(list),name=safeName()+".pdf",folderId=await dsGetFolder();
-  const boundary="alfalqi_pdf_"+Math.random().toString(16).slice(2);
-  const metadata={name,mimeType:"application/pdf",parents:[folderId]};
-  const body=new Blob([
-    "--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n",
-    JSON.stringify(metadata)+"\r\n",
-    "--"+boundary+"\r\nContent-Type: application/pdf\r\n\r\n",
-    bytes,"\r\n--"+boundary+"--"
-  ],{type:"multipart/related; boundary="+boundary});
-  dsStatus("جارٍ رفع الملف مباشرة إلى Google Drive…");
-  const uploaded=await dsApi("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink",{
-    method:"POST",headers:{"Content-Type":"multipart/related; boundary="+boundary},body
-  });
+  dsStatus("جارٍ التحقق من الملف لمنع إنشاء نسخة مكررة…");
+  const hash=await dsSha256(bytes),existing=await dsFindExisting(folderId,hash);
+  const metadata={name,mimeType:"application/pdf",parents:existing?undefined:[folderId],appProperties:{alfalqiSha256:hash}};
+  if(existing)delete metadata.parents;
+  dsStatus(existing?"عُثر على نسخة مطابقة؛ جارٍ تحديثها بدل إنشاء نسخة مكررة…":"جارٍ بدء رفع آمن قابل للاستئناف…");
+  const uploaded=await dsUploadResumable(bytes,metadata,existing&&existing.id);
   dsFileId=uploaded.id;dsPermissionId=null;
-  let publicLink=false;
-  const url=uploaded.webViewLink||("https://drive.google.com/file/d/"+dsFileId+"/view");
+  const url=uploaded.webViewLink||existing&&existing.webViewLink||("https://drive.google.com/file/d/"+dsFileId+"/view");
+  let publicPermission=null;
   if($("dspub").checked){
-    dsStatus("تم الرفع. جارٍ تفعيل الرابط العام بناءً على اختيارك…");
+    dsStatus("تم الرفع. جارٍ التحقق من صلاحية الرابط العام بناءً على اختيارك…");
     try{
-      const permission=await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(dsFileId)+"/permissions?fields=id",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({type:"anyone",role:"reader"})
-      });
-      dsPermissionId=permission.id;publicLink=true;
+      publicPermission=await dsGetPublicPermission(dsFileId);
+      if(!publicPermission)publicPermission=await dsApi("https://www.googleapis.com/drive/v3/files/"+encodeURIComponent(dsFileId)+"/permissions?fields=id",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:"anyone",role:"reader"})});
+      dsPermissionId=publicPermission.id;
     }catch(permissionError){
       dsShowResult(url,false);
-      dsStatus("رُفع الملف بنجاح، لكن Google لم يسمح بتفعيل الرابط العام. بقي الملف خاصًا في Drive. يمكنك مراجعة إعدادات المشاركة في حسابك. التفاصيل: "+permissionError.message);
+      dsStatus("رُفع الملف بنجاح، لكن تعذّر تفعيل الرابط العام. بقيت صلاحيات Drive كما هي. التفاصيل: "+permissionError.message);
       return;
     }
+  }else{
+    try{publicPermission=await dsGetPublicPermission(dsFileId);if(publicPermission)dsPermissionId=publicPermission.id;}catch(permissionCheckError){console.warn("تعذّر التحقق من صلاحيات المشاركة الحالية",permissionCheckError)}
   }
-  dsShowResult(url,publicLink);
-  dsStatus(publicLink?"تم رفع الملف وإنشاء رابط عام. أي شخص يحصل على الرابط أو QR يمكنه عرض الملف.":"تم رفع الملف بنجاح. الرابط خاص بحسابك وصلاحيات Drive الحالية؛ لن يستطيع الآخرون فتحه إلا إذا منحتهم صلاحية.");
+  const isPublic=!!publicPermission;
+  dsShowResult(url,isPublic);
+  dsStatus(isPublic?("تم حفظ الملف وتأكيد صلاحية الرابط العام. "+(existing?"حُدّثت النسخة المطابقة بدل تكرارها.":"تم إنشاء نسخة جديدة.")+" أي شخص يحصل على الرابط أو QR يمكنه عرض الملف."):("تم حفظ الملف بنجاح في حساب Google. "+(existing?"حُدّثت النسخة المطابقة دون إنشاء نسخة مكررة. ":"تم إنشاء نسخة جديدة. ")+"الرابط خاص وفق صلاحيات Drive الحالية."));
 }
 $("dshare").onclick=dsOpen;
 $("dsclose").onclick=()=>$("dsm").classList.remove("on");
