@@ -154,4 +154,7 @@ if (failures.length) {
 
 if (!html.includes("ann-tools-head")) failures.push("Annotation panel must keep its close control in a dedicated header.");
 
+if (!html.includes("function setAnnotationPanelOpen") || !html.includes('menu.classList.toggle("on",open)')) failures.push("Menu panels must toggle open and closed from their trigger buttons.");
+if (!html.includes("return true;") || !html.includes("return false;") || !html.includes("restored!==true")) failures.push("Project recovery must verify successful project import before reporting success.");
+
 console.log("Frontend checks passed: " + inlineScripts + " inline scripts parsed; local assets resolved.");
