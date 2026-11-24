@@ -69,6 +69,10 @@ for (const feature of ['rel="manifest"', 'apple-mobile-web-app-capable', 'pwaIns
   if (!html.includes(feature)) failures.push("PWA install support is missing: " + feature);
 }
 
+for (const feature of ["MAX_PROJECT_FILE_BYTES", "MAX_PROJECT_DECODED_BYTES", "decodeProjectBase64", "data.docs.length>20", "data.pages.length>1000", "PDF-", "p.i<1", "بقي الملف المفتوح كما هو"]) {
+  if (!html.includes(feature)) failures.push("AFQ project import protection is missing: " + feature);
+}
+
 const manifestPath = path.join(root, "manifest.webmanifest");
 try {
   const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
