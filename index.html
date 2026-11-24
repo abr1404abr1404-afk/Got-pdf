@@ -3489,10 +3489,10 @@ $("pro").onchange=async e=>{
     if(typeof data.fn==="string")$("fn").value=data.fn.slice(0,255);
     HU.length=0;HR.length=0;hLast=null;$("tlm").classList.remove("on");
     previousUrls.forEach(url=>{try{URL.revokeObjectURL(url)}catch(error){}});
-    render();toast("تم فتح المشروع بعد التحقق من سلامة ملفاته. تابع من حيث توقفت.");
+    render();toast("تم فتح المشروع بعد التحقق من سلامة ملفاته. تابع من حيث توقفت.");return true;
   }catch(err){
     createdUrls.forEach(url=>{try{URL.revokeObjectURL(url)}catch(error){}});
-    toast("تعذّر فتح المشروع؛ بقي الملف المفتوح كما هو. "+((err&&err.message)||err));
+    toast("تعذّر فتح المشروع؛ بقي الملف المفتوح كما هو. "+((err&&err.message)||err));return false;
   }
 };
 
@@ -3653,10 +3653,8 @@ $("rdm").addEventListener("click",e=>{if(e.target.id==="rdm")$("rdm").classList.
       const when=new Date(saved.updatedAt||Date.now()).toLocaleString("ar-SA");
       if(!confirm("عُثر على جلسة محفوظة تلقائيًا («"+(saved.title||"مشروع سابق")+"») بتاريخ "+when+". هل تريد استعادتها؟\nلن تُرسل الملفات إلى أي خادم."))return;
       const file=new File([saved.data],"recovery.afq",{type:"application/json"});
-      const beforeDocs=docs.length,beforePages=pages.length;
-      await $("pro").onchange({target:{files:[file],value:""}});
-      if(!docs.length||!pages.length)throw new Error("لم تُحمّل صفحات المشروع المستعاد؛ لم يتم تأكيد الاستعادة.");
-      if(docs.length===beforeDocs&&pages.length===beforePages)throw new Error("لم يتغير محتوى مساحة العمل بعد الاستيراد.");
+      const restored=await $("pro").onchange({target:{files:[file],value:""}});
+      if(restored!==true||!docs.length||!pages.length)throw new Error("لم تُحمّل صفحات المشروع المستعاد؛ لم يتم تأكيد الاستعادة.");
       setStatus("تمت استعادة الجلسة المحفوظة","saved");
     }catch(error){
       console.warn("Alfalqi recovery restore failed:",error);
