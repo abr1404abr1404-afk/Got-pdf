@@ -9,8 +9,9 @@ from typing import Any
 
 import pymupdf
 
-ARABIC_RE = re.compile(r"[؀-ۿ୐-ݏࢠ-ࣿ]")
-ARABIC_RUNS_RE = re.compile(r"([؀-ۿ୐-ݏࢠ-ࣿ]+|[^؀-ۿ୐-ݏࢠ-ࣿ]+)")
+_ARABIC_CLASS = "".join(chr(codepoint) for codepoint in range(0x0600, 0x0700)) + "".join(chr(codepoint) for codepoint in range(0x0750, 0x0780)) + "".join(chr(codepoint) for codepoint in range(0x08A0, 0x0900))
+ARABIC_RE = re.compile("[" + _ARABIC_CLASS + "]")
+ARABIC_RUNS_RE = re.compile("([" + _ARABIC_CLASS + "]+|[^" + _ARABIC_CLASS + "]+)")
 MAX_OCR_PAGES = 200
 MAX_OCR_LINES = 20000
 MAX_LINE_LENGTH = 1000
