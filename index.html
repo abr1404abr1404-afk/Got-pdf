@@ -383,11 +383,11 @@ label.btn{position:relative}
 <div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف الصور أو تغيير حجمها أو نقلها أو تدويرها أو تحسينها (رمادي، إضاءة، تباين، حدة) في نسخة جديدة. تُرفض التعديلات المتداخلة مع النصوص أو العناصر الأخرى. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف العناصر المعزولة، واستبدال نص لاتيني بسيط، وتغيير لون أو حجم المستطيلات والخطوط المنفردة وتعديل سماكة حدودها وشفافيتها ونقلها إلى موضع آخر. استبدال النص العربي قيد التحقق وموقوف مؤقتًا؛ لا تستخدمه حتى اجتياز اختبارات التشكيل والبحث. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
-<div class="tsec"><h3>سجل نسخ PDF المحلي</h3><p class="dshint">يحفظ آخر 5 نسخ ناتجة على هذا الجهاز فقط، بحد أقصى 100 ميجابايت. يمكنك استعادة نسخة أو حذفها.</p><div class="qa"><button id="pdfVersionOpen" type="button">فتح سجل النسخ</button></div></div>
+<div class="tsec"><h3>سجل نسخ PDF المحلي</h3><p class="dshint">يمكنك تفعيل الحفظ التلقائي بموافقتك؛ تُحفظ الملفات محليًا في هذا المتصفح فقط (آخر 5 نسخ وبحد أقصى 100 ميجابايت). كما يمكنك حفظ نسخة يدويًا أو استعادة نسخة سابقة.</p><div class="qa"><button id="pdfVersionOpen" type="button">فتح سجل النسخ</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
 <div class="r"><button id="tlx">إغلاق</button><span class="sp"></span><button id="tlok" class="p">حفظ الإعدادات</button></div></div></div>
-<div id="pdfImageManager" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfImageTitle"><h2 id="pdfImageTitle">الصور داخل ملف PDF</h2><p class="dshint" id="pdfImageStatus">جارٍ تحميل الصور…</p><div class="r"><button id="pdfImageSelectAll" type="button">تحديد الكل</button><button id="pdfImageClearAll" type="button">إلغاء التحديد</button></div><div id="pdfImageList" class="pdf-image-grid"></div><div class="r"><button id="pdfImageClose" type="button">إغلاق</button><span class="sp"></span><button id="pdfImageApply" class="p" type="button" disabled>تطبيق التعديلات الجماعية وتنزيل نسخة</button></div></div></div>\n<div id="pdfVersionModal" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfVersionTitle"><h2 id="pdfVersionTitle">سجل نسخ PDF المحلي</h2><p class="dshint" id="pdfVersionStatus">النسخ محفوظة في هذا المتصفح فقط.</p><div class="r"><button id="pdfVersionSnapshot" type="button">حفظ نسخة من العمل الحالي</button></div><div id="pdfVersionList" class="pdf-image-grid"></div><div class="r"><button id="pdfVersionClose" type="button">إغلاق</button></div></div></div></div>
+<div id="pdfImageManager" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfImageTitle"><h2 id="pdfImageTitle">الصور داخل ملف PDF</h2><p class="dshint" id="pdfImageStatus">جارٍ تحميل الصور…</p><div class="r"><button id="pdfImageSelectAll" type="button">تحديد الكل</button><button id="pdfImageClearAll" type="button">إلغاء التحديد</button></div><div id="pdfImageList" class="pdf-image-grid"></div><div class="r"><button id="pdfImageClose" type="button">إغلاق</button><span class="sp"></span><button id="pdfImageApply" class="p" type="button" disabled>تطبيق التعديلات الجماعية وتنزيل نسخة</button></div></div></div>\n<div id="pdfVersionModal" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfVersionTitle"><h2 id="pdfVersionTitle">سجل نسخ PDF المحلي</h2><p class="dshint" id="pdfVersionStatus">الحفظ التلقائي يتطلب موافقتك. النسخ اليدوية تبقى في هذا المتصفح فقط.</p><div class="r"><button id="pdfVersionSnapshot" type="button">حفظ نسخة من العمل الحالي</button></div><div id="pdfVersionList" class="pdf-image-grid"></div><div class="r"><button id="pdfVersionClose" type="button">إغلاق</button></div></div></div></div>
 <div id="pdfObjectInspector" class="on" style="display:none"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="pdfObjectTitle"><h2 id="pdfObjectTitle">عناصر ملف PDF</h2><p class="dshint" id="pdfObjectStatus">جارٍ الفحص…</p><div id="pdfObjectWarnings" class="pdf-image-grid"></div><div id="pdfObjectList" class="pdf-image-grid"></div><div class="r"><button id="pdfObjectClose" type="button">إغلاق</button></div></div></div>
 <div id="dsm"><div class="bx" role="dialog" aria-modal="true" aria-labelledby="dsh"><h2 id="dsh">مشاركة PDF عبر Google Drive وQR</h2>
 <p class="dshint">سيُنشئ الفلقي نسخة نهائية من الصفحات المفتوحة ويرفعها مباشرة إلى Google Drive بعد موافقتك. لن يُرسل الملف إلى خادم الفلقي.</p>
@@ -2096,13 +2096,14 @@ async function openPdfDocument(bytes){
 }
 async function load(files,recordHistory=true){
   const had=pages.length;
+  const historyAllowed=recordHistory?await requestPdfHistoryConsent():false;
   for(const f of files){
     try{
       const bytes=await readFileBytes(f);if(!$("fn").value)$("fn").value=f.name.replace(/\.pdf$/i,"")+"-معدّل";
       const pdf=await openPdfDocument(bytes);
       const effectiveBytes=openedPdfBytes||bytes;openedPdfBytes=null;
       const d=docs.push({bytes:effectiveBytes,pdf,name:f.name})-1;
-      if(recordHistory)recordPdfVersion(f.name,effectiveBytes).catch(error=>console.warn("PDF source history:",error));
+      if(historyAllowed)recordPdfVersion(f.name,effectiveBytes).catch(error=>console.warn("PDF source history:",error));
       for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);pages.push({d,i,rot:0,nat:p.rotate||0,sel:false,ov:[]})}
     }catch(e){console.error("PDF open error:",e);toast("تعذّر فتح «"+f.name+"»: "+((e&&e.message)||"تأكد أنه ملف PDF سليم."))}
   }
@@ -2669,9 +2670,17 @@ function showReady(name,bytes,mime){
   sh.onclick=async()=>{try{await navigator.share({files:[file],title:name})}catch(e){if(!e||e.name!=="AbortError")toast("تعذّرت المشاركة، استخدم «تنزيل الملف».")}};
   $("rdm").classList.add("on");
 }
-async function saveFile(name,bytes,mime){mime=mime||"application/pdf";if(mime==="application/pdf"){try{await recordPdfVersion(name,bytes)}catch(e){console.warn("PDF history:",e)}}const mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform));if(!mob){try{dl??=await claude.use("downloads");if(dl){await dl.save({filename:name,data:bytes});return}}catch(e){}}showReady(name,bytes,mime)}
+async function saveFile(name,bytes,mime){mime=mime||"application/pdf";if(mime==="application/pdf"&&await requestPdfHistoryConsent()){try{await recordPdfVersion(name,bytes)}catch(e){console.warn("PDF history:",e)}}const mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform));if(!mob){try{dl??=await claude.use("downloads");if(dl){await dl.save({filename:name,data:bytes});return}}catch(e){}}showReady(name,bytes,mime)}
 $("rdx").onclick=()=>$("rdm").classList.remove("on");
 const WM={t:"",op:.18},META={title:"",author:""};
+let pdfHistorySessionChoice=null;
+async function requestPdfHistoryConsent(){
+  try{if(localStorage.getItem("alfalqi_pdf_history_consent")==="yes")return true}catch(e){}
+  if(pdfHistorySessionChoice!==null)return pdfHistorySessionChoice;
+  pdfHistorySessionChoice=confirm("هل توافق على تفعيل سجل نسخ PDF؟\n\nسيحفظ الفلقي نسخة من الملفات التي تفتحها والملفات الناتجة من أدواته داخل مساحة التخزين المحلية لهذا المتصفح فقط، لتتمكن من استعادتها لاحقًا.\n\nلن تُرفع هذه النسخ إلى الخادم. يمكنك حذفها من سجل النسخ. قد تُحذف عند مسح بيانات المتصفح، وتخضع لمساحة التخزين المتاحة.");
+  if(pdfHistorySessionChoice){try{localStorage.setItem("alfalqi_pdf_history_consent","yes")}catch(e){}}
+  return pdfHistorySessionChoice;
+}
 const pdfVersionDB=(()=>{
  let opening;
  const db=()=>opening||(opening=new Promise((ok,no)=>{const r=indexedDB.open("alfalqi-pdf-versions",1);r.onupgradeneeded=()=>{if(!r.result.objectStoreNames.contains("versions"))r.result.createObjectStore("versions",{keyPath:"id"})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)}));
