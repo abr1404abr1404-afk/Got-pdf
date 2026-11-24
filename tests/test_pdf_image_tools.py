@@ -536,9 +536,11 @@ class PdfImageToolsTests(unittest.TestCase):
     def arabic_text_pdf(self):
         doc = pymupdf.open()
         page = doc.new_page(width=360, height=220)
-        page.insert_htmlbox(
-            pymupdf.Rect(70, 65, 290, 115),
-            '<div dir="rtl" style="font-family:Noto Naskh Arabic;font-size:18pt;text-align:right">مرحبا بالعالم</div>',
+        page.insert_text(
+            (70, 105), "مرحبا بالعالم",
+            fontname="NotoNaskh",
+            fontfile="/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+            fontsize=18,
         )
         data = doc.tobytes()
         doc.close()
