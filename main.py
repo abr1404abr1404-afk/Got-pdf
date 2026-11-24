@@ -33,7 +33,7 @@ from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
 from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -697,6 +697,21 @@ async def pdf_objects_inspect(request: Request, file: UploadFile = File(...)):
         return await _run_cpu(inspect_pdf_objects, data)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/pdf/objects/edit")
+async def pdf_objects_edit(request: Request, file: UploadFile = File(...), operations: str = Form(...)):
+    """Delete isolated vector drawings from a new PDF copy."""
+    _guard_expensive_request(request, "pdf-object-edit", client_limit=3, global_limit=8)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        parsed_operations = json.loads(operations)
+        output = await _run_cpu(edit_pdf_vector_objects, data, parsed_operations)
+    except (ValueError, json.JSONDecodeError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+    return Response(output, media_type="application/pdf",
+                    headers={"Content-Disposition": 'attachment; filename="alfalqi-vector-edited.pdf"' })
 
 
 @app.post("/api/pdf/images/list")
