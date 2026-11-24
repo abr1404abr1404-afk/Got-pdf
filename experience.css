@@ -378,27 +378,27 @@ main { min-height: calc(100vh - 105px); }
 #pwaInstall:hover{background:color-mix(in srgb,var(--acc) 9%,var(--panel))}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
-/* Keep the install action easy to find on phones, even when the toolbar scrolls. */
-@media (max-width: 640px) {
-  #pwaInstall:not([hidden]) {
-    position: fixed;
-    inset-inline-end: 16px;
-    inset-inline-start: auto;
-    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-    z-index: 1200;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-height: 48px;
-    padding: 0 18px;
-    border: 1px solid color-mix(in srgb, var(--acc) 55%, var(--line));
-    border-radius: 999px;
-    background: var(--panel);
-    color: var(--acc);
-    box-shadow: 0 8px 28px rgba(0, 0, 0, .2);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
-  }
-  #pwaInstall:not([hidden]) .ic { width: 21px; height: 21px; }
+/* Install button sits in the main header, separate from editing tools. */
+#pwaInstall { display:inline-flex; align-items:center; gap:7px; white-space:nowrap; min-height:38px; padding:0 12px; border-radius:11px; }
+#pwaInstall .lb { display:inline; }
+.pwa-help-overlay[hidden]{display:none!important}
+.pwa-help-overlay{position:fixed;inset:0;z-index:12000;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(5,12,22,.68);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+.pwa-help-card{width:min(100%,460px);max-height:min(82dvh,620px);overflow:auto;overscroll-behavior:contain;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 24px 80px rgba(0,0,0,.35);direction:rtl}
+.pwa-help-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 0 12px;border-bottom:1px solid var(--line)}
+.pwa-help-card h2{margin:0;font-size:1.08rem}
+.pwa-help-card header button{width:38px;height:38px;border-radius:10px;font-size:1.5rem;line-height:1}
+.pwa-help-content{font-size:.96rem;line-height:1.95;padding:8px 2px;overflow-wrap:anywhere}
+.pwa-help-content p{margin:8px 0}
+.pwa-help-content ol{padding-inline-start:24px;margin:8px 0}
+.pwa-help-content li{margin:8px 0}
+.pwa-help-note{padding:10px 12px;border-radius:11px;background:color-mix(in srgb,var(--acc) 8%,var(--bg));color:var(--mut);font-size:.88rem}
+.pwa-help-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-start;margin-top:12px}
+.pwa-help-actions button{min-height:42px;padding:9px 16px;border-radius:11px}
+.pwa-help-actions .primary{background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+@media(max-width:640px){
+  #pwaInstall{min-height:36px;padding:0 8px;font-size:.78rem;gap:4px}
+  #pwaInstall .ic{width:17px;height:17px}
+  .pwa-help-overlay{padding:14px}
+  .pwa-help-card{max-height:calc(88dvh - env(safe-area-inset-bottom,0px));padding:15px;border-radius:18px}
 }
+
