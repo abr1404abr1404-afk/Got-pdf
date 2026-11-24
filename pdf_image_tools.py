@@ -568,6 +568,91 @@ MAX_VECTOR_EDIT_OPS = 20
 
 
 
+
+def restyle_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
+    """Change stroke width and opacity of an isolated rectangle or straight line."""
+    if not isinstance(operation, dict) or operation.get("action") != "restyle":
+        raise ValueError("عملية تنسيق الرسم غير صالحة.")
+    try:
+        page_number=int(operation["page"])
+        object_id=str(operation["object_id"])
+        coords=operation["rect"]
+        if not isinstance(coords,list) or len(coords)!=4:
+            raise ValueError
+        normalized=[float(v) for v in coords]
+        width=float(operation.get("line_width"))
+        opacity=float(operation.get("opacity",1))
+    except (KeyError,TypeError,ValueError,OverflowError) as exc:
+        raise ValueError("بيانات تنسيق الرسم غير صالحة.") from exc
+    if not math.isfinite(width) or not 0.1<=width<=20:
+        raise ValueError("سماكة الخط يجب أن تكون بين 0.1 و20 نقطة.")
+    if not math.isfinite(opacity) or not 0<=opacity<=1:
+        raise ValueError("الشفافية يجب أن تكون بين 0 و1.")
+    if not 1<=page_number<=200 or not re.fullmatch(rf"p{page_number}-vector-[0-9]+",object_id):
+        raise ValueError("مرجع الرسم غير صالح.")
+    if not all(math.isfinite(v) for v in normalized):
+        raise ValueError("إحداثيات الرسم غير صالحة.")
+    x0,y0,x1,y1=normalized
+    if x0<0 or y0<0 or x1>1 or y1>1 or x1<=x0 or y1<=y0:
+        raise ValueError("مستطيل الرسم يجب أن يقع داخل الصفحة.")
+    doc=_open(data)
+    try:
+        if page_number>doc.page_count:
+            raise ValueError("الصفحة المحددة خارج نطاق الملف.")
+        page=doc.load_page(page_number-1)
+        drawings=page.get_drawings()
+        index=int(object_id.rsplit("-",1)[1])-1
+        if not 0<=index<len(drawings):
+            raise ValueError("لم يتم العثور على الرسم؛ أعد الفهرسة.")
+        drawing=drawings[index]
+        items=drawing.get("items",[])
+        if len(items)!=1 or items[0][0] not in {"re","l"}:
+            raise ValueError("يدعم تنسيق الرسم حاليًا المستطيل والخط المستقيم المنفرد فقط.")
+        old_rect=pymupdf.Rect(drawing.get("rect") or (0,0,0,0))
+        page_rect=page.rect
+        supplied=pymupdf.Rect(page_rect.x0+x0*page_rect.width,page_rect.y0+y0*page_rect.height,
+                              page_rect.x0+x1*page_rect.width,page_rect.y0+y1*page_rect.height)
+        if any(abs(a-b)>1.5 for a,b in zip(old_rect,supplied)):
+            raise ValueError("تغيّر موضع الرسم؛ أعد الفهرسة.")
+        for block in page.get_text("dict").get("blocks",[]):
+            if block.get("type")!=0: continue
+            for line in block.get("lines",[]):
+                for span in line.get("spans",[]):
+                    if old_rect.intersects(pymupdf.Rect(span.get("bbox",(0,0,0,0)))):
+                        raise ValueError("الرسم يتداخل مع نص؛ لن يتم تعديل تنسيقه.")
+        for info in page.get_image_info(xrefs=True):
+            if old_rect.intersects(pymupdf.Rect(info.get("bbox",(0,0,0,0)))):
+                raise ValueError("الرسم يتداخل مع صورة؛ لن يتم تعديل تنسيقه.")
+        for other_index,other in enumerate(drawings):
+            if other_index!=index and old_rect.intersects(pymupdf.Rect(other.get("rect") or (0,0,0,0))):
+                raise ValueError("الرسم يتداخل مع رسم آخر؛ لن يتم تعديل تنسيقه.")
+        for annotation in page.annots() or []:
+            if old_rect.intersects(pymupdf.Rect(annotation.rect)):
+                raise ValueError("الرسم يتداخل مع تعليق؛ لن يتم تعديل تنسيقه.")
+        stroke=tuple(drawing["color"]) if drawing.get("color") else None
+        fill=tuple(drawing["fill"]) if drawing.get("fill") else None
+        if stroke is None:
+            raise ValueError("هذا الرسم لا يحتوي على حد يمكن تغيير سماكته.")
+        caps=drawing.get("lineCap") or (0,0,0)
+        cap=int(caps[0] if isinstance(caps,(list,tuple)) else caps)
+        dashes=drawing.get("dashes") or "[] 0"
+        join=int(float(drawing.get("lineJoin") or 0))
+        page.add_redact_annot(old_rect,fill=None,cross_out=False)
+        page.apply_redactions(images=0,graphics=2,text=0)
+        if items[0][0]=="re":
+            page.draw_rect(pymupdf.Rect(items[0][1]),color=stroke,fill=fill,width=width,dashes=dashes,
+                           lineCap=cap,lineJoin=join,stroke_opacity=opacity,
+                           fill_opacity=float(drawing.get("fill_opacity") or 1),overlay=True)
+        else:
+            page.draw_line(items[0][1],items[0][2],color=stroke,width=width,dashes=dashes,
+                           lineCap=cap,lineJoin=join,stroke_opacity=opacity,overlay=True)
+        output=doc.tobytes(garbage=4,deflate=True,clean=True)
+        if not output.startswith(b"%PDF-"):
+            raise ValueError("تعذّر إنشاء النسخة المعدّلة.")
+        return output
+    finally:
+        doc.close()
+
 def scale_isolated_pdf_vector(data: bytes, operation: dict[str, Any]) -> bytes:
     """Scale an isolated single rectangle or straight line around its center."""
     if not isinstance(operation, dict) or operation.get("action") != "scale":
