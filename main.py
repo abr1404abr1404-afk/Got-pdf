@@ -28,6 +28,7 @@ from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
+from redaction import redact_pdf_bytes
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -596,6 +597,30 @@ async def searchable_pdf(request: Request, file: UploadFile = File(...), ocr_dat
         headers={
             "Content-Disposition": 'attachment; filename="alfalqi-searchable.pdf"',
             "X-OCR-Text-Layer": "invisible",
+        },
+    )
+
+
+@app.post("/api/pdf/redact")
+async def redact_pdf(request: Request, file: UploadFile = File(...), regions: str = Form(...)):
+    """Permanently redact selected page regions after explicit user confirmation."""
+    _guard_expensive_request(request, "redact-pdf", client_limit=3, global_limit=10)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    if len(regions.encode("utf-8")) > 1024 * 1024:
+        raise HTTPException(413, "بيانات مناطق الحجب تتجاوز الحد المسموح.")
+    try:
+        output = await _run_cpu(redact_pdf_bytes, data, regions)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    if len(output) > MAX_CONVERTED_MB * 1024 * 1024:
+        raise HTTPException(413, "حجم ملف PDF الناتج يتجاوز الحد المسموح.")
+    return Response(
+        content=output,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'attachment; filename="alfalqi-redacted.pdf"',
+            "X-PDF-Redaction": "permanent",
         },
     )
 
