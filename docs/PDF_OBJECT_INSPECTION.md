@@ -44,3 +44,8 @@ A first replacement milestone supports one isolated, horizontal Latin text span 
 ## Safe vector recoloring
 
 The inspector exposes path type and line style metadata. Recoloring is currently restricted to an isolated single rectangle or straight line. The server verifies the object ID and page bounds, rejects intersections with text, images, other drawings, or annotations, removes the old path, then recreates the same geometry with the requested stroke and/or fill color while retaining width and opacity. Complex paths, curves, grouped drawings, and overlapping content are rejected. The original file is never overwritten.
+
+
+## Safe vector scaling
+
+The editor also scales isolated single rectangles and straight lines between 50% and 200% around their center. Both the original and proposed bounds are checked against text, raster images, other vector paths, annotations, and page edges before the old drawing is removed. Only simple one-item rectangle/line paths are supported; complex paths and grouped graphics are rejected.
