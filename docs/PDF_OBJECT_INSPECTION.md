@@ -29,3 +29,8 @@ Some PDFs flatten text, diagrams, and images into one page-sized image. Such con
 ## API response
 
 The response includes page count, object count, per-type counts, objects, and warnings. Each object includes a stable-for-this-response ID, page number, type, and normalized rectangle. IDs are not persistent across document edits; clients should re-inspect after every transformation.
+
+
+## Safe isolated text deletion
+
+The object editor also supports deleting one short text span (up to 240 characters) when it is isolated from all other text spans, raster images, vector drawings, and annotations. The client submits the inspection ID, normalized rectangle, and SHA-256 text fingerprint. The server revalidates all three against the uploaded PDF, applies a text-only redaction, then compares the remaining extracted text spans with the expected sequence. If any neighboring text changes, the operation is rejected and no output is returned. This is deletion only; replacement, reflow, and exact font-preserving text editing are not yet supported. Flattened/scanned text is not editable as a text object.
