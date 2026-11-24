@@ -3139,7 +3139,7 @@ $("pro").onchange=async e=>{
       const safeImages=[];
       for(const image of imgs){
         if(!projectObject(image)||typeof image.m!=="string"||!/^image\/(png|jpeg|webp|gif)$/i.test(image.m)||
-           !["x","y","w","hh","r"].every(k=>projectFinite(image[k]))||image.w<=0||image.hh<=0||
+           !["x","y","w","r"].every(k=>projectFinite(image[k]))||image.w<=0||(image.hh!==undefined&&image.hh!==null&&(!projectFinite(image.hh)||image.hh<=0))||
            typeof image.b!=="string")
           throw new Error("صورة مضافة غير صالحة في الصفحة رقم "+(i+1)+".");
         const bytes=decodeProjectBase64(image.b,"صورة الصفحة",20*1024*1024);
