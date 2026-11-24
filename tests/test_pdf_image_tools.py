@@ -266,16 +266,16 @@ class PdfImageToolsTests(unittest.TestCase):
     def test_recolor_vector_rejects_complex_path(self):
         doc = pymupdf.open()
         page = doc.new_page()
-        page.draw_rect(pymupdf.Rect(30, 30, 80, 80), color=(1, 0, 0))
-        page.draw_rect(pymupdf.Rect(120, 30, 170, 80), color=(0, 0, 1))
+        page.draw_bezier((30, 30), (50, 10), (80, 80), (100, 50), color=(1, 0, 0), width=2)
         source = doc.tobytes()
         doc.close()
-        with pymupdf.open(stream=source, filetype="pdf") as check:
-            check[0].draw_line((50, 50), (60, 60), color=(0, 0, 0))
-            source = check.tobytes()
         target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
-        # A rectangle is supported; a multi-item path is deliberately not.
-        self.assertIn("re", target["path_types"])
+        self.assertIn("c", target["path_types"])
+        with self.assertRaisesRegex(ValueError, "المستطيل والخط المستقيم"):
+            recolor_isolated_pdf_vector(source, {
+                "action": "recolor", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "stroke_color": "#0000FF",
+            })
 
     def test_delete_isolated_vector_preserves_other_drawing_and_text(self):
         source = self.vector_source()
