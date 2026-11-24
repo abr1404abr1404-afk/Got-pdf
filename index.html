@@ -361,7 +361,7 @@ label.btn{position:relative}
 <div id="tlm"><div class="bx" role="dialog" aria-label="أدوات"><h2>أدوات إضافية</h2>
 <div class="tsec"><h3>علامة مائية (تُضاف عند التنزيل على كل الصفحات)</h3><input id="wmt" type="text" dir="auto" placeholder="مثال: سري / مسودة / اسم الجهة"><div class="r"><label>الشفافية <select id="wmo"><option value="0.10">خفيفة</option><option value="0.18" selected>متوسطة</option><option value="0.30">واضحة</option></select></label></div></div>
 <div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" placeholder="المؤلف"></div>
-<div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>
+<div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>\n<div class="tsec"><h3>OCR وتصدير متقدم</h3><p class="dshint">أنشئ نسخة PDF قابلة للبحث بطبقة نص مخفية بعد مراجعة النصوص. تتطلب اتصالًا بخادم الفلقي، ولن يُرسل الملف إلا بعد تأكيدك.</p><div class="qa"><button id="searchablePdf" class="p" type="button">إنشاء PDF قابل للبحث</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>المشروع (لمتابعة العمل لاحقًا)</h3><div class="qa"><button id="prs">حفظ المشروع</button><label class="btn" for="pro">فتح مشروع</label><input id="pro" type="file" accept=".afq,application/json" class="native-picker"></div></div>
 <div class="tsec"><h3>قراءة نص الصور (تحتاج اتصالًا بالإنترنت لتحميل محرك OCR)</h3><div class="r" style="margin-top:0"><select id="ocl"><option value="ara">عربي</option><option value="eng">English</option><option value="ara+eng">عربي + English</option></select><button id="ocg">حلّل صفحات الصور</button></div></div>
@@ -2751,6 +2751,37 @@ $("save").onclick=async()=>{
   const sel=pages.filter(p=>p.sel),list=sel.length?sel:pages;
   try{toast("جارٍ تجهيز الملف…");const bytes=await buildPdf(list);await saveFile(safeName()+".pdf",bytes);$("toast").style.display="none"}
   catch(e){if(e&&e.code==="declined")return;console.error(e);toast("تعذّر إنشاء الملف: "+((e&&e.message)||e))}
+};
+$("searchablePdf").onclick=async()=>{
+  const base=apiBase();
+  if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  if(!base)return toast("خادم الفلقي غير متصل. اضبط عنوان API في config.js ثم أعد نشر الخادم.");
+  if($("ocrReview").classList.contains("on")&&!ocrReviewSaveCurrent())return;
+  const selected=pages.some(p=>p.sel)?pages.filter(p=>p.sel):pages.slice();
+  const entries=[];
+  selected.forEach((pg,index)=>{
+    if(!Array.isArray(pg.ocr)||!pg.ocr.length)return;
+    const lines=pg.ocr.map(line=>({text:String(line.t||"").trim(),bbox:[Number(line.x0),Number(line.y0),Number(line.x1),Number(line.y1)]}))
+      .filter(line=>line.text&&line.bbox.every(Number.isFinite));
+    if(lines.length)entries.push({page:index+1,lines});
+  });
+  if(!entries.length)return toast("حلّل النصوص أولًا من شريط الصفحات، ثم أعد المحاولة.");
+  if(!window.confirm("سيتم إرسال نسخة PDF الحالية وبيانات OCR المصححة إلى خادم الفلقي لإنشاء طبقة نص قابلة للبحث. تابع فقط إذا كنت موافقًا على إرسال هذه النسخة."))return;
+  const btn=$("searchablePdf");btn.disabled=true;
+  try{
+    toast("جارٍ تجهيز نسخة PDF مع التعديلات الحالية…");
+    const source=await buildPdf(selected);
+    const form=new FormData();
+    form.append("file",new Blob([source],{type:"application/pdf"}),safeName()+".pdf");
+    form.append("ocr_data",JSON.stringify({pages:entries}));
+    toast("جارٍ إنشاء طبقة النص المخفية…");
+    const response=await fetch(base+"/api/pdf/searchable",{method:"POST",body:form});
+    if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر إنشاء PDF قابل للبحث.")}
+    const output=new Uint8Array(await response.arrayBuffer());
+    await saveFile(safeName()+"-searchable.pdf",output);
+    toast("تم إنشاء PDF قابل للبحث. اختبر البحث داخل قارئ PDF.");
+  }catch(error){console.error(error);toast(error.message||"حدث خطأ أثناء إنشاء PDF قابل للبحث.")}
+  finally{btn.disabled=false}
 };
 function jszipLoad(){if(window.JSZip)return Promise.resolve();return new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";s.onload=res;s.onerror=()=>rej(new Error("تعذّر تحميل مكتبة الضغط"));document.head.append(s)})}
 $("spl").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");const n=pages.filter(p=>p.sel).length;$("spinfo").textContent=n?"سيُقسَّم المحدد فقط ("+n+" صفحة).":"سيُقسَّم الملف كله ("+pages.length+" صفحة). حدّد صفحات بالمربعات لتقسيمها وحدها.";$("spm").classList.add("on")};
