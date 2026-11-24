@@ -103,8 +103,8 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
             if target_key in seen_targets:
                 raise ValueError("عدّل موضع صورة واحد من كل مجموعة صور متطابقة في الطلب الواحد.")
             seen_targets.add(target_key)
-            if action not in {"delete", "resize", "move", "rotate"}:
-                raise ValueError("العمليات المدعومة هي الحذف أو تغيير الحجم أو النقل أو التدوير.")
+            if action not in {"delete", "resize", "move", "rotate", "enhance"}:
+                raise ValueError("العمليات المدعومة هي الحذف أو تغيير الحجم أو النقل أو التدوير أو تحسين الصورة.")
             if not all(math.isfinite(v) for v in (x0, y0, x1, y1)):
                 raise ValueError("إحداثيات الصورة غير صالحة.")
             if x0 < 0 or y0 < 0 or x1 > 1 or y1 > 1 or x1 <= x0 or y1 <= y0:
@@ -126,7 +126,7 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                 raise ValueError("موضع الصورة تغيّر؛ أعد تحليل الصور ثم حاول مجددًا.")
             image_bytes = b""
             replacement_rect = None
-            if action in {"resize", "move", "rotate"}:
+            if action in {"resize", "move", "rotate", "enhance"}:
                 image_bytes = doc.extract_image(xref).get("image", b"")
                 if not image_bytes:
                     raise ValueError("تعذّر استخراج بيانات الصورة الأصلية.")
@@ -145,18 +145,53 @@ def edit_pdf_images(data: bytes, operations: list[dict[str, Any]]) -> bytes:
                     if not math.isfinite(dx) or not math.isfinite(dy) or abs(dx) > 500 or abs(dy) > 500:
                         raise ValueError("إزاحة الصورة يجب أن تكون بين -500 و500 نقطة.")
                     replacement_rect = original + (dx, dy, dx, dy)
-                else:
+                elif action == "rotate":
                     rotation = operation.get("rotation")
                     if isinstance(rotation, bool) or rotation not in {90, 180, 270}:
                         raise ValueError("زاوية تدوير الصورة يجب أن تكون 90 أو 180 أو 270 درجة.")
                     center = original.tl + (original.br - original.tl) * 0.5
-                    if rotation in {90,  270}:
+                    if rotation in {90, 270}:
                         replacement_rect = pymupdf.Rect(
                             center.x - original.height / 2, center.y - original.width / 2,
                             center.x + original.height / 2, center.y + original.width / 2,
                         )
                     else:
                         replacement_rect = pymupdf.Rect(original)
+                else:
+                    import io
+                    from PIL import Image, ImageEnhance, ImageOps
+                    image_info = next((entry for entry in page.get_image_info(xrefs=True)
+                                       if int(entry.get("xref") or 0) == xref
+                                       and pymupdf.Rect(entry.get("bbox", (0, 0, 0, 0))).intersects(original)), {})
+                    if image_info.get("has-mask"):
+                        raise ValueError("هذه الصورة تستخدم قناع شفافية؛ لا يمكن تحسينها بأمان في هذه المرحلة.")
+                    with Image.open(io.BytesIO(image_bytes)) as source_image:
+                        if source_image.width * source_image.height > 20_000_000:
+                            raise ValueError("دقة الصورة تتجاوز الحد الآمن للتحسين.")
+                        source_image.load()
+                        has_alpha = "A" in source_image.getbands() or "transparency" in source_image.info
+                        alpha = source_image.convert("RGBA").getchannel("A") if has_alpha else None
+                        working = source_image.convert("RGB")
+                        filter_name = str(operation.get("filter", ""))
+                        if filter_name == "grayscale":
+                            working = ImageOps.grayscale(working).convert("RGB")
+                        elif filter_name in {"brightness", "contrast", "color", "sharpness"}:
+                            factor = float(operation.get("factor", 1))
+                            if not math.isfinite(factor) or not 0.5 <= factor <= 2:
+                                raise ValueError("قيمة التحسين يجب أن تكون بين 0.5 و2.")
+                            enhancer = {"brightness": ImageEnhance.Brightness,
+                                        "contrast": ImageEnhance.Contrast,
+                                        "color": ImageEnhance.Color,
+                                        "sharpness": ImageEnhance.Sharpness}[filter_name]
+                            working = enhancer(working).enhance(factor)
+                        else:
+                            raise ValueError("نوع تحسين الصورة غير معروف.")
+                        if alpha is not None:
+                            working.putalpha(alpha)
+                        output_buffer = io.BytesIO()
+                        working.save(output_buffer, format="PNG", optimize=True)
+                        image_bytes = output_buffer.getvalue()
+                    replacement_rect = pymupdf.Rect(original)
                 if not page_rect.contains(replacement_rect):
                     raise ValueError("الموضع أو الحجم الجديد يتجاوز حدود الصفحة.")
             # Redaction changes page content, so refuse all existing overlaps rather
