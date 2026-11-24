@@ -105,6 +105,8 @@ for (const feature of [
   'indexedDB.open("alfalqi-pdf-versions",1)',
   'requestPdfHistoryConsent()',
   'restorePdfVersion(id)',
+  'downloadPdfVersion(id)',
+  'تنزيل نسخة احتياطية',
   'size>100*1024*1024',
   'keep.length<5',
   'لن تُرفع هذه النسخ إلى الخادم'
