@@ -2015,11 +2015,18 @@ const FONTS=[
 ["Serif","Georgia,serif",null,"en"],
 ["Mono",'"Courier New",monospace',null,"en"]];
 const FBASE=FONTS.length;
-FONTS.forEach(f=>{if(f[2]){const l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+f[2]+"&display=swap";document.head.append(l)}});
-// Load each selectable font once while online. The service worker caches the
-// public Google Fonts CSS and WOFF2 responses so the app can reuse them offline.
+const fontStylesheetPromises=[];
+FONTS.forEach(f=>{if(f[2]){
+  const l=document.createElement("link");l.rel="stylesheet";
+  l.href="https://fonts.googleapis.com/css2?family="+f[2]+"&display=swap";
+  fontStylesheetPromises.push(new Promise(resolve=>{l.onload=resolve;l.onerror=resolve}));
+  document.head.append(l);
+}});
+// Load each selectable font after its stylesheet arrives. The service worker
+// caches public Google Fonts CSS and WOFF2 responses for offline app use.
 const fontWarmupPromise=(async()=>{
   if(!("fonts" in document))return;
+  await Promise.all(fontStylesheetPromises);
   const sample="الفلقي PDF ١٢٣ ٠٤٥ abc 123";
   for(let i=0;i<FONTS.length;i+=4){
     await Promise.allSettled(FONTS.slice(i,i+4).filter(f=>f[2]).map(f=>
