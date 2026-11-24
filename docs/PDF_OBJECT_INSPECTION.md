@@ -4,7 +4,7 @@ The API endpoint `POST /api/pdf/objects/inspect` creates a bounded inventory of 
 
 ## Detected object types
 
-- **Text spans:** extracted text fragments and normalized page coordinates.
+- **Text spans:** extracted text fragments, normalized page coordinates, font family, font size, style flags, color, baseline origin, and writing direction where the PDF exposes them.
 - **Raster images:** dimensions, image reference where available, and normalized bounding box.
 - **Vector drawings:** bounding box, path item count, fill and stroke colors where available.
 - **Annotations:** annotation subtype and bounding box.
@@ -16,7 +16,7 @@ Coordinates are normalized to the page rectangle (0–1), so a client can map an
 - The same PDF validation and 200-page maximum as the image tools applies.
 - Inventory is capped at 500 objects per request.
 - Text previews are capped at 240 characters per span.
-- Overlap warnings identify raster images intersecting text spans or other raster images. These are review hints, not proof that editing will damage content.
+- Overlap warnings identify raster-image/text, image/image, vector/text, vector/image, and vector/vector intersections. These are conservative review hints, not proof that editing will damage content.
 - The inspection endpoint does not modify the source PDF.
 - `POST /api/pdf/objects/edit` currently supports deleting isolated vector drawings only. It creates a new PDF copy; the input bytes remain unchanged.
 - A vector deletion is rejected if its bounding box intersects any text span, raster image, or other vector drawing. This conservative check can reject some safe edits, but avoids knowingly deleting overlapping content.
