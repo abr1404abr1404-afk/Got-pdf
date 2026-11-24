@@ -11,6 +11,14 @@ The optional PDF version history uses browser IndexedDB under `alfalqi-pdf-versi
 - Before restoring a version, the current workspace is rendered to a PDF and added to the history so the pre-restore state remains recoverable.
 - Each item records its filename, timestamp, byte size, and PDF bytes.
 
+## Compare saved versions
+
+- Select exactly two saved entries in the history list and choose **Compare the two selected versions**.
+- Comparison runs locally in the browser; the saved PDFs are not uploaded.
+- The tool reports page additions/removals, pages with text changes, up to six added/removed text lines per changed page, and an approximate visual-difference percentage with a changed-area bounding rectangle.
+- It compares at most 30 pages per version and caps each rendered page at 1.5 million pixels. Pages are processed sequentially.
+- Visual percentages are approximate and can be affected by font substitution, PDF renderer differences, antialiasing, transparency, and page geometry. A high percentage does not identify the semantic reason for a change.
+
 ## Retention and failure behavior
 
 - Keeps up to the 5 newest versions.
