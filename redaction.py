@@ -87,7 +87,7 @@ def redact_pdf_bytes(pdf_bytes: bytes, regions_json: str | dict[str, Any]) -> by
                 link_rect = link.get("from")
                 if link_rect and any(pymupdf.Rect(link_rect).intersects(r) for r in redaction_rects):
                     page.delete_link(link)
-            page.apply_redactions(images=2, graphics=1, text=0)
+            page.apply_redactions(images=2, graphics=2, text=0)
             if original_rotation:
                 page.set_rotation(original_rotation)
         # Strip document-level metadata and embedded attachments from the redacted copy.
