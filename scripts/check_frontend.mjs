@@ -61,6 +61,10 @@ for (const feature of ["ocrReviewSaveCurrent()", "v:2", "ocr:Array.isArray(p.ocr
   if (!html.includes(feature)) failures.push("OCR project persistence is missing: " + feature);
 }
 
+for (const feature of ["dsUploadResumable", "uploadType=resumable", "Content-Range", "dsSha256", "alfalqiSha256", "dsFindExisting", "dsGetPublicPermission", "X-Upload-Content-Length"]) {
+  if (!html.includes(feature)) failures.push("Google Drive reliability feature is missing: " + feature);
+}
+
 
 
 if (failures.length) {
