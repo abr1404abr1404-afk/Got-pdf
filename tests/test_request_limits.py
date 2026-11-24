@@ -78,6 +78,10 @@ class RequestBodyLimitMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         async def app(scope, inner_receive, inner_send):
             nonlocal app_called
             app_called = True
+            if scope.get("type") != "http":
+                await inner_receive()
+                await inner_send({"type": "lifespan.startup.complete"})
+                return
             while True:
                 message = await inner_receive()
                 if not message.get("more_body", False):
@@ -119,6 +123,6 @@ class RequestBodyLimitMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             scope_type="lifespan",
         )
         self.assertTrue(app_called)
-        self.assertEqual(messages, [])
+        self.assertEqual(messages, [{"type": "lifespan.startup.complete"}])
 
 
