@@ -3111,7 +3111,7 @@ $("pro").onchange=async e=>{
     for(let i=0;i<data.pages.length;i++){
       const p=data.pages[i];
       if(!projectObject(p)||!Number.isInteger(p.d)||p.d<0||p.d>=importedDocs.length||
-         !Number.isInteger(p.i)||p.i<0||p.i>=importedDocs[p.d].pdf.numPages)
+         !Number.isInteger(p.i)||p.i<1||p.i>importedDocs[p.d].pdf.numPages)
         throw new Error("مرجع الصفحة رقم "+(i+1)+" لا يشير إلى صفحة موجودة.");
       if((p.rot!==undefined&&(!projectFinite(p.rot)||Math.abs(p.rot)>3600))||
          (p.nat!==undefined&&(!projectFinite(p.nat)||Math.abs(p.nat)>3600)))
