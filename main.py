@@ -33,7 +33,7 @@ from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
 from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
-from pdf_image_tools import list_pdf_images, edit_pdf_images
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 
@@ -685,6 +685,18 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                     headers={"Content-Disposition": 'attachment; filename="alfalqi-converted.docx"',
                              **quality_headers})
+
+
+@app.post("/api/pdf/objects/inspect")
+async def pdf_objects_inspect(request: Request, file: UploadFile = File(...)):
+    """Inspect native PDF text, raster images, vector drawings and annotations."""
+    _guard_expensive_request(request, "pdf-object-inspect", client_limit=4, global_limit=12)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    try:
+        return await _run_cpu(inspect_pdf_objects, data)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.post("/api/pdf/images/list")
