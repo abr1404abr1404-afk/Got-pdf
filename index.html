@@ -3334,7 +3334,7 @@ async function inspectPdfObjects(){
       }else if(item.type==="text"&&!item.truncated&&item.text_hash){
         const replace=document.createElement("button");replace.type="button";replace.textContent="استبدال النص (لاتيني)";
         replace.addEventListener("click",()=>replacePdfTextObject(item));card.append(replace);
-        if(Array.isArray(item.writing_direction)&&item.writing_direction[0]<0){
+        if(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(item.text||"")){
           const replaceAr=document.createElement("button");replaceAr.type="button";replaceAr.textContent="استبدال النص العربي";
           replaceAr.addEventListener("click",()=>replacePdfArabicTextObject(item));card.append(replaceAr);
         }
