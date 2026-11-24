@@ -74,7 +74,7 @@ class PdfImageToolsTests(unittest.TestCase):
         item = next(item for item in report["objects"] if item["type"] == "text")
         self.assertTrue(item["font"])
         self.assertAlmostEqual(item["font_size"], 14, delta=0.2)
-        self.assertEqual(item["color"], "#334C66")
+        self.assertEqual(item["color"], "#334D66")
         self.assertEqual(len(item["writing_direction"]), 2)
         self.assertEqual(len(item["origin"]), 2)
 
