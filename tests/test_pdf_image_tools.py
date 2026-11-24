@@ -462,6 +462,35 @@ class PdfImageToolsTests(unittest.TestCase):
 
 
 
+
+    def test_rotate_image_90_swaps_placement_dimensions_and_preserves_source(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        output = edit_pdf_images(source, [{
+            "page": item["page"], "xref": item["xref"],
+            "occurrence": item["occurrence"], "rect": item["rect"],
+            "action": "rotate", "rotation": 90,
+        }])
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            xref = result[0].get_images(full=True)[0][0]
+            rect = result[0].get_image_rects(xref)[0]
+            self.assertAlmostEqual(rect.width, 80, delta=2)
+            self.assertAlmostEqual(rect.height, 120, delta=2)
+            self.assertIn("Keep this text", result[0].get_text())
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            original_rect = original[0].get_image_rects(item["xref"])[0]
+            self.assertAlmostEqual(original_rect.width, 120, delta=2)
+            self.assertAlmostEqual(original_rect.height, 80, delta=2)
+
+    def test_rotate_image_rejects_unsupported_angle(self):
+        source = self.source_pdf()
+        item = list_pdf_images(source)[0]
+        with self.assertRaisesRegex(ValueError, "زاوية تدوير الصورة"):
+            edit_pdf_images(source, [{
+                "page": 1, "xref": item["xref"], "occurrence": 0,
+                "rect": item["rect"], "action": "rotate", "rotation": 45,
+            }])
+
 if __name__ == "__main__":
     unittest.main()
 
