@@ -63,7 +63,8 @@ def redact_pdf_bytes(pdf_bytes: bytes, regions_json: str | dict[str, Any]) -> by
             # PyMuPDF redaction coordinates are applied against the unrotated page.
             if original_rotation:
                 page.set_rotation(0)
-            media = page.mediabox
+            # page.rect reflects the visible crop box after resetting rotation.
+            media = page.rect
             for x0, y0, x1, y1 in boxes:
                 rect = pymupdf.Rect(
                     media.x0 + x0 * media.width,
