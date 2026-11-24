@@ -2805,6 +2805,12 @@ async function compareSelectedPdfVersions(){
   const heading=document.createElement("strong");heading.textContent="نتيجة المقارنة";result.append(heading);
   const overview=document.createElement("p");overview.textContent="النسخة الأولى: "+first.name+" ("+summary.pagesA+" صفحات) · النسخة الثانية: "+second.name+" ("+summary.pagesB+" صفحات). صفحات بها اختلافات: "+summary.changed+" · صفحات مضافة: "+summary.added+" · صفحات محذوفة: "+summary.removed+".";
   result.append(overview);
+  const restoreChoices=document.createElement("div");restoreChoices.className="r";
+  for(const [version,label] of [[first,"استعادة النسخة الأولى"],[second,"استعادة النسخة الثانية"]]){
+   const restoreButton=document.createElement("button");restoreButton.type="button";restoreButton.textContent=label;
+   restoreButton.onclick=()=>restorePdfVersion(version.id);restoreChoices.append(restoreButton);
+  }
+  result.append(restoreChoices);
   if(!summary.details.length){const p=document.createElement("p");p.textContent="لم تُرصد اختلافات نصية أو مرئية ضمن حدود الفحص.";result.append(p)}
   for(const d of summary.details){
    const p=document.createElement("p");p.className="pdf-image-meta";
