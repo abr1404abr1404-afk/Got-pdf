@@ -57,6 +57,10 @@ for (const feature of ["ocrReviewPrev", "ocrReviewNext", "ocrReviewCounter", "oc
   if (!html.includes(feature)) failures.push("Multi-page OCR review feature is missing: " + feature);
 }
 
+for (const feature of ['id="pdfSearchBtn"', 'id="pdfSearchInput"', 'runPdfSearch()', 'getTextContent()', 'لا يرسل ملفاتك إلى الخادم']) {
+  if (!html.includes(feature)) failures.push("Local PDF text search is missing: " + feature);
+}
+
 for (const feature of ['id="secureRedactPdf"', '/api/pdf/redact', 'regions', 'تطبيق الحجب النهائي', 'لن يتغير الملف الأصلي']) {
   if (!html.includes(feature)) failures.push("Permanent PDF redaction UI is missing: " + feature);
 }
