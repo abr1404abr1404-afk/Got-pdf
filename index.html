@@ -2962,8 +2962,9 @@ $("qdg").onclick=()=>addTextAtView(new Intl.DateTimeFormat("ar-SA-u-ca-gregory-n
 const b64=u=>{let s="";for(let i=0;i<u.length;i+=32768)s+=String.fromCharCode.apply(null,u.subarray(i,i+32768));return btoa(s)};
 const unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
 $("prs").onclick=async()=>{if(!pages.length)return toast("افتح ملفًا أولًا.");
+  if($("ocrReview").classList.contains("on")&&!ocrReviewSaveCurrent())return;
   try{toast("جارٍ تجهيز المشروع…");
-    const data={v:1,fn:$("fn").value,WM,META,docs:docs.map(d=>({name:d.name,b:b64(d.bytes)})),pages:pages.map(p=>({d:p.d,i:p.i,rot:p.rot,nat:p.nat,ov:p.ov,an:p.an||[],img:(p.img||[]).map(im=>({x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b:b64(im.b)}))}))};
+    const data={v:2,fn:$("fn").value,WM,META,docs:docs.map(d=>({name:d.name,b:b64(d.bytes)})),pages:pages.map(p=>({d:p.d,i:p.i,rot:p.rot,nat:p.nat,ov:p.ov,an:p.an||[],ocr:Array.isArray(p.ocr)?p.ocr.map(o=>({t:String(o.t||""),c:Number(o.c)||0,x0:Number(o.x0)||0,x1:Number(o.x1)||0,y0:Number(o.y0)||0,y1:Number(o.y1)||0})):null,tables:Array.isArray(p.tables)?p.tables:[],img:(p.img||[]).map(im=>({x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b:b64(im.b)}))}))};
     const bytes=new TextEncoder().encode(JSON.stringify(data));$("tlm").classList.remove("on");
     await saveFile((safeName()||"project")+".afq",bytes,"application/json");$("toast").style.display="none"}
   catch(e){toast("تعذّر حفظ المشروع: "+((e&&e.message)||e))}};
@@ -2971,7 +2972,7 @@ $("pro").onchange=async e=>{const f=e.target.files[0];e.target.value="";if(!f)re
   try{toast("جارٍ فتح المشروع…");const data=JSON.parse(await f.text());if(!data.docs||!data.pages)throw new Error("ملف مشروع غير صالح");
     docs.length=0;
     for(const d of data.docs){const bytes=unb64(d.b),pdf=await openPdfDocument(bytes);docs.push({bytes,pdf,name:d.name})}
-    pages=data.pages.map(p=>({d:p.d,i:p.i,rot:p.rot,nat:p.nat,sel:false,ov:p.ov.map(o=>o.f>=FBASE?{...o,f:AR_RE.test(o.t)?(o.af??fIdx("Noto Sans Arabic")):0}:o),an:p.an||[],img:(p.img||[]).map(im=>{const b=unb64(im.b);return{x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b,u:URL.createObjectURL(new Blob([b],{type:im.m}))}})}));
+    pages=data.pages.map(p=>({d:p.d,i:p.i,rot:p.rot,nat:p.nat,sel:false,ov:(p.ov||[]).map(o=>o.f>=FBASE?{...o,f:AR_RE.test(o.t)?(o.af??fIdx("Noto Sans Arabic")):0}:o),an:p.an||[],ocr:Array.isArray(p.ocr)?p.ocr.map(o=>({t:String(o.t||""),c:Number(o.c)||0,x0:Number(o.x0)||0,x1:Number(o.x1)||0,y0:Number(o.y0)||0,y1:Number(o.y1)||0})):null,tables:Array.isArray(p.tables)?p.tables:[],img:(p.img||[]).map(im=>{const b=unb64(im.b);return{x:im.x,y:im.y,w:im.w,hh:im.hh,r:im.r,m:im.m,b,u:URL.createObjectURL(new Blob([b],{type:im.m}))}})}));
     Object.assign(WM,data.WM||{});Object.assign(META,data.META||{});if(data.fn)$("fn").value=data.fn;
     HU.length=0;HR.length=0;hLast=null;$("tlm").classList.remove("on");render();toast("تم فتح المشروع. تابع من حيث توقفت.")}
   catch(err){toast("تعذّر فتح المشروع: "+((err&&err.message)||err))}};
