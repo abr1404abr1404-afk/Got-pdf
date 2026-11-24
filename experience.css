@@ -377,3 +377,28 @@ main { min-height: calc(100vh - 105px); }
 #pwaInstall{border-color:color-mix(in srgb,var(--acc) 42%,var(--line));color:var(--acc);font-weight:600}
 #pwaInstall:hover{background:color-mix(in srgb,var(--acc) 9%,var(--panel))}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+/* Keep the install action easy to find on phones, even when the toolbar scrolls. */
+@media (max-width: 640px) {
+  #pwaInstall:not([hidden]) {
+    position: fixed;
+    inset-inline-end: 16px;
+    inset-inline-start: auto;
+    bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    z-index: 1200;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px;
+    border: 1px solid color-mix(in srgb, var(--acc) 55%, var(--line));
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--acc);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .2);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+  }
+  #pwaInstall:not([hidden]) .ic { width: 21px; height: 21px; }
+}
