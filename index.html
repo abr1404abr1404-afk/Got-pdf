@@ -2904,34 +2904,34 @@ async function dsUploadResumable(bytes,metadata,fileId){
   if(!session)throw new Error("بدأ Google الرفع لكنه لم يُرجع عنوان جلسة الرفع. تحقق من إعدادات المتصفح ثم أعد المحاولة.");
   const total=bytes.byteLength,chunkSize=8*1024*1024;
   let offset=0,completed=null;
-  const readOffset=response=>{const range=response.headers.get("Range");if(!range)return 0;const m=range.match(/bytes=0-(\\d+)/i);return m?Number(m[1])+1:0};
+  const readOffset=(response,fallback)=>{const range=response.headers.get("Range");if(!range)return fallback;const m=range.match(/bytes=0-(\\d+)/i);return m?Number(m[1])+1:fallback;};
   while(offset<total){
-    const end=Math.min(offset+chunkSize,total),chunk=bytes.slice(offset,end);
+    const chunkStart=offset,end=Math.min(offset+chunkSize,total),chunk=bytes.slice(offset,end);
     let response=null,lastError=null;
     for(let attempt=0;attempt<3;attempt++){
       try{
         response=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Type":"application/pdf","Content-Range":"bytes "+offset+"-"+(end-1)+"/"+total},body:chunk});
         if(response.status===200||response.status===201){completed=await response.json();offset=total;break;}
-        if(response.status===308){offset=readOffset(response);break;}
+        if(response.status===308){const received=readOffset(response,offset);if(received>offset){offset=received;break;}lastError=new Error("لم يؤكد Google استلام جزء من الملف؛ ستتم إعادة المحاولة.");response=null;}
         if(response.status>=500){lastError=new Error("استجابة مؤقتة من Google ("+response.status+").");}
         else{const err=await response.json().catch(()=>({}));throw new Error((err.error&&err.error.message)||("فشل رفع الملف ("+response.status+")."));}
       }catch(error){lastError=error;}
       if(attempt<2){
         try{
-          const probe=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Length":"0","Content-Range":"bytes */"+total}});
+          const probe=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Range":"bytes */"+total}});
           if(probe.status===200||probe.status===201){completed=await probe.json();offset=total;break;}
-          if(probe.status===308){offset=readOffset(probe);break;}
+          if(probe.status===308){const received=readOffset(probe,offset);if(received>offset){offset=received;break;}}
           if(probe.status===404||probe.status===410)throw new Error("انتهت صلاحية جلسة الرفع؛ أعد بدء المشاركة.");
         }catch(probeError){lastError=probeError;}
         await new Promise(resolve=>setTimeout(resolve,500*Math.pow(2,attempt)));
       }
     }
     if(completed)break;
-    if(offset===0||offset<end&&response&&response.status!==308){if(lastError)throw lastError;throw new Error("توقف الرفع قبل اكتمال الملف.");}
+    if(offset<=chunkStart){if(lastError)throw lastError;throw new Error("توقف الرفع قبل اكتمال الملف؛ لم يتم إنشاء نسخة إضافية.");}
     dsStatus("جارٍ رفع الملف إلى Google Drive… "+Math.min(100,Math.round(offset/total*100))+"٪");
   }
   if(!completed){
-    const verify=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Length":"0","Content-Range":"bytes */"+total}});
+    const verify=await fetch(session,{method:"PUT",headers:{Authorization:"Bearer "+dsToken,"Content-Range":"bytes */"+total}});
     if(verify.status===200||verify.status===201)completed=await verify.json();
     else throw new Error("لم يؤكد Google اكتمال رفع الملف. أعد المحاولة؛ لن ننشئ نسخة جديدة تلقائيًا.");
   }
