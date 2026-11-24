@@ -96,7 +96,7 @@ try {
 try {
   const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
   new vm.Script(sw, { filename: "sw.js" });
-  if (!sw.includes("/api(?:\\\\/|$)/") || !sw.includes("alfalqi-pdf-")) {
+  if (!sw.includes("/api") || !sw.includes("alfalqi-pdf-") || !sw.includes("request.method !== \"GET\"")) {
     failures.push("Service worker must exclude API requests and use a versioned cache namespace.");
   }
 } catch (error) {
