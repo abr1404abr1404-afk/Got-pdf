@@ -3,7 +3,7 @@ import unittest
 
 import pymupdf
 
-from pdf_compare import compare_pdf_bytes
+from pdf_compare import MAX_LINES_PER_PAGE, _line_diff, compare_pdf_bytes
 
 
 def make_pdf(lines):
@@ -59,6 +59,15 @@ class PdfCompareTests(unittest.TestCase):
         self.assertTrue(result["pages"][0]["visual"]["changed"])
         self.assertGreater(result["pages"][0]["visual"]["changed_percent"], 0)
         self.assertIsNotNone(result["pages"][0]["visual"]["changed_bounds_px"])
+
+
+    def test_line_diff_caps_extreme_line_counts(self):
+        source = "\\n".join(f"line-{index}" for index in range(MAX_LINES_PER_PAGE + 100))
+        result = _line_diff(source, source + "\\nextra")
+
+        self.assertTrue(result["truncated"])
+        self.assertEqual(result["compared_original_lines"], MAX_LINES_PER_PAGE)
+        self.assertTrue(result["original_lines_truncated"])
 
     def test_rejects_empty_and_invalid_pdfs(self):
         valid = make_pdf(["valid"])
