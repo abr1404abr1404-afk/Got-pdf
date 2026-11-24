@@ -90,6 +90,11 @@ def redact_pdf_bytes(pdf_bytes: bytes, regions_json: str | dict[str, Any]) -> by
             page.apply_redactions(images=2, graphics=1, text=0)
             if original_rotation:
                 page.set_rotation(original_rotation)
+        # Strip document-level metadata and embedded attachments from the redacted copy.
+        document.set_metadata({})
+        document.set_xml_metadata("")
+        for attachment_name in document.embfile_names():
+            document.embfile_del(attachment_name)
         output = document.tobytes(garbage=4, deflate=True, clean=True)
         if not output.startswith(b"%PDF-"):
             raise ValueError("تعذّر إنشاء ملف PDF محجوب صالح.")
