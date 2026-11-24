@@ -691,10 +691,18 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         page.insert_image(target_rect, stream=image_buffer.getvalue(), overlay=True, keep_proportion=False)
         # Visible Arabic is RAQM-shaped artwork; the invisible layer carries
         # the logical Unicode string for search and copy/paste.
+        def reverse_arabic_graphemes(value: str) -> str:
+            clusters: list[str] = []
+            for char in value:
+                if unicodedata.combining(char) and clusters:
+                    clusters[-1] += char
+                else:
+                    clusters.append(char)
+            return "".join(reversed(clusters))
         try:
             hidden_font_size = max(1.0, min(4.0, logical_font_size * 0.30))
             page.insert_text(
-                (target_rect.x0, target_rect.y1 - 1.0), replacement,
+                (target_rect.x0, target_rect.y1 - 1.0), reverse_arabic_graphemes(replacement),
                 fontsize=hidden_font_size, fontname="AlfalqiArabicLogical",
                 fontfile=str(font_path), render_mode=3, overlay=True,
                 color=(0, 0, 0),
@@ -707,7 +715,7 @@ def replace_isolated_arabic_pdf_text(data: bytes, operation: dict[str, Any]) -> 
         if normalized_original in normalized_after:
             raise ValueError("لم يُزل النص الأصلي بالكامل؛ أُلغي التعديل.")
         if normalized_replacement not in normalized_after:
-            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل. النص المستخرج: " + repr(normalized_after[-120:]))
+            raise ValueError("طبقة البحث لم تحتفظ بالنص العربي بترتيبه المنطقي؛ أُلغي التعديل.")
         for neighbor in expected:
             normalized_neighbor = unicodedata.normalize("NFKC", neighbor)
             if normalized_neighbor and normalized_neighbor not in normalized_after:
