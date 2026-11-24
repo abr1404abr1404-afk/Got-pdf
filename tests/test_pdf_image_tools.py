@@ -2,7 +2,7 @@ import unittest
 
 import pymupdf
 
-from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector
+from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector
 
 
 class PdfImageToolsTests(unittest.TestCase):
@@ -226,6 +226,54 @@ class PdfImageToolsTests(unittest.TestCase):
         data = doc.tobytes()
         doc.close()
         return data
+
+    def test_scale_isolated_vector_rectangle_preserves_center_and_style(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((20, 20), "Keep this text")
+        page.draw_rect(pymupdf.Rect(80, 70, 120, 110), color=(1, 0, 0), fill=(0, 1, 0), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        output = scale_isolated_pdf_vector(source, {
+            "action": "scale", "page": 1, "object_id": target["id"],
+            "rect": target["rect"], "scale": 1.5,
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            self.assertIn("Keep this text", result[0].get_text())
+            drawing = result[0].get_drawings()[0]
+            self.assertAlmostEqual(drawing["rect"].width, 60, delta=0.5)
+            self.assertAlmostEqual(drawing["rect"].height, 60, delta=0.5)
+            self.assertEqual(drawing["color"], (1.0, 0.0, 0.0))
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertAlmostEqual(original[0].get_drawings()[0]["rect"].width, 40, delta=0.5)
+
+    def test_scale_vector_rejects_overlap_in_original_bounds(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((90, 90), "Overlap")
+        page.draw_rect(pymupdf.Rect(85, 65, 175, 100), color=(1, 0, 0), width=2)
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "الرسم الأصلي يتداخل مع نص"):
+            scale_isolated_pdf_vector(source, {
+                "action": "scale", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "scale": 0.5,
+            })
+
+    def test_scale_vector_rejects_out_of_page_geometry(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=100, height=100)
+        page.draw_rect(pymupdf.Rect(10, 10, 90, 90), color=(1, 0, 0))
+        source = doc.tobytes()
+        doc.close()
+        target = next(item for item in inspect_pdf_objects(source)["objects"] if item["type"] == "vector")
+        with self.assertRaisesRegex(ValueError, "يتجاوز حدود الصفحة"):
+            scale_isolated_pdf_vector(source, {
+                "action": "scale", "page": 1, "object_id": target["id"],
+                "rect": target["rect"], "scale": 2,
+            })
 
     def test_recolor_isolated_vector_rectangle_preserves_geometry_and_text(self):
         doc = pymupdf.open()
