@@ -113,6 +113,33 @@ for (const feature of [
 ]) {
   if (!html.includes(feature)) failures.push("Local PDF version history is missing: " + feature);
 }
+for (const feature of [
+  'id="pdfVersionCompare"',
+  'id="pdfVersionCompareStatus"',
+  'id="pdfVersionCompareResult"',
+  'compareSelectedPdfVersions()',
+  'selectedPdfCompareIds',
+  'sharedScale=Math.min(1,Math.sqrt(1500000/',
+  'pdfCompareLineDifference(a.lines,b.lines)',
+  'pdfCompareThumbnail(a,box)',
+  'معاينة منطقة الاختلاف',
+  'المقارنة المرئية محدودة إلى 30 صفحة'
+]) {
+  if (!html.includes(feature)) failures.push("Local PDF version comparison is missing or incomplete: " + feature);
+}
+const compareStart = html.indexOf("async function compareSelectedPdfVersions()");
+const compareEnd = html.indexOf('async function downloadPdfVersion', compareStart);
+if (compareStart < 0 || compareEnd < 0) {
+  failures.push("Local PDF comparison implementation is missing.");
+} else {
+  const compareCode = html.slice(compareStart, compareEnd);
+  if (compareCode.includes("fetch(") || compareCode.includes("XMLHttpRequest")) {
+    failures.push("Local PDF version comparison must not upload the saved PDFs.");
+  }
+  if (!compareCode.includes("pdfjsLib.getDocument") || !compareCode.includes("pdfVersionDB.all()")) {
+    failures.push("Local PDF comparison must read saved versions from IndexedDB with PDF.js.");
+  }
+}
 const versionModalAt = html.indexOf('<div id="pdfVersionModal"');
 const nextModalAt = html.indexOf('<div id="pdfObjectInspector"', versionModalAt);
 if (versionModalAt < 0 || nextModalAt < 0) {
