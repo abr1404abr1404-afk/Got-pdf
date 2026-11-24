@@ -561,7 +561,8 @@ class PdfImageToolsTests(unittest.TestCase):
         with pymupdf.open(stream=output, filetype="pdf") as result:
             output_text = result[0].get_text()
             output_pix = result[0].get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
-            self.assertIn("أهلًا", output_text)
+            self.assertIn("أهلا", output_text)
+            self.assertTrue(result[0].search_for("أهلا"))
             self.assertNotIn("مرحبا بالعالم", output_text)
             self.assertNotEqual(original_pix.samples, output_pix.samples)
         with pymupdf.open(stream=source, filetype="pdf") as original:
