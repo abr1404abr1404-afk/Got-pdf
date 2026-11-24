@@ -2688,7 +2688,7 @@ async function buildPdf(list){
       if(a.t==="pn"){for(let i=1;i<a.pts.length;i++)cp.drawLine({start:{x:a.pts[i-1][0]*w,y:h-a.pts[i-1][1]*h},end:{x:a.pts[i][0]*w,y:h-a.pts[i][1]*h},thickness:a.s,color:col,lineCap:PDFLib.LineCapStyle.Round})}
       else if(a.t==="ck"||a.t==="xx"){const q=a.t==="ck"?[[.16,.54,.42,.82],[.42,.82,.88,.16]]:[[.18,.18,.82,.82],[.82,.18,.18,.82]];for(const z of q)cp.drawLine({start:{x:(a.x+z[0]*a.w)*w,y:h-(a.y+z[1]*a.h)*h},end:{x:(a.x+z[2]*a.w)*w,y:h-(a.y+z[3]*a.h)*h},thickness:a.s||3,color:col,lineCap:PDFLib.LineCapStyle.Round})}
       else if(a.t==="ci")cp.drawEllipse({x:(a.x+a.w/2)*w,y:h-(a.y+a.h/2)*h,xScale:a.w*w/2,yScale:a.h*h/2,borderColor:col,borderWidth:a.s||2,opacity:1})
-      else if(a.t==="sq")cp.drawRectangle({x:a.x*w,y:h-(a.y+a.h)*h,width:a.w*w,height:a.h*h,borderColor:col,borderWidth:a.s||2,color:undefined})
+      else if(a.t==="sq")cp.drawRectangle({x:a.x*w,y:h-(a.y+a.h)*h,width:a.w*w,height:a.h*h,color:col,opacity:0,borderColor:col,borderOpacity:1,borderWidth:a.s||2})
       else cp.drawRectangle({x:a.x*w,y:h-(a.y+a.h)*h,width:a.w*w,height:a.h*h,color:col,opacity:a.t==="hl"?.38:1,borderWidth:0})}
     if(WM.t){wmI??=await textPng(WM.t,{s:Math.max(24,Math.round(Math.min(w,h)/7)),f:0,c:"#808080",b:true});wmE??=await out.embedPng(wmI.data);const cs=Math.SQRT1_2,sn=Math.SQRT1_2;cp.drawImage(wmE,{x:w/2-(wmI.w/2*cs-wmI.h/2*sn),y:h/2-(wmI.w/2*sn+wmI.h/2*cs),width:wmI.w,height:wmI.h,rotate:degrees(45),opacity:WM.op})}
   }
