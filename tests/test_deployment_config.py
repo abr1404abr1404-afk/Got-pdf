@@ -8,6 +8,10 @@ class DeploymentConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "wildcard is forbidden"):
             validate_cors_origins("production", ["*"])
 
+    def test_production_rejects_empty_origins(self):
+        with self.assertRaisesRegex(ValueError, "wildcard is forbidden"):
+            validate_cors_origins("production", [])
+
     def test_production_accepts_explicit_origins(self):
         self.assertEqual(
             validate_cors_origins("production", [" https://example.com ", ""]),
