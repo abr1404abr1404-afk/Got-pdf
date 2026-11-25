@@ -46,9 +46,14 @@ class PdfBatchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "حجم الملف"):
             compress_pdf_batch([("x.pdf", b"12345")], max_file_bytes=4)
 
-    def test_total_limit_rejected(self):
+    def test_total_limit_rejected_before_compression(self):
+        data = sample_pdf()
         with self.assertRaisesRegex(ValueError, "إجمالي أحجام"):
-            compress_pdf_batch([("a.pdf", b"12"), ("b.pdf", b"34")], max_total_bytes=3)
+            compress_pdf_batch(
+                [("a.pdf", data), ("b.pdf", data)],
+                max_file_bytes=len(data),
+                max_total_bytes=len(data) * 2 - 1,
+            )
 
     def test_invalid_pdf_rejected(self):
         with self.assertRaises(ValueError):
