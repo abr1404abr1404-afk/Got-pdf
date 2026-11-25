@@ -8,6 +8,14 @@ to live-ocr-results.json for inspection, including failures and timeouts.
 from __future__ import annotations
 import hashlib, json, os, re, tarfile, tempfile, unicodedata
 from pathlib import Path
+import sys
+
+# Running a script from scripts/ places that directory, not the repository
+# root, at sys.path[0]. Add the project root so service modules can be tested.
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 import requests
 import pymupdf
 
