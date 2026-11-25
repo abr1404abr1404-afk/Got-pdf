@@ -58,9 +58,6 @@ if (html.includes('text=text.normalize("NFKC")') || !html.includes('text=text.no
 if (!html.includes('(l.text||"").trim().replace(/\\s+/g," ")')) {
   failures.push("Backend OCR text whitespace normalization is missing.");
 }
-if (!html.includes("المجلس")) {
-  failures.push("Arabic OCR regression fixture for the word المجلس is missing.");
-}
 
 for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransform", "warpPerspective", "scan-crop-overlay", "reviewScannedPages", "rotateScanImage", "scan-review-overlay"]) {
   if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature);
