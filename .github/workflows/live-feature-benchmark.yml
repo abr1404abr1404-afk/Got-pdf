@@ -1,0 +1,32 @@
+name: Live PDF feature benchmark
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/live_feature_benchmark.py"
+      - ".github/workflows/live-feature-benchmark.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-real-documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install real-document benchmark dependencies
+        run: python -m pip install --disable-pip-version-check requests pymupdf pdf2docx python-docx pillow
+      - name: Exercise deployed API with public Arabic PDFs and real page images
+        env:
+          OCR_API_BASE: https://got-pdf.onrender.com
+        run: python scripts/live_feature_benchmark.py
+      - name: Upload detailed feature results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-pdf-feature-results
+          path: live-feature-results.json
+          if-no-files-found: ignore
