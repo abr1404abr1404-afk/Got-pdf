@@ -45,6 +45,17 @@ for (const id of ["main", "file", "fn", "info", "toast", "fcam", "camfinish", "c
   }
 }
 
+// Regression guards for Arabic poster OCR and RTL PDF text rasterization.
+if (!html.includes("const maxLineHeight=Math.max(110,pageHeight*.22)")) {
+  failures.push("OCR must retain large poster headline candidates.");
+}
+if (!html.includes("o.c>=10") || !html.includes('g.direction=rtl(l)?"rtl":"ltr"')) {
+  failures.push("OCR confidence retention or explicit RTL canvas measurement is missing.");
+}
+if (!html.includes("المجلس")) {
+  failures.push("Arabic OCR regression fixture for the word المجلس is missing.");
+}
+
 for (const feature of ["loadOpenCV", "detectScanCorners", "getPerspectiveTransform", "warpPerspective", "scan-crop-overlay", "reviewScannedPages", "rotateScanImage", "scan-review-overlay"]) {
   if (!html.includes(feature)) failures.push("Smart scanner implementation is missing: " + feature);
 }
