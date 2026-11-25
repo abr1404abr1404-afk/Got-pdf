@@ -98,11 +98,45 @@ def summarize_results(results: list[dict], engines: list[str]) -> tuple[list[dic
     return overall, by_category
 
 
-def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) -> dict:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    samples = manifest.get("samples", [])
+def _validate_manifest(manifest: dict, manifest_path: Path) -> list[dict]:
+    """Validate benchmark entries and confine image reads to the manifest directory."""
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a JSON object")
+    samples = manifest.get("samples")
     if not isinstance(samples, list) or not samples:
         raise ValueError("manifest.samples must contain at least one labeled sample")
+
+    root = manifest_path.resolve().parent
+    validated: list[dict] = []
+    seen_ids: set[str] = set()
+    for index, sample in enumerate(samples, 1):
+        if not isinstance(sample, dict):
+            raise ValueError(f"samples[{index}] must be an object")
+        image_value = sample.get("image")
+        if not isinstance(image_value, str) or not image_value.strip():
+            raise ValueError(f"samples[{index}].image must be a non-empty relative path")
+        image_path = (root / image_value).resolve()
+        try:
+            image_path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(f"samples[{index}].image must stay inside the manifest directory") from exc
+        if not image_path.is_file():
+            raise FileNotFoundError(f"samples[{index}]: image not found: {image_path}")
+
+        reference = sample.get("reference")
+        if not isinstance(reference, str) or not reference.strip():
+            raise ValueError(f"samples[{index}].reference must contain the exact transcription")
+        sample_id = str(sample.get("id") or image_value).strip()
+        if not sample_id or sample_id in seen_ids:
+            raise ValueError(f"samples[{index}] has an empty or duplicate id")
+        seen_ids.add(sample_id)
+        validated.append({**sample, "_sample_id": sample_id, "_image_path": image_path})
+    return validated
+
+
+def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) -> dict:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    samples = _validate_manifest(manifest, manifest_path)
 
     # Import the production pipeline so the benchmark measures the same preprocessing
     # and recognition functions used by the application.
@@ -115,9 +149,9 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
 
     results = []
     for sample in samples:
-        sample_id = str(sample.get("id") or sample.get("image") or "sample")
-        image_path = (manifest_path.parent / sample["image"]).resolve()
-        reference = str(sample.get("reference", ""))
+        sample_id = sample["_sample_id"]
+        image_path = sample["_image_path"]
+        reference = sample["reference"]
         language = str(sample.get("language") or manifest.get("language") or "ara")
         category = str(sample.get("category") or "uncategorized").strip() or "uncategorized"
         if not image_path.is_file():
