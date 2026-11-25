@@ -69,6 +69,17 @@ class ApiSmokeTests(unittest.IsolatedAsyncioTestCase):
             f"Missing API routes: {sorted(EXPECTED_ROUTES - actual)}",
         )
 
+    async def test_post_routes_reject_missing_required_inputs_cleanly(self):
+        post_routes = sorted(path for method, path in EXPECTED_ROUTES if method == "POST")
+        for path in post_routes:
+            with self.subTest(path=path):
+                response = await self.client.post(path)
+                self.assertEqual(
+                    response.status_code, 422,
+                    f"{path} should reject a request missing required inputs; "
+                    f"received {response.status_code}: {response.text[:300]}",
+                )
+
     async def test_unknown_api_route_returns_not_found(self):
         response = await self.client.get("/api/__smoke_test_unknown_route__")
         self.assertEqual(response.status_code, 404)
