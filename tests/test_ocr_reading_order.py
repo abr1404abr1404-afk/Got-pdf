@@ -40,6 +40,23 @@ class ReadingOrderTests(unittest.TestCase):
             [item["text"] for item in result],
             ["كلمة ثانية", "Hello", "world", "كلمة عربية"],
         )
+    def test_arabic_line_keeps_numeric_run_left_to_right(self):
+        rows = [
+            row("الثاني", 10, 10, 55, 30),
+            row("123", 60, 10, 85, 30),
+            row("الأول", 90, 10, 135, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["الأول", "123", "الثاني"])
+
+    def test_neutral_punctuation_inherits_arabic_line_direction(self):
+        rows = [
+            row("الثاني", 10, 10, 55, 30),
+            row("،", 60, 10, 65, 30),
+            row("الأول", 70, 10, 115, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["الأول", "،", "الثاني"])
     def test_unicode_arabic_extended_letters_are_rtl(self):
         rows = [row("\u08a1", 10, 10, 40, 30), row("\u08a0", 50, 10, 80, 30)]
         result = reading_order(rows)
