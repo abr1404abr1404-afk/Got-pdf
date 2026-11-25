@@ -180,6 +180,16 @@ if (pdfBuildStart < 0 || pdfBuildEnd < 0) {
     failures.push("Failed cleanup-image embedding must stop export instead of silently losing image detail.");
   }
 }
+// OCR must use the configured Render API by default and expose recognized lines as editable overlays.
+if (!html.includes('window.ALFALQI_API_BASE||"https://got-pdf.onrender.com"')) {
+  failures.push("OCR and cleanup must have a working default backend URL.");
+}
+if (!html.includes('if(keep.length&&!editing)document.getElementById("edt").click()')) {
+  failures.push("Successful OCR must activate text-line editing automatically.");
+}
+if (!html.includes("وقد تقل دقته في الخطوط الزخرفية")) {
+  failures.push("Local OCR fallback must disclose its lower accuracy on decorative scripts.");
+}
 for (const feature of ["previewOcrCleanup", "image/text-cleanup/preview", "cleanupPreviousCover", "التراجع عن إزالة الحبر", "cleanupApplied"]) {
   if (!html.includes(feature)) failures.push("OCR cleanup preview/apply/undo workflow is incomplete: " + feature);
 }
