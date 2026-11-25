@@ -134,8 +134,8 @@ def analyze_layout(
         text = str(item.get("text", "")).strip()
         if in_table:
             region, confidence = "table", 0.92
-        elif line_height >= typical_height * 1.45 and len(text) <= 100:
-            region, confidence = "heading", min(0.9, 0.62 + (line_height / typical_height - 1.45) * 0.2)
+        elif line_height >= typical_height * 1.15 and len(text) <= 100:
+            region, confidence = "heading", min(0.9, 0.62 + (line_height / typical_height - 1.15) * 0.3)
         elif y0 >= height * 0.88:
             region, confidence = "footer", 0.72
         elif y1 <= height * 0.12 and len(text) <= 90:
