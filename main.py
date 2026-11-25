@@ -378,15 +378,38 @@ def _bidi_order(items: list, text_getter, x_getter) -> list:
     if len(items) < 2:
         return items
     visual = sorted(items, key=x_getter)
+    import unicodedata
+
     texts = [str(text_getter(item) or "") for item in visual]
-    arabic_total = sum(sum("\u0600" <= ch <= "\u06ff" for ch in text) for text in texts)
-    latin_total = sum(sum("a" <= ch.lower() <= "z" for ch in text) for text in texts)
-    base_rtl = arabic_total > latin_total
+
+    def direction_counts(text: str) -> tuple[int, int, int]:
+        rtl = ltr = numbers = 0
+        for char in text:
+            bidi = unicodedata.bidirectional(char)
+            if bidi in {"R", "AL"}:
+                rtl += 1
+            elif bidi == "L" and char.isalpha():
+                ltr += 1
+            elif bidi in {"EN", "AN"}:
+                numbers += 1
+        return rtl, ltr, numbers
+
+    totals = [direction_counts(text) for text in texts]
+    rtl_total = sum(item[0] for item in totals)
+    ltr_total = sum(item[1] for item in totals)
+    base_rtl = rtl_total > ltr_total
+    base_direction = "rtl" if base_rtl else "ltr"
     runs: list[tuple[str, list]] = []
-    for item, text in zip(visual, texts):
-        arabic = sum("\u0600" <= ch <= "\u06ff" for ch in text)
-        latin = sum("a" <= ch.lower() <= "z" for ch in text)
-        item_direction = "rtl" if arabic > latin else "ltr"
+    previous_direction = base_direction
+    for item, (rtl, ltr, numbers) in zip(visual, totals):
+        if rtl > ltr and rtl:
+            item_direction = "rtl"
+        elif ltr or numbers:
+            item_direction = "ltr"
+        else:
+            # Neutral punctuation inherits its surrounding direction.
+            item_direction = previous_direction
+        previous_direction = item_direction
         if not runs or runs[-1][0] != item_direction:
             runs.append((item_direction, [item]))
         else:
