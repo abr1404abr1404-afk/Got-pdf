@@ -27,6 +27,12 @@ def _make_ink_mask(region):
     local_ink = (local_bg.astype(np.int16) - gray.astype(np.int16) > 20)
     color_ink = np.linalg.norm(lab-bg,axis=2)>threshold
     raw = (local_ink | color_ink).astype(np.uint8)*255
+    # Remove long table rules before component filtering so they do not join neighboring glyphs.
+    hkernel = cv2.getStructuringElement(cv2.MORPH_RECT, (max(12, w // 4), 1))
+    vkernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, max(12, h // 4)))
+    rules = cv2.bitwise_or(cv2.morphologyEx(raw, cv2.MORPH_OPEN, hkernel),
+                           cv2.morphologyEx(raw, cv2.MORPH_OPEN, vkernel))
+    raw = cv2.bitwise_and(raw, cv2.bitwise_not(rules))
     count, labels, stats, _ = cv2.connectedComponentsWithStats(raw,8); mask=np.zeros_like(raw)
     for i in range(1,count):
         x,y,cw,ch,area=stats[i]
