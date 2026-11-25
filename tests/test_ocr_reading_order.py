@@ -44,6 +44,18 @@ class ReadingOrderTests(unittest.TestCase):
         rows = [row("\u08a1", 10, 10, 40, 30), row("\u08a0", 50, 10, 80, 30)]
         result = reading_order(rows)
         self.assertEqual([item["text"] for item in result], ["\u08a0", "\u08a1"])
+    def test_line_edges_determine_arabic_base_direction_when_latin_is_longer(self):
+        rows = [
+            row("ك", 10, 10, 20, 30),
+            row("Hello", 30, 10, 65, 30),
+            row("wonderful", 70, 10, 125, 30),
+            row("world", 130, 10, 165, 30),
+            row("م", 170, 10, 180, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "م", "Hello", "wonderful", "world", "ك"
+        ])
     def test_mixed_arabic_word_boxes_preserve_latin_phrase_order(self):
         words = [
             (10, 10, 35, 25, 95, "كلمة عربية"),
