@@ -580,7 +580,7 @@ window.imgOcr=async function(pg,lang,auto){
       raw=(data.lines||[]).map(l=>({t:l.text.trim().replace(/\s+/g," "),c:l.confidence,x0:ox+l.bbox.x0*mx,x1:ox+l.bbox.x1*mx,y0:oy+l.bbox.y0*my,y1:oy+l.bbox.y1*my}));
       pg.tables=[];
     }
-    raw=raw.filter(o=>o.t.length>=2&&o.c>28&&(o.t.match(/[\p{L}\p{N}]/gu)||[]).length>=2&&(o.y1-o.y0)<110&&(o.x1-o.x0)>8);
+    const pageHeight=Math.max(1,Number(pg.src&&pg.src.dh)||Math.max(1,...raw.map(o=>o.y1||0)));\n    const maxLineHeight=Math.max(110,pageHeight*.22);\n    // Do not discard large poster headlines or lower-confidence decorative Arabic.\n    // Keep plausible candidates for human correction instead of silently returning no text.\n    raw=raw.filter(o=>o.t.length>=2&&o.c>=10&&(o.t.match(/[\\p{L}\\p{N}]/gu)||[]).length>=2&&(o.y1-o.y0)<=maxLineHeight&&(o.x1-o.x0)>5);
     raw.sort((a,b)=>b.c-a.c);const keep=[];
     for(const o of raw){const ov=keep.some(k=>{const w=Math.min(o.x1,k.x1)-Math.max(o.x0,k.x0),h=Math.min(o.y1,k.y1)-Math.max(o.y0,k.y0);if(w<=0||h<=0)return false;const a=Math.min((o.x1-o.x0)*(o.y1-o.y0),(k.x1-k.x0)*(k.y1-k.y0));return w*h>.4*a});if(!ov)keep.push(o)}
     pg.ocr=keep;
@@ -2712,7 +2712,9 @@ async function textPng(txt,o){
   const K=4,f=o.s*K,lh=f*1.2,lines=txt.replace(/\s+$/,"").split("\n"),c=document.createElement("canvas"),g=c.getContext("2d");
   const font=(o.b?"700 ":"")+f+"px "+FONTS[eff(o,txt)][1]+",Arial,sans-serif",rtl=l=>/[\u0590-\u08FF]/.test(l);
   g.font=font;
-  const wd=Math.max(...lines.map(l=>g.measureText(l).width),1);
+  // Set bidi direction before measuring as well as painting; this keeps RTL
+  // metrics and alignment consistent on Safari/iOS and Chromium.
+  const wd=Math.max(...lines.map(l=>{g.direction=rtl(l)?"rtl":"ltr";g.textAlign=rtl(l)?"right":"left";return g.measureText(l).width}),1);
   c.width=Math.ceil(wd+4);c.height=Math.ceil(lh*lines.length);
   g.font=font;g.fillStyle=o.c;g.textBaseline="alphabetic";
   const mm=g.measureText("Hgع"),asc=mm.fontBoundingBoxAscent||f*.93,dsc=mm.fontBoundingBoxDescent||f*.26,base=(lh-(asc+dsc))/2+asc;
