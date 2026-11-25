@@ -22,7 +22,7 @@ def _make_ink_mask(region):
     threshold = float(np.clip(max(18.0, np.median(dev)+4*noise+8),18,55))
     # Local median removes thin table rules from the background estimate while retaining character strokes.
     gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
-    k = max( nine := 9, min(31, (min(h, w) // 5) | 1))
+    k = max(9, min(31, (min(h, w) // 5) | 1))
     local_bg = cv2.medianBlur(gray, k if k % 2 else k + 1)
     local_ink = (local_bg.astype(np.int16) - gray.astype(np.int16) > 20)
     color_ink = np.linalg.norm(lab-bg,axis=2)>threshold
