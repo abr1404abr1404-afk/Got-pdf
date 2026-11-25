@@ -57,6 +57,28 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
             finally:
                 outside.unlink(missing_ok=True)
 
+    def test_manifest_rejects_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "sample.png"
+            image.write_bytes(b"placeholder")
+            manifest = {"samples": [{
+                "image": str(image), "reference": "نص"
+            }]}
+            with self.assertRaisesRegex(ValueError, "relative path"):
+                _validate_manifest(manifest, root / "manifest.json")
+
+    def test_manifest_rejects_oversized_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "large.png"
+            with image.open("wb") as handle:
+                handle.truncate(25 * 1024 * 1024 + 1)
+            manifest = {"samples": [{
+                "image": "large.png", "reference": "نص"
+            }]}
+            with self.assertRaisesRegex(ValueError, "25 MB"):
+                _validate_manifest(manifest, root / "manifest.json")
     def test_manifest_requires_reference_transcription(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
