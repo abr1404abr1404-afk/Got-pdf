@@ -284,9 +284,7 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) ->
                     w, h = int(data["width"][i]), int(data["height"][i])
                     words.append((x, y, w, h, conf, word))
             if not words: continue
-            # Arabic runs are read right-to-left; Latin runs left-to-right.
-            rtl = any("\u0600" <= ch <= "\u06ff" for item in words for ch in item[5])
-            words.sort(key=lambda z: z[0], reverse=rtl)
+            words = _bidi_order(words, lambda item: item[5], lambda item: item[0])
             x0 = min(z[0] for z in words); y0 = min(z[1] for z in words)
             x1 = max(z[0] + z[2] for z in words); y1 = max(z[1] + z[3] for z in words)
             text = " ".join(z[5] for z in words)
@@ -375,6 +373,32 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     return kept
 
 
+def _bidi_order(items: list, text_getter, x_getter) -> list:
+    """Reconstruct logical order from visual boxes while preserving embedded Latin runs."""
+    if len(items) < 2:
+        return items
+    visual = sorted(items, key=x_getter)
+    texts = [str(text_getter(item) or "") for item in visual]
+    arabic_total = sum(sum("\u0600" <= ch <= "\u06ff" for ch in text) for text in texts)
+    latin_total = sum(sum("a" <= ch.lower() <= "z" for ch in text) for text in texts)
+    base_rtl = arabic_total >= latin_total
+    runs: list[tuple[str, list]] = []
+    for item, text in zip(visual, texts):
+        arabic = sum("\u0600" <= ch <= "\u06ff" for ch in text)
+        latin = sum("a" <= ch.lower() <= "z" for ch in text)
+        item_direction = "rtl" if arabic > latin else "ltr"
+        if not runs or runs[-1][0] != item_direction:
+            runs.append((item_direction, [item]))
+        else:
+            runs[-1][1].append(item)
+    if base_rtl:
+        runs.reverse()
+    result = []
+    for run_direction, run_items in runs:
+        result.extend(reversed(run_items) if run_direction == "rtl" else run_items)
+    return result
+
+
 def _reading_order(rows: list[dict]) -> list[dict]:
     """Order OCR boxes by line, respecting mixed Arabic/Latin bidirectional runs."""
     if len(rows) < 2:
@@ -392,30 +416,13 @@ def _reading_order(rows: list[dict]) -> list[dict]:
         else:
             bands[-1].append(row)
             centers[-1] = sum((item["bbox"][1] + item["bbox"][3]) / 2 for item in bands[-1]) / len(bands[-1])
-
-    def direction(item: dict) -> str:
-        text = str(item.get("text", ""))
-        arabic = sum("\u0600" <= ch <= "\u06ff" for ch in text)
-        latin = sum(("a" <= ch.lower() <= "z") for ch in text)
-        return "rtl" if arabic > latin else "ltr"
-
     result: list[dict] = []
     for band in bands:
-        visual = sorted(band, key=lambda r: (r["bbox"][0] + r["bbox"][2]) / 2)
-        arabic = sum(sum("\u0600" <= ch <= "\u06ff" for ch in str(item.get("text", ""))) for item in band)
-        latin = sum(sum("a" <= ch.lower() <= "z" for ch in str(item.get("text", ""))) for item in band)
-        base_rtl = arabic >= latin
-        runs: list[tuple[str, list[dict]]] = []
-        for item in visual:
-            item_direction = direction(item)
-            if not runs or runs[-1][0] != item_direction:
-                runs.append((item_direction, [item]))
-            else:
-                runs[-1][1].append(item)
-        if base_rtl:
-            runs.reverse()
-        for run_direction, run_items in runs:
-            result.extend(reversed(run_items) if run_direction == "rtl" else run_items)
+        result.extend(_bidi_order(
+            band,
+            lambda item: item.get("text", ""),
+            lambda item: (item["bbox"][0] + item["bbox"][2]) / 2,
+        ))
     return result
 
 
