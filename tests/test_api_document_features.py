@@ -115,7 +115,7 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200, response.text[:500])
         payload = response.json()
         recognized = " ".join(line.get("text", "") for line in payload.get("lines", []))
-        self.assertTrue(any("\\u0600" <= char <= "\\u06ff" for char in recognized),
+        self.assertTrue(any(0x0600 <= ord(char) <= 0x06ff for char in recognized),
                         f"No Arabic characters recognized: {recognized!r}")
         self.assertTrue(all(len(line.get("bbox", [])) == 4 for line in payload["lines"]))
 
