@@ -157,6 +157,10 @@ for (const feature of ['id="ann" type="button" title="يفتح لوحة مستق
   if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
 }
 
+for (const feature of ["ocrReviewConfidence", "متوسط ثقة المحرك", "أسطر منخفضة الثقة"]) {
+  if (!html.includes(feature)) failures.push("OCR confidence review guidance is missing: " + feature);
+}
+
 for (const feature of ["X-Conversion-Text-Order", "quality.order", "ترتيب الكلمات", "orderWarning"]) {
   if (!html.includes(feature)) failures.push("PDF-to-Word reading-order quality feedback is missing: " + feature);
 }
