@@ -1,13 +1,14 @@
 import ast
 import pathlib
 import unittest
+import unicodedata
 
 SOURCE = pathlib.Path("main.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
 FUNCTIONS = [node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name in {"_reading_order", "_bidi_order"}]
 MODULE = ast.Module(body=FUNCTIONS, type_ignores=[])
 ast.fix_missing_locations(MODULE)
-NAMESPACE = {}
+NAMESPACE = {"unicodedata": unicodedata}
 exec(compile(MODULE, "main.py", "exec"), NAMESPACE)
 reading_order = NAMESPACE["_reading_order"]
 bidi_order = NAMESPACE["_bidi_order"]
@@ -83,6 +84,29 @@ class ReadingOrderTests(unittest.TestCase):
         result = bidi_order(words, lambda item: item[5], lambda item: item[0])
         self.assertEqual([item[5] for item in result], [
             "كلمة ثانية", "Hello", "world", "كلمة عربية"
+        ])
+    def test_arabic_two_column_page_reads_right_column_first(self):
+        rows = [
+            row("يسار أعلى", 10, 10, 100, 30),
+            row("يسار أسفل", 10, 60, 100, 80),
+            row("يمين أعلى", 250, 10, 340, 30),
+            row("يمين أسفل", 250, 60, 340, 80),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "يمين أعلى", "يمين أسفل", "يسار أعلى", "يسار أسفل"
+        ])
+
+    def test_english_two_column_page_reads_left_column_first(self):
+        rows = [
+            row("Left top", 10, 10, 100, 30),
+            row("Left bottom", 10, 60, 100, 80),
+            row("Right top", 250, 10, 340, 30),
+            row("Right bottom", 250, 60, 340, 80),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "Left top", "Left bottom", "Right top", "Right bottom"
         ])
     def test_lines_are_ordered_top_to_bottom(self):
         rows = [row("السطر الثاني", 10, 60, 100, 80), row("السطر الأول", 10, 10, 100, 30)]
