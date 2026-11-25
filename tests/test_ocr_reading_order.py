@@ -27,6 +27,18 @@ class ReadingOrderTests(unittest.TestCase):
         result = reading_order(rows)
         self.assertEqual([item["text"] for item in result], ["Hello", "world"])
 
+    def test_mixed_arabic_line_preserves_latin_phrase_order(self):
+        rows = [
+            row("كلمة عربية", 10, 10, 45, 30),
+            row("Hello", 50, 10, 90, 30),
+            row("world", 95, 10, 135, 30),
+            row("كلمة ثانية", 145, 10, 190, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual(
+            [item["text"] for item in result],
+            ["كلمة ثانية", "Hello", "world", "كلمة عربية"],
+        )
     def test_lines_are_ordered_top_to_bottom(self):
         rows = [row("السطر الثاني", 10, 60, 100, 80), row("السطر الأول", 10, 10, 100, 30)]
         result = reading_order(rows)
