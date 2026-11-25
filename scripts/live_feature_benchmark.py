@@ -108,19 +108,28 @@ def main():
             else:
                 add(out, "real_pdf_text_spans", "passed", span_count=len(spans), arabic_spans=sum(bool(AR.search(x[0])) for x in spans))
 
-            # Real PDF -> Word through the deployed API, not only a local unit test.
-            r = request_file(out, "live_pdf_to_docx", pdf_path, "/api/convert/pdf-to-docx", timeout=150)
-            if r is not None:
-                try:
-                    data = r.content
-                    if not data.startswith(b"PK"): raise ValueError("DOCX package signature missing")
-                    word = Document(io.BytesIO(data))
-                    word_text = "\n".join(p.text for p in word.paragraphs)
-                    add(out, "live_pdf_to_docx", "passed", bytes=len(data), paragraphs=len(word.paragraphs),
-                        tables=len(word.tables), source_words=len(re.findall(r"\w+",ground)),
-                        output_words=len(re.findall(r"\w+",word_text)), arabic_chars=len(AR.findall(word_text)),
-                        quality_headers={k:v for k,v in r.headers.items() if k.lower().startswith("x-conversion-")})
-                except Exception as exc: add(out, "live_pdf_to_docx", "failed", error=f"{type(exc).__name__}: {str(exc)[:400]}")
+            # Test both a one-page real source and the complete real document through Render.
+            one_page_doc = pymupdf.open()
+            one_page_doc.insert_pdf(doc, from_page=0, to_page=0)
+            one_page_path = root / "real_first_page.pdf"
+            one_page_doc.save(one_page_path)
+            one_page_doc.close()
+            for test_name, input_path, timeout in (
+                ("live_pdf_to_docx_one_page", one_page_path, 120),
+                ("live_pdf_to_docx_full_document", pdf_path, 180),
+            ):
+                r = request_file(out, test_name, input_path, "/api/convert/pdf-to-docx", timeout=timeout)
+                if r is not None:
+                    try:
+                        data = r.content
+                        if not data.startswith(b"PK"): raise ValueError("DOCX package signature missing")
+                        word = Document(io.BytesIO(data))
+                        word_text = "\n".join(p.text for p in word.paragraphs)
+                        add(out, test_name, "passed", bytes=len(data), paragraphs=len(word.paragraphs),
+                            tables=len(word.tables), output_words=len(re.findall(r"\w+",word_text)),
+                            arabic_chars=len(AR.findall(word_text)),
+                            quality_headers={k:v for k,v in r.headers.items() if k.lower().startswith("x-conversion-")})
+                    except Exception as exc: add(out, test_name, "failed", error=f"{type(exc).__name__}: {str(exc)[:400]}")
 
             # Lossless compression must preserve selectable text and page count.
             r = request_file(out, "live_pdf_compression", pdf_path, "/api/compress/pdf", {"level":"lossless"})
@@ -217,6 +226,36 @@ def main():
             try:
                 pix=page.get_pixmap(matrix=pymupdf.Matrix(1.5,1.5),alpha=False)
                 image_path=root/"real_page.png"; pix.save(image_path)
+                # Wrap the actual rendered public page image in a PDF to exercise
+                # embedded-image inventory and edit on real raster content.
+                image_pdf_doc = pymupdf.open()
+                image_pdf_page = image_pdf_doc.new_page(width=page_rect.width, height=page_rect.height)
+                image_pdf_page.insert_image(image_pdf_page.rect, filename=str(image_path))
+                image_pdf_path = root / "real_scan_image.pdf"
+                image_pdf_doc.save(image_pdf_path)
+                image_pdf_doc.close()
+                image_inventory = request_file(out, "live_real_image_pdf_inventory", image_pdf_path,
+                                                "/api/pdf/images/list", timeout=90)
+                if image_inventory is not None:
+                    try:
+                        embedded = image_inventory.json().get("images", [])
+                        if not embedded: raise ValueError("Rendered real page image was not detected as embedded")
+                        target_image = embedded[0]
+                        operation = {"page":target_image["page"],"xref":target_image["xref"],
+                                     "occurrence":target_image.get("occurrence",0),"rect":target_image["rect"],
+                                     "action":"resize","scale":0.90}
+                        edited_image_pdf = request_file(out, "live_real_embedded_image_edit", image_pdf_path,
+                            "/api/pdf/images/edit", {"operations":json.dumps([operation])}, timeout=90)
+                        if edited_image_pdf is not None:
+                            if not valid_pdf(edited_image_pdf.content):
+                                add(out,"live_real_embedded_image_edit","failed",error="Image edit output is not a valid PDF")
+                            else:
+                                with pymupdf.open(stream=edited_image_pdf.content,filetype="pdf") as edited_doc:
+                                    image_rects=edited_doc[0].get_image_rects(target_image["xref"])
+                                add(out,"live_real_embedded_image_edit","passed",source_image_count=len(embedded),
+                                    output_occurrences=len(image_rects),scale=0.90)
+                    except Exception as exc:
+                        add(out,"live_real_image_pdf_inventory","failed",error=f"{type(exc).__name__}: {str(exc)[:400]}")
                 if spans:
                     rect=spans[0][1]
                     box=[max(0,int((rect.x0-5)*1.5)),max(0,int((rect.y0-5)*1.5)),
