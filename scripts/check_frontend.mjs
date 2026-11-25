@@ -186,6 +186,10 @@ if (createFormStart < 0 || createFormEnd < 0) {
   }
 }
 
+if (html.includes("ignoreEncryption:true")) {
+  failures.push("PDF editing/export must not bypass encryption or owner permissions.");
+}
+
 for (const feature of ["pdfToDocxLayout", "pdfImageAnalyze", "pdfImageManager", "/api/pdf/unlock", "/api/convert/pdf-to-docx", "/api/pdf/images/list", "/api/pdf/images/edit", "openedPdfBytes"]) {
   if (!html.includes(feature)) failures.push("PDF password, layout conversion, or image editing UI is missing: " + feature);
 }
