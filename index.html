@@ -2427,11 +2427,14 @@ async function bestFont(text,sz,bw,rn,visualStyle){
   const serif=/traditional|naskh|amiri|scheherazade|lateef/i.test(rn||""),mixed=/simplified|majalla|typesetting|arabic/i.test(rn||"");
   // Treat irregular stroke measurements as a hint only; the user can always
   // select another font because a scan cannot reveal the exact original typeface.
-  const C=visualStyle&&visualStyle.handwriting_candidate
+  const visualClass=visualStyle&&visualStyle.style_classification;
+  const C=visualStyle&&(visualStyle.handwriting_candidate||visualClass==="handwriting_possible")
     ?["Katibeh","Aref Ruqaa","Lateef","Amiri","Noto Naskh","Caveat"]
-    :visualStyle&&Number(visualStyle.ink_density)>.24
-      ?["Changa","El Messiri","Reem Kufi","Cairo","Noto Sans Arabic","Lemonada"]
-      :serif?["Amiri","Noto Naskh","Lateef"]:mixed?["Noto Naskh","Noto Sans Arabic","Tajawal","Cairo"]:["Noto Sans Arabic","Cairo","Tajawal","IBM Plex","Almarai","Readex"];
+    :visualStyle&&visualClass==="decorative_or_irregular"
+      ?["Vibes","Lemonada","Marhey","Rakkas","Aref Ruqaa","El Messiri","Amiri"]
+      :visualStyle&&Number(visualStyle.ink_density)>.24
+        ?["Changa","El Messiri","Reem Kufi","Cairo","Noto Sans Arabic","Lemonada"]
+        :serif?["Amiri","Noto Naskh","Lateef"]:mixed?["Noto Naskh","Noto Sans Arabic","Tajawal","Cairo"]:["Noto Sans Arabic","Cairo","Tajawal","IBM Plex","Almarai","Readex"];
   const cx=document.createElement("canvas").getContext("2d");let best=-1,bd=1e9;
   for(const n of C){const i=fIdx(n);if(i===0&&n!=="IBM Plex")continue;
     try{await Promise.race([document.fonts.load(sz+"px "+FONTS[i][1],text),new Promise(r=>setTimeout(r,1500))])}catch(e){}
