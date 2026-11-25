@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from tools.ocr_benchmark import (
-    _validate_manifest, edit_distance, error_rate, normalize_text,
+    _validate_manifest, edit_distance, error_rate, normalize_text, run_benchmark,
 )
 
 
@@ -102,6 +102,23 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate id"):
                 _validate_manifest({"samples": samples}, root / "manifest.json")
 
+    def test_benchmark_rejects_oversized_manifest_before_parsing(self):
+        from tools.ocr_benchmark import MAX_MANIFEST_BYTES
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            with manifest.open("wb") as handle:
+                handle.truncate(MAX_MANIFEST_BYTES + 1)
+            with self.assertRaisesRegex(ValueError, "2 MB"):
+                run_benchmark(manifest, root / "report.json", ["tesseract"])
+
+    def test_benchmark_rejects_duplicate_or_unsupported_engines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unique values"):
+                run_benchmark(manifest, root / "report.json", ["tesseract", "tesseract"])
     def test_invalid_metric_unit(self):
         with self.assertRaises(ValueError):
             error_rate("a", "b", "lines")
