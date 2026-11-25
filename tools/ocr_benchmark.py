@@ -11,6 +11,11 @@ import json
 import re
 import sys
 import time
+
+MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+MAX_BENCHMARK_SAMPLES = 500
+MAX_BENCHMARK_IMAGE_BYTES = 25 * 1024 * 1024
+MAX_REFERENCE_CHARS = 100_000
 import unicodedata
 from pathlib import Path
 from typing import Iterable
@@ -103,7 +108,7 @@ def _validate_manifest(manifest: dict, manifest_path: Path) -> list[dict]:
     if not isinstance(manifest, dict):
         raise ValueError("manifest must be a JSON object")
     samples = manifest.get("samples")
-    if not isinstance(samples, list) or not samples or len(samples) > 500:
+    if not isinstance(samples, list) or not samples or len(samples) > MAX_BENCHMARK_SAMPLES:
         raise ValueError("manifest.samples must contain between 1 and 500 labeled samples")
 
     root = manifest_path.resolve().parent
@@ -125,11 +130,11 @@ def _validate_manifest(manifest: dict, manifest_path: Path) -> list[dict]:
             raise ValueError(f"samples[{index}].image must stay inside the manifest directory") from exc
         if not image_path.is_file():
             raise FileNotFoundError(f"samples[{index}]: image not found: {image_path}")
-        if image_path.stat().st_size > 25 * 1024 * 1024:
+        if image_path.stat().st_size > MAX_BENCHMARK_IMAGE_BYTES:
             raise ValueError(f"samples[{index}].image exceeds the 25 MB benchmark limit")
 
         reference = sample.get("reference")
-        if not isinstance(reference, str) or not reference.strip() or len(reference) > 100_000:
+        if not isinstance(reference, str) or not reference.strip() or len(reference) > MAX_REFERENCE_CHARS:
             raise ValueError(f"samples[{index}].reference must contain the exact transcription")
         sample_id = str(sample.get("id") or image_value).strip()
         if not sample_id or len(sample_id) > 120 or sample_id in seen_ids:
@@ -140,6 +145,15 @@ def _validate_manifest(manifest: dict, manifest_path: Path) -> list[dict]:
 
 
 def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) -> dict:
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"manifest not found: {manifest_path}")
+    if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
+        raise ValueError("manifest exceeds the 2 MB benchmark limit")
+    allowed_engines = {"tesseract", "paddleocr", "hybrid"}
+    if not engines or len(set(engines)) != len(engines) or any(
+        engine not in allowed_engines for engine in engines
+    ):
+        raise ValueError("engines must be unique values from tesseract, paddleocr, hybrid")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     samples = _validate_manifest(manifest, manifest_path)
 
