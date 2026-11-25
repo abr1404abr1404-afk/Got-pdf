@@ -78,6 +78,28 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(payload["lines"][0]["visual_style"], dict)
         self.assertEqual(payload["lines"][0]["visual_style"]["analysis"], "visual_heuristic")
 
+    async def test_text_cleanup_preview_returns_image_without_applying_changes(self):
+        response = await self.client.post(
+            "/api/image/text-cleanup/preview",
+            files={"file": ("invoice.png", make_ocr_image(), "image/png")},
+            data={"bbox": json.dumps([35, 65, 600, 210]), "method": "telea"},
+        )
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        payload = response.json()
+        self.assertTrue(payload["preview_image"].startswith("data:image/png;base64,"))
+        self.assertFalse(payload["applied"])
+        self.assertEqual(payload["details"]["scope"], "selected_region_only")
+        self.assertTrue(payload["details"]["preview_only"])
+        self.assertGreater(payload["details"]["mask_pixels"], 0)
+
+    async def test_text_cleanup_preview_rejects_invalid_bbox(self):
+        response = await self.client.post(
+            "/api/image/text-cleanup/preview",
+            files={"file": ("invoice.png", make_ocr_image(), "image/png")},
+            data={"bbox": json.dumps([2000, 2000, 2200, 2200])},
+        )
+        self.assertEqual(response.status_code, 400)
+
     async def test_pdf_ocr_route_processes_a_scanned_page(self):
         scanned = pymupdf.open()
         page = scanned.new_page(width=550, height=150)
