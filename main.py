@@ -28,6 +28,7 @@ from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
+from pdf_batch import compress_pdf_batch
 from pdf_compare import compare_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
@@ -910,6 +911,49 @@ async def compress_pdf(request: Request, file: UploadFile = File(...), level: st
             "X-Original-Size": str(len(data)),
             "X-Compressed-Size": str(len(optimized)),
             "X-Compression-Reduced": "true" if reduced else "false",
+        },
+    )
+
+
+@app.post("/api/compress/pdf/batch")
+async def compress_pdf_batch_endpoint(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    level: str = Form("balanced"),
+):
+    """Compress a bounded batch of PDFs and return a ZIP with a JSON report."""
+    _guard_expensive_request(request, "compress-batch", client_limit=3, global_limit=10)
+    if not files or len(files) > 10:
+        raise HTTPException(400, "اختر من ملف واحد إلى 10 ملفات PDF.")
+    if level not in {"lossless", "balanced", "small"}:
+        raise HTTPException(400, "مستوى الضغط غير صالح.")
+    batch = []
+    total = 0
+    for index, upload in enumerate(files, start=1):
+        data = await upload.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+        _check_size(data)
+        total += len(data)
+        if total > MAX_REQUEST_BODY_MB * 1024 * 1024:
+            raise HTTPException(413, "إجمالي أحجام الملفات يتجاوز حد الطلب الجماعي.")
+        batch.append((upload.filename or f"document-{index}.pdf", data))
+    try:
+        archive, report = await _run_cpu(
+            compress_pdf_batch,
+            batch,
+            level,
+            max_files=10,
+            max_file_bytes=MAX_UPLOAD_MB * 1024 * 1024,
+            max_total_bytes=MAX_REQUEST_BODY_MB * 1024 * 1024,
+            max_output_bytes=MAX_CONVERTED_MB * 1024 * 1024,
+        )
+    except ValueError as exc:
+        raise HTTPException(415, str(exc)) from exc
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="alfalqi-compressed-batch.zip"',
+            "X-Batch-File-Count": str(len(report)),
         },
     )
 
