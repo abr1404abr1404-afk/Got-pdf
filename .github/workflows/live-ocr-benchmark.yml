@@ -4,6 +4,9 @@ on:
     branches: [main]
     paths:
       - "scripts/live_ocr_public_benchmark.py"
+      - "main.py"
+      - "Dockerfile.free"
+      - "render.yaml"
       - ".github/workflows/live-ocr-benchmark.yml"
   workflow_dispatch:
 permissions:
