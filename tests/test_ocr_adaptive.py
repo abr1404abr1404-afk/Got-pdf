@@ -11,7 +11,6 @@ class AdaptiveOcrPassTests(unittest.TestCase):
 
     @patch.object(main, "analyze_text_style", return_value={"style_classification": "printed_or_regular"})
     @patch.object(main, "analyze_layout")
-    @patch.object(main, "_preprocess")
     @patch.object(main, "_paddle", return_value=([], "disabled"))
     @patch.object(main, "_tesseract")
     def test_good_first_pass_skips_expensive_variants(self, tess, paddle, preprocess, layout, style):
