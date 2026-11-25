@@ -62,7 +62,8 @@ def analyze_text_style(
         gray[:, :max(1, x0 - xa)].ravel(),
         gray[:, min(gray.shape[1] - 1, x1 - xa):].ravel(),
     ]
-    border = np.concatenate([part for part in border_parts if part.size])
+    nonempty_border = [part for part in border_parts if part.size]
+    border = np.concatenate(nonempty_border) if nonempty_border else gray.ravel()
     if border.size < 8:
         border = gray.ravel()
 
