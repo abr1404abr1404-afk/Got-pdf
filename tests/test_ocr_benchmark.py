@@ -46,7 +46,7 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
     def test_manifest_rejects_paths_outside_manifest_directory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            outside = root.parent / "outside.png"
+            outside = root.parent / f"{root.name}-outside.png"
             outside.write_bytes(b"not an image")
             try:
                 manifest = {"samples": [{
