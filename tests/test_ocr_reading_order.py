@@ -114,6 +114,7 @@ class OcrModeTests(unittest.TestCase):
             "_tesseract": lambda image, language, psm=11: (calls.append("tesseract") or [], None),
             "_dedupe": lambda rows: rows,
             "_reading_order": lambda rows: rows,
+            "analyze_layout": lambda rows, width, height: {"lines": rows},
         }
         exec(compile(module, "main.py", "exec"), namespace)
         image = type("ImageStub", (), {"shape": (100, 200, 3)})()
