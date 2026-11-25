@@ -2902,7 +2902,7 @@ $("pdfCreateApply").onclick=async()=>{
  const name=$("pdfCreateName").value.trim(),type=$("pdfCreateType").value;
  const pageNo=Number($("pdfCreatePage").value),x=Number($("pdfCreateX").value),y=Number($("pdfCreateY").value),width=Number($("pdfCreateW").value),height=Number($("pdfCreateH").value);
  const options=$("pdfCreateOptions").value.split(",").map(v=>v.trim()).filter(Boolean);
- if(!/^[\\p{L}_][\\p{L}\\p{N}_.-]{0,119}$/u.test(name)){ $("pdfCreateStatus").textContent="ابدأ الاسم بحرف أو _، ثم استخدم الحروف والأرقام والنقطة أو الشرطة أو _ (يدعم العربية والإنجليزية).";return}
+ if(!/^[\p{L}_][\p{L}\p{N}_.-]{0,119}$/u.test(name)){ $("pdfCreateStatus").textContent="ابدأ الاسم بحرف أو _، ثم استخدم الحروف والأرقام والنقطة أو الشرطة أو _ (يدعم العربية والإنجليزية).";return}
  if(![pageNo,x,y,width,height].every(Number.isFinite)||!Number.isInteger(pageNo)||pageNo<1||x<0||y<0||width<8||height<8){$("pdfCreateStatus").textContent="تحقق من رقم الصفحة والإحداثيات والأبعاد.";return}
  if(type==="dropdown"&&(!options.length||options.length>100)){ $("pdfCreateStatus").textContent="أدخل خيارًا واحدًا على الأقل وبحد أقصى 100 خيار.";return}
  button.disabled=true;$("pdfCreateStatus").textContent="جارٍ إنشاء الحقل والتحقق من موضعه…";
