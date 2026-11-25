@@ -2483,13 +2483,68 @@ async function buildDet(wrap,pg,page,s){
         const mm=cx.measureText("Hgع");asc=mm.fontBoundingBoxAscent||asc;dsc=mm.fontBoundingBoxDescent||dsc;
       }catch(e2){}
       const off=(1.2*sz-(asc+dsc))/2+asc;
-      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:(g.style&&g.style.ink_color)||sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,style:g.style||null,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg}};
+      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:(g.style&&g.style.ink_color)||sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,style:g.style||null,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg},cleanupBBox:[g.l-1,top-1,g.r+1,top+bh+1],cleanupPageSize:[W,H]};
       pg.ov.push(o);d.remove();
       const el=mkOv(pg,o,s,wrap);wrap.append(el);el.focus();
     };
     wrap.append(d);
   });
 }
+
+async function previewOcrCleanup(pg,o,wrap,el){
+  const apiBase=(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
+  if(!apiBase)return toast("خادم معالجة الصور غير مضبوط؛ تعذّر طلب معاينة الإزالة.");
+  if(!pg.src||!pg.src.blob||!o.cleanupBBox)return toast("مصدر صورة OCR غير متاح لهذه المنطقة.");
+  let modal=null,previewData="",previewBlob=null,sourceBitmap=null,scaleX=1,scaleY=1,pxBox=null;
+  try{
+    sourceBitmap=await createImageBitmap(pg.src.blob);
+    scaleX=sourceBitmap.width/Math.max(1,pg.src.dw);scaleY=sourceBitmap.height/Math.max(1,pg.src.dh);
+    const [x0,y0,x1,y1]=o.cleanupBBox,ox=pg.src.ox||0,oy=pg.src.oy||0;
+    pxBox=[Math.max(0,Math.floor((x0-ox)*scaleX)),Math.max(0,Math.floor((y0-oy)*scaleY)),
+      Math.min(sourceBitmap.width,Math.ceil((x1-ox)*scaleX)),Math.min(sourceBitmap.height,Math.ceil((y1-oy)*scaleY))];
+    if(pxBox[2]-pxBox[0]<3||pxBox[3]-pxBox[1]<3)throw new Error("منطقة النص خارج صورة المصدر.");
+    toast("جارٍ إنشاء معاينة إزالة الحبر…");
+    const fd=new FormData();fd.append("file",pg.src.blob,"ocr-page.png");fd.append("bbox",JSON.stringify(pxBox));fd.append("method","telea");
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);
+    let response,result;
+    try{response=await fetch(apiBase+"/api/image/text-cleanup/preview",{method:"POST",body:fd,signal:controller.signal});result=await response.json()}
+    finally{clearTimeout(timer)}
+    if(!response.ok)throw new Error(result.detail?.message||result.detail||"فشل إنشاء المعاينة.");
+    previewData=result.preview_image;previewBlob=await (await fetch(previewData)).blob();
+    modal=document.createElement("div");modal.style.cssText="position:fixed;inset:0;z-index:10050;background:#000b;display:flex;align-items:center;justify-content:center;padding:12px";
+    const card=document.createElement("section");card.dir="rtl";card.style.cssText="width:min(100%,760px);max-height:92vh;overflow:auto;background:var(--panel,#fff);color:var(--ink,#222);border:1px solid var(--line,#ddd);border-radius:16px;padding:14px;box-shadow:0 12px 40px #0006";
+    const heading=document.createElement("h3");heading.textContent="معاينة إزالة النص القديم";heading.style.margin="0 0 6px";
+    const note=document.createElement("p");note.textContent="راجع الخلفية بعد إزالة الحبر. لم يتم تعديل ملف PDF أو الصورة الأصلية بعد.";note.style.cssText="font-size:13px;color:var(--mut,#777);line-height:1.7;margin:0 0 10px";
+    const images=document.createElement("div");images.style.cssText="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px";
+    const makeImage=(src,label)=>{const box=document.createElement("div"),cap=document.createElement("div"),im=document.createElement("img");cap.textContent=label;cap.style.cssText="font-size:12px;margin-bottom:5px";im.src=src;im.style.cssText="width:100%;max-height:48vh;object-fit:contain;background:#ddd;border-radius:8px";box.append(cap,im);return box};
+    images.append(makeImage(URL.createObjectURL(pg.src.blob),"الأصل"),makeImage(previewData,"بعد إزالة الحبر"));
+    const details=document.createElement("p");details.textContent="نسبة القناع: "+Math.round((result.details?.mask_ratio||0)*100)+"٪ · الطريقة: "+(result.details?.method||"Telea")+" · "+(result.details?.limitations||"");details.style.cssText="font-size:12px;color:var(--mut,#777);line-height:1.6;margin:10px 0";
+    const actions=document.createElement("div");actions.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start";
+    const btn=(label,primary,fn)=>{const b=document.createElement("button");b.textContent=label;b.style.cssText="border:1px solid var(--line,#bbb);border-radius:9px;padding:9px 13px;background:"+(primary?"var(--acc,#1769aa)":"transparent")+";color:"+(primary?"white":"inherit");b.onclick=fn;return b};
+    const close=()=>{if(modal){modal.remove();modal=null}if(sourceBitmap){sourceBitmap.close();sourceBitmap=null}};
+    const apply=btn("اعتماد المعاينة",true,async()=>{
+      try{
+        const cleaned=await createImageBitmap(previewBlob),[x0,y0,x1,y1]=pxBox;
+        const crop=document.createElement("canvas");crop.width=x1-x0;crop.height=y1-y0;
+        crop.getContext("2d").drawImage(cleaned,x0,y0,crop.width,crop.height,0,0,crop.width,crop.height);
+        const img=crop.toDataURL("image/png");cleaned.close();
+        const [pageW,pageH]=o.cleanupPageSize||[pg.src.dw,pg.src.dh],ox=pg.src.ox||0,oy=pg.src.oy||0;
+        const px0=ox+x0/scaleX,py0=oy+y0/scaleY,pw=crop.width/scaleX,ph=crop.height/scaleY;
+        o.cleanupPreviousCover=o.cover?{...o.cover}:null;
+        o.cover={x:px0/pageW,y:py0/pageH,w:pw/pageW,h:ph/pageH,bg:"#fff",img};
+        if(!cvElForCleanup(el)){}
+        const coverEl=wrap.querySelector(".cover");
+        if(coverEl){coverEl.style.left=o.cover.x*100+"%";coverEl.style.top=o.cover.y*100+"%";coverEl.style.width=o.cover.w*100+"%";coverEl.style.height=o.cover.h*100+"%";coverEl.style.background="url("+img+") 0 0/100% 100% no-repeat"}
+        else render();
+        close();toast("تم اعتماد إزالة الحبر كطبقة قابلة للتراجع فوق الصفحة.");
+      }catch(err){toast("تعذّر اعتماد المعاينة: "+(err.message||err))}
+    });
+    actions.append(btn("إلغاء",false,close),apply);card.append(heading,note,images,details,actions);modal.append(card);document.body.append(modal);
+    modal.addEventListener("click",e=>{if(e.target===modal)close()});
+  }catch(err){if(modal)modal.remove();if(sourceBitmap)sourceBitmap.close();console.error(err);toast("تعذّرت معاينة إزالة النص: "+(err.message||err))}
+}
+function cvElForCleanup(){return null}
+
 function mkOv(pg,o,s,wrap){
   let cvEl=null;
   if(o.cover){const c=document.createElement("div");c.className="cover";Object.assign(c.style,{left:o.cover.x*100+"%",top:o.cover.y*100+"%",width:o.cover.w*100+"%",height:o.cover.h*100+"%",background:o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")});cvEl=c;wrap.append(c)}
@@ -2528,6 +2583,7 @@ function mkOv(pg,o,s,wrap){
   const nb=mkB("١٢٣","تحويل الأرقام بين العربية واللاتينية",()=>{const L=/[0-9]/.test(o.t),D="٠١٢٣٤٥٦٧٨٩";o.t=o.t.replace(L?/[0-9]/g:/[٠-٩]/g,c=>L?D[c]:String(D.indexOf(c)));t.textContent=o.t;upd()});
   const mb=mkB("A−","تصغير الخط",()=>{o.s=Math.max(6,o.s-2);upd()}),pb=mkB("A+","تكبير الخط",()=>{o.s=Math.min(160,o.s+2);upd()});
   const ed=mkB("✎","تعديل النص",startEdit),d=mkB("×","حذف النص",rm,"d");
+  const cleanupBtn=o.cleanupBBox&&pg.src&&pg.src.blob?mkB("◌","معاينة إزالة الحبر القديم",()=>previewOcrCleanup(pg,o,wrap,el)):null;
   const sel=document.createElement("select");sel.setAttribute("aria-label","الخط");fontOpts(sel,o.f);sel.onchange=()=>{o.f=+sel.value;upd()};
   const col=document.createElement("input");col.type="color";col.value=o.c;col.setAttribute("aria-label","لون النص");col.oninput=()=>{o.c=col.value;upd()};
   const sw=["#000000","#ffffff","#c62828","#1565c0","#2e7d32","#6d4c41"].map(c=>{const b=mkB("","لون "+c,()=>{o.c=c;col.value=c;upd()},"sw");b.style.background=c;return b});
@@ -2536,7 +2592,7 @@ function mkOv(pg,o,s,wrap){
   const more=mkB("Aa","خيارات الخط واللون",()=>{tb.classList.toggle("open");more.classList.toggle("on",tb.classList.contains("open"));place()});
   const dup=mkB("⧉","تكرار النص",()=>{const n={...o,x:Math.min(1,o.x+.03),y:Math.min(.96,o.y+.025)};delete n.cover;delete n.key;pg.ov.push(n);const e2=mkOv(pg,n,s,wrap);wrap.append(e2);if(e2.select)e2.select();toast("تم تكرار النص. اسحب النسخة إلى مكانها.")});
   const cpy=mkB("نسخ","نسخ النص للصقه في صفحة أخرى",()=>{const n={...o};delete n.cover;delete n.key;window.__clip=n;toast("تم نسخ النص. اضغط «لصق نص» في شريط أي صفحة.");render()});
-  r1.append(mv,ed,mb,szl,pb,bb,al,more,d);r2.append(nb,dup,cpy,sel,col,...sw);
+  r1.append(mv,ed,mb,szl,pb,bb,al,more,...(cleanupBtn?[cleanupBtn]:[]),d);r2.append(nb,dup,cpy,sel,col,...sw);
   if(o.cover){
     const applyCover=()=>{if(cvEl)cvEl.style.background=o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")};
     const bl=document.createElement("span");bl.textContent="الخلفية:";bl.style.fontSize="12px";
