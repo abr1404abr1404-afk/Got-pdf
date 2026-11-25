@@ -428,10 +428,39 @@ def _bidi_order(items: list, text_getter, x_getter) -> list:
     return result
 
 
-def _reading_order(rows: list[dict]) -> list[dict]:
-    """Order OCR boxes by line, respecting mixed Arabic/Latin bidirectional runs."""
+def _reading_order(rows: list[dict], _detect_columns: bool = True) -> list[dict]:
+    """Order OCR boxes by columns, then lines, respecting mixed-script direction."""
     if len(rows) < 2:
         return rows
+
+    if _detect_columns:
+        heights = sorted(max(1, r["bbox"][3] - r["bbox"][1]) for r in rows)
+        median_height = heights[len(heights) // 2]
+        merge_gap = max(20.0, median_height * 2.5)
+        intervals = sorted(
+            ((float(r["bbox"][0]), float(r["bbox"][2]), r) for r in rows),
+            key=lambda item: item[0],
+        )
+        clusters: list[dict] = []
+        for left, right, row in intervals:
+            if not clusters or left - clusters[-1]["right"] > merge_gap:
+                clusters.append({"left": left, "right": right, "rows": [row]})
+            else:
+                clusters[-1]["right"] = max(clusters[-1]["right"], right)
+                clusters[-1]["rows"].append(row)
+        usable = [cluster for cluster in clusters if len(cluster["rows"]) >= 2]
+        if len(usable) >= 2 and sum(len(c["rows"]) for c in usable) >= len(rows) * 0.8:
+            arabic = sum(sum(unicodedata.bidirectional(ch) in {"R", "AL"}
+                             for ch in str(r.get("text", ""))) for r in rows)
+            latin = sum(sum(unicodedata.bidirectional(ch) == "L" and ch.isalpha()
+                            for ch in str(r.get("text", ""))) for r in rows)
+            usable.sort(key=lambda c: c["left"], reverse=arabic > latin)
+            return [
+                item
+                for cluster in usable
+                for item in _reading_order(cluster["rows"], _detect_columns=False)
+            ]
+
     ordered = sorted(rows, key=lambda r: (r["bbox"][1] + r["bbox"][3]) / 2)
     heights = sorted(max(1, r["bbox"][3] - r["bbox"][1]) for r in ordered)
     tolerance = max(8.0, heights[len(heights) // 2] * 0.65)
