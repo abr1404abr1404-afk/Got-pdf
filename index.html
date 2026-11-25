@@ -560,7 +560,7 @@ window.imgOcr=async function(pg,lang,auto){
         const result=await response.json();
         if(!response.ok)throw new Error(result.detail?.message||result.detail||"تعذّر تحليل الصفحة على الخادم");
         const mx=dw/Math.max(1,result.image_width),my=dh/Math.max(1,result.image_height);
-        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine,style:l.visual_style||null}));
+        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine,style:l.visual_style||null}));
         pg.tables=(result.tables||[]).map(table=>({rows:table.rows||[],row_count:table.row_count||0,column_count:table.column_count||0,direction:table.direction||"ltr"}));
         backendUsed=true;
         toast("اكتمل التحليل باستخدام "+(result.engine||"محرك الخادم")+"…");
@@ -2468,7 +2468,7 @@ async function buildDet(wrap,pg,page,s){
     g.it.sort((a,b)=>rtl?b.x-a.x:a.x-b.x);
     let text="",pv=null;
     g.it.forEach(i=>{if(pv){const gap=rtl?pv.x-(i.x+i.w):i.x-(pv.x+pv.w);if(gap>g.h*.12&&!/\s$/.test(text)&&!/^\s/.test(i.s))text+=" "}text+=i.s;pv=i});
-    text=text.normalize("NFKC");
+    text=text.normalize("NFC");
     const top=g.b-g.h*.96,bh=g.h*1.34,d=document.createElement("div");d.className="det";
     Object.assign(d.style,{left:g.l/W*100+"%",top:top/H*100+"%",width:(g.r-g.l)/W*100+"%",height:bh/H*100+"%"});
     d.onclick=async e=>{
