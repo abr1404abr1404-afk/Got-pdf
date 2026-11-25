@@ -2997,7 +2997,8 @@ $("pdfFillApply").onclick=async()=>{
   const fontFile=$("pdfFillFontFile").files&&$("pdfFillFontFile").files[0];let appearanceFont=null;
   if(hasArabic&&!fontFile)throw new Error("تحتوي القيم على أحرف عربية. اختر خط TTF أو OTF يدعم العربية لتضمينه في الملف.");
   if(fontFile){if(fontFile.size>10*1024*1024)throw new Error("حجم ملف الخط يتجاوز 10 ميجابايت.");const fontkit=await loadPdfFontkit();pdfFillDoc.pdf.registerFontkit(fontkit);appearanceFont=await pdfFillDoc.pdf.embedFont(await fontFile.arrayBuffer(),{subset:true})}
-  for(const item of pdfFillFields){const {field,input,kind}=item;if(kind==="text"){field.setText(input.value)}else if(kind==="check"){input.checked?field.check():field.uncheck()}else if((kind==="select"||kind==="radio")&&input.value){field.select(input.value)}}\n  if(appearanceFont)pdfFillDoc.form.updateFieldAppearances(appearanceFont);else pdfFillDoc.form.updateFieldAppearances();pdfFillDoc.form.flatten();
+  for(const item of pdfFillFields){const {field,input,kind}=item;if(kind==="text"){field.setText(input.value)}else if(kind==="check"){input.checked?field.check():field.uncheck()}else if((kind==="select"||kind==="radio")&&input.value){field.select(input.value)}}
+  if(appearanceFont)pdfFillDoc.form.updateFieldAppearances(appearanceFont);else pdfFillDoc.form.updateFieldAppearances();pdfFillDoc.form.flatten();
   const bytes=await pdfFillDoc.pdf.save(),idx=pdfFillDoc.docIndex;
   const newPdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
   docs[idx].bytes=bytes;docs[idx].pdf=newPdf;
