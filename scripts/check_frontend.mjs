@@ -165,6 +165,23 @@ for (const feature of ["X-Conversion-Text-Order", "quality.order", "ترتيب �
   if (!html.includes(feature)) failures.push("PDF-to-Word reading-order quality feedback is missing: " + feature);
 }
 
+for (const feature of ['id="pdfCreateFields"', 'id="pdfCreateModal"', 'id="pdfCreateApply"', 'form.createTextField(name)', 'form.createCheckBox(name)', 'form.createDropdown(name)', 'field.addToPage(page,style)', 'pdfCreateDocIndex']) {
+  if (!html.includes(feature)) failures.push("Interactive PDF form-field creation is missing: " + feature);
+}
+const createFormStart = html.indexOf('$("pdfCreateApply").onclick=async()=>{');
+const createFormEnd = html.indexOf('let pdfFillDoc=null,pdfFillFields=[];', createFormStart);
+if (createFormStart < 0 || createFormEnd < 0) {
+  failures.push("PDF form-field creation action is missing.");
+} else {
+  const createFormCode = html.slice(createFormStart, createFormEnd);
+  if (createFormCode.includes("fetch(") || createFormCode.includes("XMLHttpRequest")) {
+    failures.push("PDF form-field creation must remain local to the browser.");
+  }
+  for (const guard of ["form.getFields()", "pageNo>pdf.getPageCount()", "x+width>size.width||y+height>size.height", "docs[idx].bytes=bytes", "track()"]) {
+    if (!createFormCode.includes(guard)) failures.push("PDF form-field creation is missing validation or local save guard: " + guard);
+  }
+}
+
 for (const feature of ["pdfToDocxLayout", "pdfImageAnalyze", "pdfImageManager", "/api/pdf/unlock", "/api/convert/pdf-to-docx", "/api/pdf/images/list", "/api/pdf/images/edit", "openedPdfBytes"]) {
   if (!html.includes(feature)) failures.push("PDF password, layout conversion, or image editing UI is missing: " + feature);
 }
