@@ -2915,7 +2915,7 @@ $("pdfCreateApply").onclick=async()=>{
   const style={x,y,width,height,borderWidth:1,borderColor:PDFLib.rgb(.35,.45,.58),backgroundColor:PDFLib.rgb(1,1,1)};
   if(type==="text"){const field=form.createTextField(name);field.setMaxLength(1000);field.addToPage(page,style)}
   else if(type==="checkbox"){const field=form.createCheckBox(name);field.addToPage(page,{...style,width:Math.min(width,height),height:Math.min(width,height)})}
-  else if(type==="dropdown"){const field=form.createDropdown(name);field.addOptions([...new Set(options)]);field.addToPage(page,style)}\n  else{const field=form.createOptionList(name);field.addOptions([...new Set(options)]);field.addToPage(page,{...style,height:Math.max(height,Math.min(120,options.length*18))})}
+  else if(type==="dropdown"){const field=form.createDropdown(name);field.addOptions([...new Set(options)]);field.addToPage(page,style)}\n  else{const field=form.createOptionList(name);field.addOptions([...new Set(options)]);field.addToPage(page,style)}
   form.updateFieldAppearances();
   const bytes=await pdf.save(),rendered=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
   docs[idx].bytes=bytes;docs[idx].pdf=rendered;track();await render();
