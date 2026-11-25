@@ -161,6 +161,10 @@ for (const feature of ['id="mti"', 'id="mau"', 'id="msu"', 'id="mkw"', 'id="mlg"
   if (!html.includes(feature)) failures.push("Extended PDF metadata editing is missing: " + feature);
 }
 
+for (const feature of ['id="pdfReadMetadata"', 'doc.getMetadata()', 'dc:title', 'dc:creator', 'dc:description', 'pdf:Keywords']) {
+  if (!html.includes(feature)) failures.push("PDF metadata inspection is missing: " + feature);
+}
+
 for (const feature of ["ocrReviewConfidence", "متوسط ثقة المحرك", "أسطر منخفضة الثقة"]) {
   if (!html.includes(feature)) failures.push("OCR confidence review guidance is missing: " + feature);
 }
