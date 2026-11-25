@@ -37,6 +37,7 @@ from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
 from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, replace_isolated_arabic_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
+from document_layout import analyze_layout
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -522,11 +523,14 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
         merged, used = [], "none"
     h, w = prepared.shape[:2]
     merged = _reading_order(merged)
+    layout = analyze_layout(merged, w, h)
+    merged = layout["lines"]
     return {
         "engine": used,
         "image_width": w,
         "image_height": h,
         "lines": merged,
+        "layout": {key: value for key, value in layout.items() if key != "lines"},
         "engines": {"paddleocr": {"available": paddle_error is None, "error": paddle_error},
                     "tesseract": {"available": tess_error is None, "error": tess_error}},
     }
