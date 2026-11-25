@@ -4,12 +4,13 @@ import unittest
 
 SOURCE = pathlib.Path("main.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
-FUNCTION = next(node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name == "_reading_order")
-MODULE = ast.Module(body=[FUNCTION], type_ignores=[])
+FUNCTIONS = [node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name in {"_reading_order", "_bidi_order"}]
+MODULE = ast.Module(body=FUNCTIONS, type_ignores=[])
 ast.fix_missing_locations(MODULE)
 NAMESPACE = {}
 exec(compile(MODULE, "main.py", "exec"), NAMESPACE)
 reading_order = NAMESPACE["_reading_order"]
+bidi_order = NAMESPACE["_bidi_order"]
 
 
 def row(text, x0, y0, x1, y1):
@@ -39,6 +40,17 @@ class ReadingOrderTests(unittest.TestCase):
             [item["text"] for item in result],
             ["كلمة ثانية", "Hello", "world", "كلمة عربية"],
         )
+    def test_mixed_arabic_word_boxes_preserve_latin_phrase_order(self):
+        words = [
+            (10, 10, 35, 25, 95, "كلمة عربية"),
+            (45, 10, 75, 25, 95, "Hello"),
+            (80, 10, 110, 25, 95, "world"),
+            (120, 10, 155, 25, 95, "كلمة ثانية"),
+        ]
+        result = bidi_order(words, lambda item: item[5], lambda item: item[0])
+        self.assertEqual([item[5] for item in result], [
+            "كلمة ثانية", "Hello", "world", "كلمة عربية"
+        ])
     def test_lines_are_ordered_top_to_bottom(self):
         rows = [row("السطر الثاني", 10, 60, 100, 80), row("السطر الأول", 10, 10, 100, 30)]
         result = reading_order(rows)
