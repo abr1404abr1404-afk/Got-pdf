@@ -96,6 +96,29 @@ def main():
                 pix.save(image_path)
                 ground = page.get_text("text") or ""
 
+                # Real PDF -> DOCX conversion and quality inspection run locally
+                # in CI, independently from the Render OCR service.
+                try:
+                    from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
+                    docx_bytes = convert_pdf_to_docx(sample_path.read_bytes())
+                    if not docx_bytes.startswith(b"PK"):
+                        raise ValueError("DOCX ZIP signature is invalid")
+                    quality = analyze_pdf_docx_quality(sample_path.read_bytes(), docx_bytes)
+                    from docx import Document
+                    import io
+                    word_doc = Document(io.BytesIO(docx_bytes))
+                    word_text = "\n".join(p.text for p in word_doc.paragraphs)
+                    word_test = {"name": name + "_real_pdf_to_docx", "status": "passed",
+                                 "docx_bytes": len(docx_bytes), "paragraphs": len(word_doc.paragraphs),
+                                 "tables": len(word_doc.tables), "arabic_chars": arabic_count(word_text),
+                                 "quality": quality}
+                    if quality.get("analysis_status") == "ok" and quality.get("text_coverage_percent", 0) < 65:
+                        word_test["status"] = "failed"
+                        word_test["error"] = "DOCX text coverage below 65%"
+                    out["tests"].append(word_test)
+                except Exception as exc:
+                    out["tests"].append({"name": name + "_real_pdf_to_docx", "status": "failed",
+                                         "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
                 pdf_payload = api_post(out, name + "_real_pdf_ocr", "/api/ocr/pdf", sample_path,
                                         "application/pdf", {"language": "ara+eng", "dpi": "96"}, timeout=150)
                 if pdf_payload is not None:
@@ -120,29 +143,6 @@ def main():
                         test["status"] = "failed"
                         test["error"] = "Image OCR returned no Arabic characters"
 
-                # Real PDF -> DOCX conversion and quality inspection run locally
-                # in CI, independently from the Render OCR service.
-                try:
-                    from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
-                    docx_bytes = convert_pdf_to_docx(sample_path.read_bytes())
-                    if not docx_bytes.startswith(b"PK"):
-                        raise ValueError("DOCX ZIP signature is invalid")
-                    quality = analyze_pdf_docx_quality(sample_path.read_bytes(), docx_bytes)
-                    from docx import Document
-                    import io
-                    word_doc = Document(io.BytesIO(docx_bytes))
-                    word_text = "\n".join(p.text for p in word_doc.paragraphs)
-                    word_test = {"name": name + "_real_pdf_to_docx", "status": "passed",
-                                 "docx_bytes": len(docx_bytes), "paragraphs": len(word_doc.paragraphs),
-                                 "tables": len(word_doc.tables), "arabic_chars": arabic_count(word_text),
-                                 "quality": quality}
-                    if quality.get("analysis_status") == "ok" and quality.get("text_coverage_percent", 0) < 65:
-                        word_test["status"] = "failed"
-                        word_test["error"] = "DOCX text coverage below 65%"
-                    out["tests"].append(word_test)
-                except Exception as exc:
-                    out["tests"].append({"name": name + "_real_pdf_to_docx", "status": "failed",
-                                         "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
                 sample.close()
                 doc.close()
             except Exception as exc:
