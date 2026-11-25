@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Live regression test against public Arabic documents and a real scanned page."""
+"""Benchmark the deployed API on authentic public Arabic PDFs and scans.
+
+Each case is isolated so one slow OCR request does not prevent the remaining
+image, scan, and PDF-to-DOCX checks from running. Results are always written
+to live-ocr-results.json for inspection, including failures and timeouts.
+"""
 from __future__ import annotations
-import json, os, re, tarfile, tempfile, unicodedata
+import hashlib, json, os, re, tarfile, tempfile, unicodedata
 from pathlib import Path
 import requests
-import fitz
+import pymupdf
 
 BASE = os.environ.get("OCR_API_BASE", "https://got-pdf.onrender.com").rstrip("/")
 SOURCES = [
@@ -14,79 +19,175 @@ SOURCES = [
 NOD_URL = "https://zenodo.org/api/records/5068735/files/yarmouk_01_col.tar.lzma/content"
 NOD_MD5 = "a845e80b66fea3507ad39f3c07684ff6"
 
-def norm(s):
-    s = unicodedata.normalize("NFC", s or "")
-    s = re.sub(r"[\u064B-\u065F\u0670\u0640]", "", s)
-    return re.sub(r"\s+", "", s)
+def norm(value):
+    value = unicodedata.normalize("NFC", value or "")
+    value = re.sub(r"[\u064B-\u065F\u0670\u0640]", "", value)
+    return re.sub(r"\s+", "", value)
 
-def cer(a,b):
-    a,b=norm(a),norm(b)
-    if not a: return 1.0
-    prev=list(range(len(b)+1))
-    for i,x in enumerate(a,1):
-        cur=[i]
-        for j,y in enumerate(b,1):
-            cur.append(min(cur[-1]+1,prev[j]+1,prev[j-1]+(x!=y)))
-        prev=cur
-    return prev[-1]/len(a)
+def cer(reference, candidate):
+    a, b = norm(reference), norm(candidate)
+    if not a:
+        return None
+    prev = list(range(len(b) + 1))
+    for i, char in enumerate(a, 1):
+        cur = [i]
+        for j, other in enumerate(b, 1):
+            cur.append(min(cur[-1] + 1, prev[j] + 1, prev[j - 1] + (char != other)))
+        prev = cur
+    return round(prev[-1] / len(a), 4)
 
-def get(url, path):
-    r=requests.get(url,timeout=180,headers={"User-Agent":"GotPDF-live-OCR-benchmark/1.0"})
-    r.raise_for_status()
-    path.write_bytes(r.content)
-    return r.content
+def download(url, path):
+    response = requests.get(url, timeout=(20, 120), headers={"User-Agent": "GotPDF-live-OCR-benchmark/2.0"})
+    response.raise_for_status()
+    path.write_bytes(response.content)
+    return response.content
+
+def api_post(out, name, endpoint, path, content_type, data=None, timeout=120):
+    try:
+        with path.open("rb") as handle:
+            response = requests.post(
+                BASE + endpoint,
+                files={"file": (path.name, handle, content_type)},
+                data=data or {},
+                timeout=(15, timeout),
+            )
+        response.raise_for_status()
+        payload = response.json()
+        out["tests"].append({"name": name, "status": "passed", "http_status": response.status_code})
+        return payload
+    except requests.RequestException as exc:
+        out["tests"].append({"name": name, "status": "failed", "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
+    except (ValueError, KeyError, TypeError) as exc:
+        out["tests"].append({"name": name, "status": "failed", "error": f"Invalid API response: {str(exc)[:300]}"})
+    return None
+
+def arabic_count(value):
+    return sum("\u0600" <= char <= "\u06ff" for char in value)
 
 def main():
-    out={"api_base":BASE,"sources":[],"tests":[]}
-    health=requests.get(BASE+"/api/health",timeout=45)
-    health.raise_for_status()
-    out["health_status"]=health.status_code
-    with tempfile.TemporaryDirectory() as td:
-        root=Path(td)
-        for name,url in SOURCES:
-            pdf=root/(name+".pdf")
-            raw=get(url,pdf)
-            if not raw.startswith(b"%PDF"): raise RuntimeError(f"{name}: source did not return a PDF")
-            doc=fitz.open(pdf)
-            # Use the first two authentic pages to keep the live request bounded.
-            sample=fitz.open()
-            sample.insert_pdf(doc,from_page=0,to_page=0)
-            sample_path=root/(name+"_sample.pdf"); sample.save(sample_path)
-            page=doc.load_page(0)
-            pix=page.get_pixmap(matrix=fitz.Matrix(2,2),alpha=False)
-            image_path=root/(name+"_page1.png"); pix.save(image_path)
-            ground="\n".join(doc.load_page(i).get_text("text") for i in range(1))
-            # The PDF endpoint is tested on the actual publisher PDF pages.
-            response=requests.post(BASE+"/api/ocr/pdf",files={"file":(sample_path.name,sample_path.read_bytes(),"application/pdf")},data={"language":"ara+eng","dpi":"120"},timeout=240)
-            response.raise_for_status(); payload=response.json()
-            text_out="\n".join(line.get("text","") for page_obj in payload.get("pages",[]) for line in page_obj.get("ocr",{}).get("lines",[]))
-            out["tests"].append({"name":name+"_pdf","status":"passed","pages":payload.get("page_count"),"ground_truth_chars":len(ground),"ocr_chars":len(text_out),"cer_vs_pdf_text_layer":round(cer(ground,text_out),4),"arabic_chars":sum("\u0600"<=c<="\u06ff" for c in text_out)})
-            # Image endpoint receives a PNG rasterized from the same authentic page.
-            response=requests.post(BASE+"/api/ocr/image",files={"file":(image_path.name,image_path.read_bytes(),"image/png")},data={"language":"ara+eng"},timeout=180)
-            response.raise_for_status(); img_payload=response.json()
-            image_text="\n".join(line.get("text","") for line in img_payload.get("lines",[]))
-            out["tests"].append({"name":name+"_page_image","status":"passed","ocr_chars":len(image_text),"arabic_chars":sum("\u0600"<=c<="\u06ff" for c in image_text),"lines":len(img_payload.get("lines",[]))})
-            doc.close(); sample.close()
-        # A real camera/scanner image from the CC-BY-4.0 Yarmouk/NOD collection.
-        archive=root/"nod_scans.tar.lzma"
-        data=get(NOD_URL,archive)
-        import hashlib
-        if hashlib.md5(data).hexdigest()!=NOD_MD5: raise RuntimeError("NOD archive checksum mismatch")
-        chosen=None
-        with tarfile.open(archive,"r:xz") as tar:
-            members=[m for m in tar.getmembers() if m.isfile() and Path(m.name).suffix.lower() in {".png",".jpg",".jpeg",".tif",".tiff"}]
-            if not members: raise RuntimeError("No raster scan found in NOD archive")
-            chosen=members[0]
-            f=tar.extractfile(chosen)
-            if f is None: raise RuntimeError("Could not read selected scan")
-            scan_bytes=f.read()
-        response=requests.post(BASE+"/api/ocr/image",files={"file":("nod_real_scan"+Path(chosen.name).suffix,scan_bytes,"image/jpeg")},data={"language":"ara+eng"},timeout=180)
-        response.raise_for_status(); scan_payload=response.json()
-        scan_text="\n".join(line.get("text","") for line in scan_payload.get("lines",[]))
-        out["tests"].append({"name":"nod_real_scanned_page_image","status":"passed","source_member":chosen.name,"ocr_chars":len(scan_text),"arabic_chars":sum("\u0600"<=c<="\u06ff" for c in scan_text),"lines":len(scan_payload.get("lines",[]))})
-    Path("live-ocr-results.json").write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding="utf-8")
-    print(json.dumps(out,ensure_ascii=False,indent=2))
-    if any(t.get("arabic_chars",0)==0 for t in out["tests"]):
-        raise SystemExit("At least one real image/PDF test returned no Arabic characters")
+    out = {"api_base": BASE, "sources": [], "tests": [], "started_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()}
+    try:
+        health = requests.get(BASE + "/api/health", timeout=(15, 60))
+        health.raise_for_status()
+        out["health_status"] = health.status_code
+        out["health"] = health.json()
+    except requests.RequestException as exc:
+        out["health_error"] = f"{type(exc).__name__}: {str(exc)[:500]}"
+        Path("live-ocr-results.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+        raise SystemExit("Render health check failed; details saved to artifact.")
 
-if __name__=="__main__": main()
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        for name, url in SOURCES:
+            pdf_path = root / f"{name}.pdf"
+            try:
+                raw = download(url, pdf_path)
+                if not raw.startswith(b"%PDF"):
+                    raise ValueError("Publisher URL did not return a PDF")
+                doc = pymupdf.open(pdf_path)
+                out["sources"].append({"name": name, "url": url, "pages": doc.page_count, "bytes": len(raw)})
+                sample = pymupdf.open()
+                sample.insert_pdf(doc, from_page=0, to_page=0)
+                sample_path = root / f"{name}_one_page.pdf"
+                sample.save(sample_path)
+                page = doc.load_page(0)
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(1.5, 1.5), alpha=False)
+                image_path = root / f"{name}_page1.png"
+                pix.save(image_path)
+                ground = page.get_text("text") or ""
+
+                pdf_payload = api_post(out, name + "_real_pdf_ocr", "/api/ocr/pdf", sample_path,
+                                        "application/pdf", {"language": "ara+eng", "dpi": "96"}, timeout=150)
+                if pdf_payload is not None:
+                    extracted = "\n".join(line.get("text", "") for pg in pdf_payload.get("pages", [])
+                                           for line in pg.get("ocr", {}).get("lines", []))
+                    test = out["tests"][-1]
+                    test.update({"pages": pdf_payload.get("page_count"), "ground_truth_chars": len(ground),
+                                 "ocr_chars": len(extracted), "arabic_chars": arabic_count(extracted),
+                                 "cer_vs_embedded_pdf_text": cer(ground, extracted)})
+                    if arabic_count(extracted) == 0:
+                        test["status"] = "failed"
+                        test["error"] = "OCR returned no Arabic characters"
+
+                image_payload = api_post(out, name + "_real_page_image_ocr", "/api/ocr/image", image_path,
+                                          "image/png", {"language": "ara+eng"}, timeout=150)
+                if image_payload is not None:
+                    extracted = "\n".join(line.get("text", "") for line in image_payload.get("lines", []))
+                    test = out["tests"][-1]
+                    test.update({"ocr_chars": len(extracted), "arabic_chars": arabic_count(extracted),
+                                 "lines": len(image_payload.get("lines", []))})
+                    if arabic_count(extracted) == 0:
+                        test["status"] = "failed"
+                        test["error"] = "Image OCR returned no Arabic characters"
+
+                # Real PDF -> DOCX conversion and quality inspection run locally
+                # in CI, independently from the Render OCR service.
+                try:
+                    from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
+                    docx_bytes = convert_pdf_to_docx(sample_path.read_bytes())
+                    if not docx_bytes.startswith(b"PK"):
+                        raise ValueError("DOCX ZIP signature is invalid")
+                    quality = analyze_pdf_docx_quality(sample_path.read_bytes(), docx_bytes)
+                    from docx import Document
+                    import io
+                    word_doc = Document(io.BytesIO(docx_bytes))
+                    word_text = "\n".join(p.text for p in word_doc.paragraphs)
+                    word_test = {"name": name + "_real_pdf_to_docx", "status": "passed",
+                                 "docx_bytes": len(docx_bytes), "paragraphs": len(word_doc.paragraphs),
+                                 "tables": len(word_doc.tables), "arabic_chars": arabic_count(word_text),
+                                 "quality": quality}
+                    if quality.get("analysis_status") == "ok" and quality.get("text_coverage_percent", 0) < 65:
+                        word_test["status"] = "failed"
+                        word_test["error"] = "DOCX text coverage below 65%"
+                    out["tests"].append(word_test)
+                except Exception as exc:
+                    out["tests"].append({"name": name + "_real_pdf_to_docx", "status": "failed",
+                                         "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
+                sample.close()
+                doc.close()
+            except Exception as exc:
+                out["sources"].append({"name": name, "status": "download_or_parse_failed",
+                                       "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
+
+        # Authentic scanned page from the Yarmouk/NOD research collection.
+        archive = root / "nod_scans.tar.lzma"
+        try:
+            raw = download(NOD_URL, archive)
+            if hashlib.md5(raw).hexdigest() != NOD_MD5:
+                raise ValueError("NOD archive checksum mismatch")
+            chosen = None
+            with tarfile.open(archive, "r:xz") as tar:
+                members = [m for m in tar.getmembers() if m.isfile() and Path(m.name).suffix.lower() in
+                           {".png", ".jpg", ".jpeg", ".tif", ".tiff"}]
+                if not members:
+                    raise ValueError("No raster scan found in NOD archive")
+                chosen = members[0]
+                extracted_file = tar.extractfile(chosen)
+                if extracted_file is None:
+                    raise ValueError("Could not read selected scan")
+                scan_path = root / ("nod_real_scan" + Path(chosen.name).suffix.lower())
+                scan_path.write_bytes(extracted_file.read())
+            payload = api_post(out, "nod_real_scanned_page_ocr", "/api/ocr/image", scan_path,
+                               "image/tiff" if scan_path.suffix == ".tif" else "image/jpeg",
+                               {"language": "ara+eng"}, timeout=150)
+            if payload is not None:
+                text_out = "\n".join(line.get("text", "") for line in payload.get("lines", []))
+                test = out["tests"][-1]
+                test.update({"source_member": chosen.name, "ocr_chars": len(text_out),
+                             "arabic_chars": arabic_count(text_out), "lines": len(payload.get("lines", []))})
+                if arabic_count(text_out) == 0:
+                    test["status"] = "failed"
+                    test["error"] = "Scanned image OCR returned no Arabic characters"
+        except Exception as exc:
+            out["tests"].append({"name": "nod_real_scanned_page_ocr", "status": "failed",
+                                 "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
+
+    out["finished_at"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    Path("live-ocr-results.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    failed = [item for item in out["tests"] if item.get("status") != "passed"]
+    if failed:
+        raise SystemExit(f"{len(failed)} real-file test(s) failed; full results saved to live-ocr-results.json")
+
+if __name__ == "__main__":
+    main()
