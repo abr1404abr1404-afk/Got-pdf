@@ -526,7 +526,14 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     merged = _reading_order(merged)
     layout = analyze_layout(merged, w, h)
     merged = layout["lines"]
-    # Visual measurements help the editor preserve ink color and choose a closer\n    # starting font. They are explicitly heuristic, never a handwriting claim.\n    for line in merged[:300]:\n        try:\n            line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []))\n        except (ValueError, TypeError, cv2.error):\n            line["visual_style"] = None\n    return {\n        "engine": used,
+    # Visual measurements help the editor preserve ink color and choose a closer
+    # starting font. They are explicitly heuristic, never a handwriting claim.
+    for line in merged[:300]:
+        try:
+            line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []))
+        except (ValueError, TypeError, cv2.error):
+            line["visual_style"] = None
+    return {\n        "engine": used,
         "image_width": w,
         "image_height": h,
         "lines": merged,
