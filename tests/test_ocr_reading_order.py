@@ -108,6 +108,17 @@ class ReadingOrderTests(unittest.TestCase):
         self.assertEqual([item["text"] for item in result], [
             "Left top", "Left bottom", "Right top", "Right bottom"
         ])
+    def test_spanning_title_is_not_dropped_when_columns_are_ambiguous(self):
+        rows = [
+            row("عنوان الصفحة", 10, 0, 340, 18),
+            row("يسار أعلى", 10, 30, 100, 50),
+            row("يسار أسفل", 10, 70, 100, 90),
+            row("يمين أعلى", 250, 30, 340, 50),
+            row("يمين أسفل", 250, 70, 340, 90),
+        ]
+        result = reading_order(rows)
+        self.assertEqual(len(result), len(rows))
+        self.assertCountEqual([item["text"] for item in result], [item["text"] for item in rows])
     def test_lines_are_ordered_top_to_bottom(self):
         rows = [row("السطر الثاني", 10, 60, 100, 80), row("السطر الأول", 10, 10, 100, 30)]
         result = reading_order(rows)
