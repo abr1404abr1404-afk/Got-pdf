@@ -571,7 +571,51 @@ def health():
             "pdf2docx_installed": pdf2docx_installed,
             "pdf_image_edit_available": True,
             "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None,
-            "pdf_to_docx_engine": "pdf2docx" if pdf2docx_installed else None}
+            "pdf_to_docx_engine": "pdf2docx" if pdf2docx_installed else None,
+            # Machine-readable feature registry for the frontend and integrations.
+            # "configured" means credentials/URL exist; it does not claim that an
+            # external provider is reachable at this instant.
+            "capabilities": {
+                "ocr.image": {
+                    "available": "eng" in languages,
+                    "arabic_available": "ara" in languages,
+                    "engines": {"tesseract": bool(languages), "paddleocr": paddle_enabled},
+                    "languages": languages,
+                },
+                "ocr.pdf": {
+                    "available": "eng" in languages,
+                    "arabic_available": "ara" in languages,
+                    "engines": {"tesseract": bool(languages), "paddleocr": paddle_enabled},
+                    "languages": languages,
+                },
+                "pdf.searchable": {"available": True, "engine": "PyMuPDF"},
+                "pdf.unlock": {"available": True, "engine": "PyMuPDF"},
+                "pdf.to_docx": {"available": pdf2docx_installed, "engine": "pdf2docx"},
+                "pdf.inspect": {"available": True, "engine": "PyMuPDF"},
+                "pdf.objects.edit": {"available": True, "engine": "PyMuPDF"},
+                "pdf.images.list": {"available": True, "engine": "PyMuPDF"},
+                "pdf.images.edit": {"available": True, "engine": "PyMuPDF"},
+                "pdf.redact": {"available": True, "engine": "PyMuPDF"},
+                "pdf.compress": {"available": True, "engine": "PyMuPDF"},
+                "pdf.compare": {"available": True, "engine": "PyMuPDF"},
+                "export.docx": {"available": True, "engine": "python-docx"},
+                "export.xlsx": {"available": True, "engine": "openpyxl"},
+                "convert.office_to_pdf": {
+                    "available": bool(GOTENBERG_URL),
+                    "configured": bool(GOTENBERG_URL),
+                    "engine": "Gotenberg 9 / LibreOffice",
+                },
+                "assistant.chat": {
+                    "available": bool(OPENAI_API_KEY),
+                    "configured": bool(OPENAI_API_KEY),
+                    "engine": OPENAI_MODEL if OPENAI_API_KEY else None,
+                },
+                "assistant.extract": {
+                    "available": bool(OPENAI_API_KEY),
+                    "configured": bool(OPENAI_API_KEY),
+                    "engine": OPENAI_MODEL if OPENAI_API_KEY else None,
+                },
+            }}
 
 
 
