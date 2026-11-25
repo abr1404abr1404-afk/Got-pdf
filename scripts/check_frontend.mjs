@@ -52,6 +52,12 @@ if (!html.includes("const maxLineHeight=Math.max(110,pageHeight*.22)")) {
 if (!html.includes("o.c>=10") || !html.includes('g.direction=rtl(l)?"rtl":"ltr"')) {
   failures.push("OCR confidence retention or explicit RTL canvas measurement is missing.");
 }
+if (html.includes('text=text.normalize("NFKC")') || !html.includes('text=text.normalize("NFC")')) {
+  failures.push("Arabic PDF text extraction must avoid compatibility normalization that can alter glyph sequences.");
+}
+if (!html.includes('(l.text||"").trim().replace(/\\s+/g," ")')) {
+  failures.push("Backend OCR text whitespace normalization is missing.");
+}
 if (!html.includes("المجلس")) {
   failures.push("Arabic OCR regression fixture for the word المجلس is missing.");
 }
