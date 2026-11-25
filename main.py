@@ -381,7 +381,7 @@ def _bidi_order(items: list, text_getter, x_getter) -> list:
     texts = [str(text_getter(item) or "") for item in visual]
     arabic_total = sum(sum("\u0600" <= ch <= "\u06ff" for ch in text) for text in texts)
     latin_total = sum(sum("a" <= ch.lower() <= "z" for ch in text) for text in texts)
-    base_rtl = arabic_total >= latin_total
+    base_rtl = arabic_total > latin_total
     runs: list[tuple[str, list]] = []
     for item, text in zip(visual, texts):
         arabic = sum("\u0600" <= ch <= "\u06ff" for ch in text)
