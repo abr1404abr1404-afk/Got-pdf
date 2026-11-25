@@ -169,7 +169,7 @@ for (const feature of ["X-Conversion-Text-Order", "quality.order", "ترتيب �
   if (!html.includes(feature)) failures.push("PDF-to-Word reading-order quality feedback is missing: " + feature);
 }
 
-for (const feature of ['id="pdfCreateFields"', 'id="pdfCreateModal"', 'id="pdfCreateApply"', 'form.createTextField(name)', 'form.createCheckBox(name)', 'form.createDropdown(name)', 'field.addToPage(page,style)', 'pdfCreateDocIndex']) {
+for (const feature of ['id="pdfCreateFields"', 'id="pdfCreateModal"', 'id="pdfCreateApply"', 'form.createTextField(name)', 'form.createCheckBox(name)', 'form.createDropdown(name)', 'form.createOptionList(name)', 'field.addToPage(page,style)', 'pdfCreateDocIndex']) {
   if (!html.includes(feature)) failures.push("Interactive PDF form-field creation is missing: " + feature);
 }
 const createFormStart = html.indexOf('$("pdfCreateApply").onclick=async()=>{');
