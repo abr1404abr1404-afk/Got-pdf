@@ -14,6 +14,7 @@ from collections import deque
 from typing import Any
 
 import httpx
+import importlib.util
 
 import cv2
 import numpy as np
@@ -542,21 +543,31 @@ def _tesseract_languages() -> list[str]:
 @app.get("/api/health")
 def health():
     languages = _tesseract_languages()
+    paddleocr_installed = importlib.util.find_spec("paddleocr") is not None
+    paddlepaddle_installed = importlib.util.find_spec("paddle") is not None
+    pdf2docx_installed = importlib.util.find_spec("pdf2docx") is not None
+    paddle_enabled = OCR_MODE in {"hybrid", "paddle", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "tesseract_languages": languages,
             "arabic_ocr_ready": "ara" in languages,
             "english_ocr_ready": "eng" in languages,
+            "paddleocr_installed": paddleocr_installed,
+            "paddlepaddle_installed": paddlepaddle_installed,
+            "paddleocr_enabled": paddle_enabled,
+            "hybrid_ocr_ready": paddle_enabled and "ara" in languages and "eng" in languages,
             "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
             "office_conversion_available": bool(GOTENBERG_URL),
             "searchable_pdf_available": True,
             "secure_redaction_available": True,
             "password_unlock_available": True,
-            "pdf_to_docx_available": True,
+            "pdf_to_docx_available": pdf2docx_installed,
+            "pdf2docx_installed": pdf2docx_installed,
             "pdf_image_edit_available": True,
-            "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None}
+            "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None,
+            "pdf_to_docx_engine": "pdf2docx" if pdf2docx_installed else None}
 
 
 
