@@ -39,6 +39,7 @@ from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 from document_layout import analyze_layout, attach_table_regions
 from text_style import analyze_text_style
+from image_cleanup import preview_text_removal
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -584,6 +585,7 @@ def health():
             # "configured" means credentials/URL exist; it does not claim that an
             # external provider is reachable at this instant.
             "capabilities": {
+                "image.text_cleanup.preview": {"available": True, "engine": "OpenCV inpaint", "mode": "preview_only"},
                 "ocr.image": {
                     "available": "eng" in languages,
                     "arabic_available": "ara" in languages,
@@ -1043,6 +1045,20 @@ async def assistant_extract(payload: ExtractRequest, request: Request):
     except httpx.RequestError as exc:
         raise HTTPException(502, "تعذّر الاتصال بمزود الذكاء الاصطناعي.") from exc
 
+
+
+@app.post("/api/image/text-cleanup/preview")
+async def image_text_cleanup_preview(request: Request, file: UploadFile = File(...), bbox: str = Form(...), method: str = Form("telea")):
+    """Create a non-destructive inpaint preview for one OCR text region."""
+    _guard_expensive_request(request, "image-cleanup", client_limit=4, global_limit=12)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1); _check_size(data); image = _decode_image(data)
+    try:
+        region = json.loads(bbox); preview, details = await _run_cpu(preview_text_removal, image, region, method)
+    except (ValueError, TypeError, cv2.error) as exc: raise HTTPException(400, str(exc)) from exc
+    ok, encoded = cv2.imencode(".png", preview, [cv2.IMWRITE_PNG_COMPRESSION, 3])
+    if not ok: raise HTTPException(500, "تعذّر إنشاء معاينة إزالة النص.")
+    import base64
+    return {"preview_image":"data:image/png;base64,"+base64.b64encode(encoded).decode("ascii"),"width":int(preview.shape[1]),"height":int(preview.shape[0]),"details":details,"applied":False,"message":"هذه معاينة فقط؛ لم يتم تعديل الملف الأصلي."}
 
 @app.post("/api/ocr/image")
 async def ocr_image(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng")):
