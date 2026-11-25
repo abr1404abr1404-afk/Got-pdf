@@ -2535,15 +2535,13 @@ async function previewOcrCleanup(pg,o,wrap,el){
         let coverEl=el._coverEl;
         if(!coverEl){coverEl=document.createElement("div");coverEl.className="cover";wrap.insertBefore(coverEl,el);el._coverEl=coverEl}
         coverEl.style.left=o.cover.x*100+"%";coverEl.style.top=o.cover.y*100+"%";coverEl.style.width=o.cover.w*100+"%";coverEl.style.height=o.cover.h*100+"%";coverEl.style.background="url("+img+") 0 0/100% 100% no-repeat";
-        o.cleanupApplied=true;close();toast("تم اعتماد إزالة الحبر كطبقة قابلة للتراجع فوق الصفحة.");
+        o.cleanupApplied=true;if(el._cleanupUndo)el._cleanupUndo.style.display="";close();toast("تم اعتماد إزالة الحبر كطبقة قابلة للتراجع فوق الصفحة.");
       }catch(err){toast("تعذّر اعتماد المعاينة: "+(err.message||err))}
     });
     actions.append(btn("إلغاء",false,close),apply);card.append(heading,note,images,details,actions);modal.append(card);document.body.append(modal);
     modal.addEventListener("click",e=>{if(e.target===modal)close()});
   }catch(err){if(modal)modal.remove();if(sourceBitmap)sourceBitmap.close();console.error(err);toast("تعذّرت معاينة إزالة النص: "+(err.message||err))}
 }
-function cvElForCleanup(){return null}
-
 function mkOv(pg,o,s,wrap){
   let cvEl=null;
   if(o.cover){const c=document.createElement("div");c.className="cover";Object.assign(c.style,{left:o.cover.x*100+"%",top:o.cover.y*100+"%",width:o.cover.w*100+"%",height:o.cover.h*100+"%",background:o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")});cvEl=c;wrap.append(c)}
@@ -2583,7 +2581,7 @@ function mkOv(pg,o,s,wrap){
   const mb=mkB("A−","تصغير الخط",()=>{o.s=Math.max(6,o.s-2);upd()}),pb=mkB("A+","تكبير الخط",()=>{o.s=Math.min(160,o.s+2);upd()});
   const ed=mkB("✎","تعديل النص",startEdit),d=mkB("×","حذف النص",rm,"d");
   const cleanupBtn=o.cleanupBBox&&pg.src&&pg.src.blob?mkB("◌","معاينة إزالة الحبر القديم",()=>previewOcrCleanup(pg,o,wrap,el)):null;
-  const cleanupUndoBtn=o.cleanupApplied?mkB("↶","التراجع عن إزالة الحبر",()=>{o.cover=o.cleanupPreviousCover||null;o.cleanupApplied=false;if(o.cover){const q=el._coverEl||document.createElement("div");q.className="cover";if(!q.parentNode)wrap.insertBefore(q,el);el._coverEl=q;q.style.left=o.cover.x*100+"%";q.style.top=o.cover.y*100+"%";q.style.width=o.cover.w*100+"%";q.style.height=o.cover.h*100+"%";q.style.background=o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")}else{if(el._coverEl)el._coverEl.remove();el._coverEl=null}delete o.cleanupPreviousCover;toast("تم التراجع عن إزالة الحبر.")}):null;
+  const cleanupUndoBtn=mkB("↶","التراجع عن إزالة الحبر",()=>{o.cover=o.cleanupPreviousCover||null;o.cleanupApplied=false;if(o.cover){const q=el._coverEl||document.createElement("div");q.className="cover";if(!q.parentNode)wrap.insertBefore(q,el);el._coverEl=q;q.style.left=o.cover.x*100+"%";q.style.top=o.cover.y*100+"%";q.style.width=o.cover.w*100+"%";q.style.height=o.cover.h*100+"%";q.style.background=o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")}else{if(el._coverEl)el._coverEl.remove();el._coverEl=null}delete o.cleanupPreviousCover;cleanupUndoBtn.style.display="none";toast("تم التراجع عن إزالة الحبر.")});cleanupUndoBtn.style.display=o.cleanupApplied?"":"none";el._cleanupUndo=cleanupUndoBtn;
   const sel=document.createElement("select");sel.setAttribute("aria-label","الخط");fontOpts(sel,o.f);sel.onchange=()=>{o.f=+sel.value;upd()};
   const col=document.createElement("input");col.type="color";col.value=o.c;col.setAttribute("aria-label","لون النص");col.oninput=()=>{o.c=col.value;upd()};
   const sw=["#000000","#ffffff","#c62828","#1565c0","#2e7d32","#6d4c41"].map(c=>{const b=mkB("","لون "+c,()=>{o.c=c;col.value=c;upd()},"sw");b.style.background=c;return b});
@@ -2592,7 +2590,7 @@ function mkOv(pg,o,s,wrap){
   const more=mkB("Aa","خيارات الخط واللون",()=>{tb.classList.toggle("open");more.classList.toggle("on",tb.classList.contains("open"));place()});
   const dup=mkB("⧉","تكرار النص",()=>{const n={...o,x:Math.min(1,o.x+.03),y:Math.min(.96,o.y+.025)};delete n.cover;delete n.key;pg.ov.push(n);const e2=mkOv(pg,n,s,wrap);wrap.append(e2);if(e2.select)e2.select();toast("تم تكرار النص. اسحب النسخة إلى مكانها.")});
   const cpy=mkB("نسخ","نسخ النص للصقه في صفحة أخرى",()=>{const n={...o};delete n.cover;delete n.key;window.__clip=n;toast("تم نسخ النص. اضغط «لصق نص» في شريط أي صفحة.");render()});
-  r1.append(mv,ed,mb,szl,pb,bb,al,more,...(cleanupBtn?[cleanupBtn]:[]),...(cleanupUndoBtn?[cleanupUndoBtn]:[]),d);r2.append(nb,dup,cpy,sel,col,...sw);
+  r1.append(mv,ed,mb,szl,pb,bb,al,more,...(cleanupBtn?[cleanupBtn]:[]),cleanupUndoBtn,d);r2.append(nb,dup,cpy,sel,col,...sw);
   if(o.cover){
     const applyCover=()=>{if(cvEl)cvEl.style.background=o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")};
     const bl=document.createElement("span");bl.textContent="الخلفية:";bl.style.fontSize="12px";
