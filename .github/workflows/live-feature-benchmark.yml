@@ -4,6 +4,11 @@ on:
     branches: [main]
     paths:
       - "scripts/live_feature_benchmark.py"
+      - "main.py"
+      - "pdf_to_docx.py"
+      - "pdf_image_tools.py"
+      - "Dockerfile.free"
+      - "render.yaml"
       - ".github/workflows/live-feature-benchmark.yml"
   workflow_dispatch:
 permissions:
