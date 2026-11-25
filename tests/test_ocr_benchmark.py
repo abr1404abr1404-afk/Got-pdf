@@ -50,7 +50,7 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
             outside.write_bytes(b"not an image")
             try:
                 manifest = {"samples": [{
-                    "id": "escape", "image": "../outside.png", "reference": "نص"
+                    "id": "escape", "image": f"../{root.name}-outside.png", "reference": "نص"
                 }]}
                 with self.assertRaisesRegex(ValueError, "inside the manifest directory"):
                     _validate_manifest(manifest, root / "manifest.json")
