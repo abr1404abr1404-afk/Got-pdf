@@ -99,6 +99,7 @@ app.add_middleware(
         "X-Conversion-Matched-Words",
         "X-Conversion-Text-Coverage",
         "X-Conversion-Text-Precision",
+        "X-Conversion-Text-Order",
         "X-Conversion-Source-Images",
         "X-Conversion-Output-Images",
         "X-Conversion-Output-Tables",
@@ -686,10 +687,11 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
         "X-Conversion-Output-Tables": str(quality.get("output_table_count", 0)),
         "X-Conversion-Output-Paragraphs": str(quality.get("output_paragraph_count", 0)),
     }
-    for key in ("text_coverage_percent", "text_precision_percent"):
+    for key in ("text_coverage_percent", "text_precision_percent", "text_order_similarity_percent"):
         value = quality.get(key)
         if value is not None:
-            header_name = "X-Conversion-" + ("Text-Coverage" if key == "text_coverage_percent" else "Text-Precision")
+            suffix = {"text_coverage_percent": "Text-Coverage", "text_precision_percent": "Text-Precision", "text_order_similarity_percent": "Text-Order"}[key]
+            header_name = "X-Conversion-" + suffix
             quality_headers[header_name] = str(value)
     return Response(content=output,
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
