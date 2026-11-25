@@ -12,6 +12,7 @@ import tempfile
 import threading
 import time
 from collections import deque
+from functools import partial
 from typing import Any
 
 import httpx
@@ -937,7 +938,7 @@ async def compress_pdf_batch_endpoint(
             raise HTTPException(413, "إجمالي أحجام الملفات يتجاوز حد الطلب الجماعي.")
         batch.append((upload.filename or f"document-{index}.pdf", data))
     try:
-        archive, report = await _run_cpu(
+        batch_operation = partial(
             compress_pdf_batch,
             batch,
             level,
@@ -946,6 +947,7 @@ async def compress_pdf_batch_endpoint(
             max_total_bytes=MAX_REQUEST_BODY_MB * 1024 * 1024,
             max_output_bytes=MAX_CONVERTED_MB * 1024 * 1024,
         )
+        archive, report = await _run_cpu(batch_operation)
     except ValueError as exc:
         raise HTTPException(415, str(exc)) from exc
     return Response(
