@@ -100,6 +100,9 @@ python tools/ocr_benchmark.py --manifest benchmarks/my-arabic-set/manifest.json
 
 ### متغيرات البيئة
 
+- `APP_ENV=production` يفعّل تحقق إعدادات الإنتاج عند بدء الخادم. في وضع الإنتاج يرفض الخادم تشغيل نفسه إذا كانت `CORS_ORIGINS` فارغة أو تحتوي على `*`.
+- `CORS_ORIGINS` يجب أن يحتوي على أصول الواجهة الموثوقة فقط، مفصولة بفواصل، مثل `https://example.com,https://app.example.com`. لا تضع مسارات URL بعد اسم المضيف.
+
 يحدد `render.yaml` القيم الافتراضية التالية:
 
 - `MAX_UPLOAD_MB=25`
