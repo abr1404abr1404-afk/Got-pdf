@@ -13,7 +13,7 @@ class AdaptiveOcrPassTests(unittest.TestCase):
     @patch.object(main, "analyze_layout")
     @patch.object(main, "_paddle", return_value=([], "disabled"))
     @patch.object(main, "_tesseract")
-    def test_good_first_pass_skips_expensive_variants(self, tess, paddle, preprocess, layout, style):
+    def test_good_first_pass_skips_expensive_variants(self, tess, paddle, layout, style):
         line = {"text": "المجلس", "confidence": 82.0, "bbox": [10, 10, 120, 40], "engine": "tesseract"}
         tess.return_value = ([line], None)
         layout.return_value = {"lines": [line], "tables": [], "direction": "rtl"}
@@ -24,7 +24,6 @@ class AdaptiveOcrPassTests(unittest.TestCase):
 
     @patch.object(main, "analyze_text_style", return_value={"style_classification": "uncertain"})
     @patch.object(main, "analyze_layout")
-    @patch.object(main, "_preprocess")
     @patch.object(main, "_paddle", return_value=([], "disabled"))
     @patch.object(main, "_tesseract")
     def test_weak_first_pass_uses_adaptive_and_inverted_fallbacks(self, tess, paddle, preprocess, layout, style):
