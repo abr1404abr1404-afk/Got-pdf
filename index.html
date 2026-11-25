@@ -417,6 +417,7 @@ label.btn{position:relative}
 <div class="tsec"><label for="cpLevel">مستوى الضغط</label> <select id="cpLevel"><option value="lossless">بدون فقد الجودة — ضغط بنيوي</option><option value="balanced" selected>متوازن — جودة صور أفضل</option><option value="small">حجم أصغر — ضغط أقوى للصور</option></select></div>
 <label class="ai-consent"><input id="cpServerConsent" type="checkbox"> أوافق على إرسال نسخة من الملف إلى خادم الفلقي لضغط الصور وتقليل حجم الملف.</label>
 <div id="cpStatus" role="status" aria-live="polite">بدون تحديد الموافقة، ستتم محاولة التحسين محليًا في المتصفح.</div>
+<div class="tsec"><h3>ضغط عدة ملفات دفعة واحدة</h3><p class="ai-note">اختر حتى 10 ملفات PDF. سيُعاد إليك ملف ZIP يحتوي على النسخ المضغوطة وتقرير أحجام لكل ملف. الحد الإجمالي للرفع يخضع لإعدادات الخادم.</p><input id="cpBatchFiles" type="file" accept="application/pdf,.pdf" multiple><label class="ai-consent"><input id="cpBatchConsent" type="checkbox"> أوافق على إرسال الملفات المحددة إلى خادم الفلقي للضغط الجماعي.</label><div id="cpBatchStatus" role="status" aria-live="polite">لم يتم اختيار ملفات بعد.</div><button id="cpBatchGo" type="button">ضغط الملفات المحددة وتنزيل ZIP</button></div>
 <div class="r"><button id="cpClose" type="button">إغلاق</button><span class="sp"></span><button id="cpGo" class="p" type="button">ضغط وتنزيل النسخة</button></div>
 </div></div>
 <div id="rdm"><div class="bx" role="dialog" aria-label="الملف جاهز"><h2>الملف جاهز ✔</h2><p id="rdn"></p><div class="rdb"><button id="rds" class="p">مشاركة / حفظ في «الملفات»</button><a id="rdd" class="rda p" href="#" download>تنزيل الملف</a><a id="rdo" class="rda" href="#" target="_blank" rel="noopener">فتح الملف</a><button id="rdx">إغلاق</button></div></div></div>
@@ -3143,6 +3144,28 @@ $("cpGo").onclick=async()=>{
     await saveFile(safeName()+"-compressed.pdf",output);
   }catch(error){$("cpStatus").textContent=error.message||"تعذّر ضغط الملف."}
   finally{btn.disabled=false}
+};
+$("cpBatchGo").onclick=async()=>{
+ const button=$("cpBatchGo"),files=[...($("cpBatchFiles").files||[])],base=apiBase();
+ if(!files.length)return $("cpBatchStatus").textContent="اختر ملف PDF واحدًا على الأقل.";
+ if(files.length>10)return $("cpBatchStatus").textContent="الحد الأقصى 10 ملفات في الدفعة الواحدة.";
+ if(!base)return $("cpBatchStatus").textContent="خادم الفلقي غير متصل. اضبط عنوان API أولًا.";
+ if(!$("cpBatchConsent").checked)return $("cpBatchStatus").textContent="وافق على إرسال الملفات إلى الخادم قبل بدء المعالجة.";
+ const total=files.reduce((sum,file)=>sum+file.size,0);
+ if(files.some(file=>file.size===0||!(/\.pdf$/i.test(file.name)||file.type==="application/pdf")))return $("cpBatchStatus").textContent="تأكد أن جميع الملفات PDF وغير فارغة.";
+ if(total>52*1024*1024)return $("cpBatchStatus").textContent="إجمالي الملفات يتجاوز الحد الأقصى الافتراضي 52 MB. اختر ملفات أصغر أو اضبط حد الخادم.";
+ button.disabled=true;
+ try{
+  $("cpBatchStatus").textContent="جارٍ رفع الملفات المحددة وضغطها على خادم الفلقي…";
+  const form=new FormData();files.forEach(file=>form.append("files",file,file.name));form.append("level",$("cpLevel").value);
+  const response=await fetch(base+"/api/compress/pdf/batch",{method:"POST",body:form});
+  if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.detail||"تعذّرت المعالجة الجماعية.")}
+  const output=new Uint8Array(await response.arrayBuffer()),count=response.headers.get("X-Batch-File-Count")||files.length;
+  $("cpBatchStatus").textContent="اكتملت معالجة "+count+" ملفات. يجري تجهيز حزمة ZIP.";
+  await saveFile("alfalqi-compressed-batch.zip",output,"application/zip");
+  $("cpBatchStatus").textContent="اكتملت المعالجة. راجع تقرير alfalqi-batch-report.json داخل الحزمة.";
+ }catch(error){$("cpBatchStatus").textContent=error.message||"تعذّرت المعالجة الجماعية."}
+ finally{button.disabled=false}
 };
 const safeName=()=>(($("fn").value.trim().replace(/[\\/:*?"<>|]+/g,"-").replace(/\.pdf$/i,""))||"document");
 $("save").onclick=async()=>{
