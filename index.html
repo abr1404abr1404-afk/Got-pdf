@@ -2495,6 +2495,10 @@ function mkOv(pg,o,s,wrap){
   if(o.cover){const c=document.createElement("div");c.className="cover";Object.assign(c.style,{left:o.cover.x*100+"%",top:o.cover.y*100+"%",width:o.cover.w*100+"%",height:o.cover.h*100+"%",background:o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")});cvEl=c;wrap.append(c)}
   const el=document.createElement("div"),t=document.createElement("span"),rz=document.createElement("div"),tb=document.createElement("div");
   el.className="ov";t.className="t";t.contentEditable="false";t.dir="auto";t.textContent=o.t;t.setAttribute("aria-label","نص مضاف");rz.className="rzt";tb.className="tb";
+  const cleanupHint=o.style&&o.style.recommended_cleanup;
+  if(cleanupHint==="manual_review")el.title="تنبيه: خلفية معقدة؛ راجع إزالة النص والنتيجة قبل اعتماد التعديل.";
+  else if(cleanupHint==="inpaint_preview")el.title="مراجعة مطلوبة: الخلفية ذات نسيج؛ تحقق من معاينة إزالة النص.";
+  else if(cleanupHint==="sampled_solid_fill")el.title="خلفية متجانسة؛ تمت التوصية بتعبئة لونية محلية.";
   el.style.left=o.x*100+"%";el.style.top=o.y*100+"%";styleOv(el,o,s);
   const place=()=>dock(el,tb);const anch=()=>{const f=o.an==="c"?.5:o.an==="r"?1:0;el.style.marginLeft=f?(-el.offsetWidth*f)+"px":"0px"};
   const rm=()=>{if(o.cover){o.t="";t.textContent="";el.classList.remove("sel","edit")}else{pg.ov=pg.ov.filter(v=>v!==o);el.remove()}};
