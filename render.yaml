@@ -16,5 +16,7 @@ services:
         value: "180"
       - key: OCR_MODE
         value: tesseract
+      - key: ENABLE_PADDLE_OCR
+        value: "false"
       - key: CORS_ORIGINS
         value: https://abr1404abr1404-afk.github.io
