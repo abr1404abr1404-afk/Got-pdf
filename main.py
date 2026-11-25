@@ -490,35 +490,29 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     else:
         paddle_rows, paddle_error = [], "disabled by OCR_MODE"
     if mode in {"hybrid", "tesseract"}:
-        # Decorative, low-contrast, or textured lettering often benefits from
-        # more than one view of the same scan. Keep variants at identical
-        # dimensions so OCR bounding boxes remain aligned with the page.
-        gray = cv2.cvtColor(prepared, cv2.COLOR_BGR2GRAY)
-        adaptive = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
+        # Run one normal pass first. Extra threshold variants are expensive on
+        # small CPU instances, so reserve them for weak/empty first-pass results.
+        tess_rows, first_error = _tesseract(prepared, language, 11)
+        tess_errors: list[str] = [first_error] if first_error else []
+        average_confidence = (
+            sum(float(row.get("confidence", 0)) for row in tess_rows) / len(tess_rows)
+            if tess_rows else 0.0
         )
-        _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        adaptive_inverse = cv2.adaptiveThreshold(
-            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 11
-        )
-        _, otsu_inverse = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-        # Posters and ads often use bright gold/white lettering on a dark field.
-        # Inverted views turn that lettering into dark ink on a light page, a
-        # complementary signal for Tesseract's Arabic recognizer.
-        variants = [
-            (prepared, 11),
-            (cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR), 11),
-            (cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR), 6),
-            (cv2.cvtColor(adaptive_inverse, cv2.COLOR_GRAY2BGR), 11),
-            (cv2.cvtColor(otsu_inverse, cv2.COLOR_GRAY2BGR), 6),
-        ]
-        tess_rows: list[dict] = []
-        tess_errors: list[str] = []
-        for variant, psm in variants:
-            rows, error = _tesseract(variant, language, psm)
-            tess_rows.extend(rows)
-            if error:
-                tess_errors.append(error)
+        if not tess_rows or average_confidence < 48.0:
+            gray = cv2.cvtColor(prepared, cv2.COLOR_BGR2GRAY)
+            adaptive = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
+            )
+            adaptive_inverse = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 11
+            )
+            # The inverse view is particularly useful for gold/white lettering
+            # on dark poster backgrounds. Keep coordinates unchanged.
+            for variant in (adaptive, adaptive_inverse):
+                rows, error = _tesseract(cv2.cvtColor(variant, cv2.COLOR_GRAY2BGR), language, 11)
+                tess_rows.extend(rows)
+                if error:
+                    tess_errors.append(error)
         tess_rows = _dedupe(tess_rows)
         tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
