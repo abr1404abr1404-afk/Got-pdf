@@ -46,19 +46,21 @@ def compress_pdf_batch(
         raise ValueError("مستوى الضغط غير صالح.")
 
     total = 0
+    for index, (_, data) in enumerate(entries, start=1):
+        if not isinstance(data, bytes) or not data:
+            raise ValueError(f"الملف رقم {index} فارغ أو غير صالح.")
+        if len(data) > max_file_bytes:
+            raise ValueError(f"حجم الملف رقم {index} يتجاوز الحد المسموح.")
+        total += len(data)
+    if total > max_total_bytes:
+        raise ValueError("إجمالي أحجام الملفات يتجاوز حد الطلب الجماعي.")
+
     used: set[str] = set()
     report: list[dict] = []
     archive_buffer = io.BytesIO()
     try:
         with zipfile.ZipFile(archive_buffer, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-            for index, (filename, data) in enumerate(entries, start=1):
-                if not isinstance(data, bytes) or not data:
-                    raise ValueError(f"الملف رقم {index} فارغ أو غير صالح.")
-                if len(data) > max_file_bytes:
-                    raise ValueError(f"حجم الملف رقم {index} يتجاوز الحد المسموح.")
-                total += len(data)
-                if total > max_total_bytes:
-                    raise ValueError("إجمالي أحجام الملفات يتجاوز حد الطلب الجماعي.")
+            for filename, data in entries:
                 output, reduced = compress_pdf_bytes(data, level)
                 safe_name = _safe_pdf_name(filename, used)
                 archive.writestr(safe_name, output)
