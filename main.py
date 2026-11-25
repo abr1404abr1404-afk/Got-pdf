@@ -38,6 +38,7 @@ from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_object
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
 from document_layout import analyze_layout, attach_table_regions
+from text_style import analyze_text_style
 
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
@@ -525,8 +526,7 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     merged = _reading_order(merged)
     layout = analyze_layout(merged, w, h)
     merged = layout["lines"]
-    return {
-        "engine": used,
+    # Visual measurements help the editor preserve ink color and choose a closer\n    # starting font. They are explicitly heuristic, never a handwriting claim.\n    for line in merged[:300]:\n        try:\n            line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []))\n        except (ValueError, TypeError, cv2.error):\n            line["visual_style"] = None\n    return {\n        "engine": used,
         "image_width": w,
         "image_height": h,
         "lines": merged,
