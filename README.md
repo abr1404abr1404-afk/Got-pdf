@@ -107,7 +107,8 @@ python tools/ocr_benchmark.py --manifest benchmarks/my-arabic-set/manifest.json
 - `MAX_PDF_PAGES=12`
 - `OCR_DPI=240`
 - `OCR_MODE=hybrid`
-- `CORS_ORIGINS=https://abr1404abr1404-afk.github.io`
+- `APP_ENV=production` — يفعّل فحوص إعدادات الإنتاج.
+- `CORS_ORIGINS=https://abr1404abr1404-afk.github.io` — يجب تحديد أصل الواجهة صراحة؛ يرفض الخادم بدء التشغيل في وضع الإنتاج إذا كانت القيمة فارغة أو `*`.
 - `OPENAI_API_KEY` — مفتاح سري اختياري يُضاف من لوحة Render فقط، ولا يُحفظ في GitHub.
 - `OPENAI_MODEL=gpt-4.1-mini` — النموذج الافتراضي للمساعد.
 
