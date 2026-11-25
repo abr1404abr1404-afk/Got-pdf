@@ -41,6 +41,18 @@ from document_layout import analyze_layout, attach_table_regions
 from text_style import analyze_text_style
 from image_cleanup import preview_text_removal
 
+def _resolve_ocr_mode(requested: str, paddle_opt_in: bool) -> str:
+    """Keep lightweight Tesseract as the safe default; enable Paddle only by explicit opt-in."""
+    value = str(requested or "tesseract").strip().lower()
+    if value == "paddle":
+        value = "paddleocr"
+    if value not in {"tesseract", "hybrid", "paddleocr"}:
+        return "tesseract"
+    if value in {"hybrid", "paddleocr"} and not paddle_opt_in:
+        return "tesseract"
+    return value
+
+
 APP_NAME = "Alfalqi PDF OCR API"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "12"))
@@ -49,7 +61,8 @@ MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "12000000"))
 MAX_RENDERED_PIXELS = int(os.getenv("MAX_RENDERED_PIXELS", "18000000"))
 MAX_DOCUMENT_RENDERED_PIXELS = int(os.getenv("MAX_DOCUMENT_RENDERED_PIXELS", "45000000"))
 OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
-OCR_MODE = os.getenv("OCR_MODE", "hybrid").lower()
+PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
+OCR_MODE = _resolve_ocr_mode(os.getenv("OCR_MODE", "tesseract"), PADDLE_OCR_OPT_IN)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
@@ -562,7 +575,7 @@ def health():
     paddleocr_installed = importlib.util.find_spec("paddleocr") is not None
     paddlepaddle_installed = importlib.util.find_spec("paddle") is not None
     pdf2docx_installed = importlib.util.find_spec("pdf2docx") is not None
-    paddle_enabled = OCR_MODE in {"hybrid", "paddle", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
+    paddle_enabled = PADDLE_OCR_OPT_IN and OCR_MODE in {"hybrid", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
@@ -572,6 +585,7 @@ def health():
             "paddleocr_installed": paddleocr_installed,
             "paddlepaddle_installed": paddlepaddle_installed,
             "paddleocr_enabled": paddle_enabled,
+            "paddleocr_opt_in": PADDLE_OCR_OPT_IN,
             "hybrid_ocr_ready": paddle_enabled and "ara" in languages and "eng" in languages,
             "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
