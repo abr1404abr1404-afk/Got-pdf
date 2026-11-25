@@ -59,12 +59,19 @@ def api_post(out, name, endpoint, path, content_type, data=None, timeout=120):
                 data=data or {},
                 timeout=(15, timeout),
             )
-        response.raise_for_status()
+        if response.status_code >= 400:
+            out["tests"].append({"name": name, "status": "failed", "http_status": response.status_code,
+                                 "response_body": response.text[:1200]})
+            return None
         payload = response.json()
         out["tests"].append({"name": name, "status": "passed", "http_status": response.status_code})
         return payload
     except requests.RequestException as exc:
-        out["tests"].append({"name": name, "status": "failed", "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
+        response = getattr(exc, "response", None)
+        out["tests"].append({"name": name, "status": "failed",
+                             "http_status": response.status_code if response is not None else None,
+                             "response_body": response.text[:1200] if response is not None else None,
+                             "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
     except (ValueError, KeyError, TypeError) as exc:
         out["tests"].append({"name": name, "status": "failed", "error": f"Invalid API response: {str(exc)[:300]}"})
     return None
