@@ -530,7 +530,7 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
     # starting font. They are explicitly heuristic, never a handwriting claim.
     for line in merged[:300]:
         try:
-            line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []))
+            line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []), text=line.get("text", ""))
         except (ValueError, TypeError, cv2.error):
             line["visual_style"] = None
     return {
