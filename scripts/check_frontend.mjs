@@ -157,6 +157,33 @@ for (const feature of ['id="ann" type="button" title="يفتح لوحة مستق
   if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
 }
 
+// OCR cleanup must survive the full PDF export path; never silently downgrade an image patch to a flat fill.
+const pdfBuildStart = html.indexOf("async function buildPdf(list)");
+const pdfBuildEnd = html.indexOf("const apiBase=()", pdfBuildStart);
+if (pdfBuildStart < 0 || pdfBuildEnd < 0) {
+  failures.push("PDF export builder is missing.");
+} else {
+  const pdfBuildCode = html.slice(pdfBuildStart, pdfBuildEnd);
+  const cleanupImageAt = pdfBuildCode.indexOf("out.embedPng(Uint8Array.from(atob(encoded)");
+  const cleanupDrawAt = pdfBuildCode.indexOf("cp.drawImage(ie", cleanupImageAt);
+  const textDrawAt = pdfBuildCode.indexOf("const im=await textPng(o.t,o)", cleanupDrawAt);
+  if (cleanupImageAt < 0 || cleanupDrawAt < cleanupImageAt) {
+    failures.push("Approved OCR cleanup image must be embedded and drawn into the exported PDF.");
+  }
+  if (pdfBuildCode.indexOf("cp.drawRectangle({x:c.x*w") < 0) {
+    failures.push("Solid-color cleanup covers must remain supported in PDF export.");
+  }
+  if (cleanupDrawAt < 0 || textDrawAt < cleanupDrawAt) {
+    failures.push("OCR cleanup cover must be drawn before replacement text in the exported PDF.");
+  }
+  if (!pdfBuildCode.includes("أُوقف التصدير لتجنب استبدالها بتعبئة لونية")) {
+    failures.push("Failed cleanup-image embedding must stop export instead of silently losing image detail.");
+  }
+}
+for (const feature of ["previewOcrCleanup", "image/text-cleanup/preview", "cleanupPreviousCover", "التراجع عن إزالة الحبر", "cleanupApplied"]) {
+  if (!html.includes(feature)) failures.push("OCR cleanup preview/apply/undo workflow is incomplete: " + feature);
+}
+
 for (const feature of ["pdfToDocxLayout", "pdfImageAnalyze", "pdfImageManager", "/api/pdf/unlock", "/api/convert/pdf-to-docx", "/api/pdf/images/list", "/api/pdf/images/edit", "openedPdfBytes"]) {
   if (!html.includes(feature)) failures.push("PDF password, layout conversion, or image editing UI is missing: " + feature);
 }
