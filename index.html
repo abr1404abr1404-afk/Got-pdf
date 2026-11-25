@@ -2851,7 +2851,7 @@ async function buildPdf(list){
   const {PDFDocument,degrees,rgb}=PDFLib;
   const out=await PDFDocument.create(),cache={};let wmI=null,wmE=null;
   for(const pg of list){
-    cache[pg.d]??=await PDFDocument.load(docs[pg.d].bytes,{ignoreEncryption:true});
+    cache[pg.d]??=await PDFDocument.load(docs[pg.d].bytes);
     const [cp]=await out.copyPages(cache[pg.d],[pg.i-1]);
     cp.setRotation(degrees((pg.nat+pg.rot)%360));out.addPage(cp);
     const {width:w,height:h}=cp.getSize();
@@ -2907,7 +2907,7 @@ $("pdfCreateApply").onclick=async()=>{
  if(type==="dropdown"&&(!options.length||options.length>100)){ $("pdfCreateStatus").textContent="أدخل خيارًا واحدًا على الأقل وبحد أقصى 100 خيار.";return}
  button.disabled=true;$("pdfCreateStatus").textContent="جارٍ إنشاء الحقل والتحقق من موضعه…";
  try{
-  const idx=pdfCreateDocIndex,pdf=await PDFLib.PDFDocument.load(docs[idx].bytes,{ignoreEncryption:true}),form=pdf.getForm(),existing=form.getFields().some(field=>field.getName()===name);
+  const idx=pdfCreateDocIndex,pdf=await PDFLib.PDFDocument.load(docs[idx].bytes,{}),form=pdf.getForm(),existing=form.getFields().some(field=>field.getName()===name);
   if(existing)throw new Error("اسم الحقل مستخدم بالفعل. اختر اسمًا مختلفًا.");
   if(pageNo>pdf.getPageCount())throw new Error("رقم الصفحة خارج نطاق الملف.");
   const page=pdf.getPage(pageNo-1),size=page.getSize();
@@ -2958,7 +2958,7 @@ $("pdfAutoFill").onclick=async()=>{
  const selected=pages.find(p=>p.sel)||pages[0],docIndex=selected.d;
  try{
   $("pdfFillFields").replaceChildren();$("pdfFillStatus").textContent="جارٍ فحص الحقول…";
-  const pdf=await PDFLib.PDFDocument.load(docs[docIndex].bytes,{ignoreEncryption:true}),form=pdf.getForm(),fields=form.getFields();
+  const pdf=await PDFLib.PDFDocument.load(docs[docIndex].bytes),form=pdf.getForm(),fields=form.getFields();
   if(!fields.length){toast("لم أعثر على حقول نموذج PDF قابلة للتعبئة. قد يكون الملف صورة أو نصًا ثابتًا.");return}
   pdfFillDoc={pdf,form,docIndex};pdfFillFields=[];
   $("pdfFillInfo").textContent="تم العثور على "+fields.length+" حقلًا. أدخل القيم، وقد يقترح المتصفح بيانات محفوظة لبعض الحقول.";
