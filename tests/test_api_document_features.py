@@ -6,6 +6,7 @@ services and never persist uploaded data.
 """
 import io
 import json
+import re
 import unittest
 
 import httpx
@@ -30,7 +31,7 @@ def make_ocr_image(text="INVOICE 12345"):
 
 
 
-def make_arabic_dark_poster(text="تداول الذهب مثل الأسهم"):
+def make_arabic_dark_poster(text="المجلس"):
     image = Image.new("RGB", (1500, 420), (5, 7, 14))
     from PIL import ImageDraw, ImageFont
     draw = ImageDraw.Draw(image)
@@ -117,6 +118,8 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         recognized = " ".join(line.get("text", "") for line in payload.get("lines", []))
         self.assertTrue(any(0x0600 <= ord(char) <= 0x06ff for char in recognized),
                         f"No Arabic characters recognized: {recognized!r}")
+        compact = re.sub(r"\s+", "", recognized)
+        self.assertIn("المجلس", compact, f"Arabic word was not preserved exactly: {recognized!r}")
         self.assertTrue(all(len(line.get("bbox", [])) == 4 for line in payload["lines"]))
 
     async def test_text_cleanup_preview_returns_image_without_applying_changes(self):
