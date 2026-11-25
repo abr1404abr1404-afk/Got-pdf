@@ -161,3 +161,22 @@ def analyze_layout(
         "lines": [item for _, item in enriched],
         "analysis": "heuristic",
     }
+
+
+
+def attach_table_regions(result: dict[str, Any], tables: list[dict[str, Any]] | None) -> dict[str, Any]:
+    """Re-apply layout labels after table detection, preserving the OCR response schema."""
+    if not isinstance(result, dict):
+        return result
+    try:
+        width = int(result.get("image_width", 0))
+        height = int(result.get("image_height", 0))
+    except (TypeError, ValueError):
+        return result
+    if width < 1 or height < 1:
+        return result
+    layout = analyze_layout(result.get("lines") or [], width, height, tables=tables or [])
+    enriched = dict(result)
+    enriched["lines"] = layout["lines"]
+    enriched["layout"] = {key: value for key, value in layout.items() if key != "lines"}
+    return enriched
