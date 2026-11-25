@@ -103,17 +103,17 @@ python tools/ocr_benchmark.py --manifest benchmarks/my-arabic-set/manifest.json
 - `APP_ENV=production` يفعّل تحقق إعدادات الإنتاج عند بدء الخادم. في وضع الإنتاج يرفض الخادم تشغيل نفسه إذا كانت `CORS_ORIGINS` فارغة أو تحتوي على `*`.
 - `CORS_ORIGINS` يجب أن يحتوي على أصول الواجهة الموثوقة فقط، مفصولة بفواصل، مثل `https://example.com,https://app.example.com`. لا تضع مسارات URL بعد اسم المضيف.
 
-يحدد `render.yaml` القيم الافتراضية التالية:
+يضبط `render.yaml` نسخة Render Free على الإعدادات المحافظة التالية:
 
-- `MAX_UPLOAD_MB=25`
-- `MAX_REQUEST_BODY_MB` — الحد الأقصى لإجمالي جسم طلب HTTP قبل تحليل multipart؛ الافتراضي `2 × MAX_UPLOAD_MB + 2` لدعم مقارنة ملفين مع بيانات النماذج. يمكن ضبطه حسب موارد الخادم.
-- `MAX_PDF_PAGES=12`
-- `OCR_DPI=240`
-- `OCR_MODE=hybrid`
 - `APP_ENV=production` — يفعّل فحوص إعدادات الإنتاج.
+- `MAX_UPLOAD_MB=10` و`MAX_PDF_PAGES=5` و`OCR_DPI=180`.
+- `OCR_MODE=tesseract` — لا يشغّل PaddleOCR الهجين في خطة Render Free الحالية.
+- `MAX_REQUEST_BODY_MB` — الحد الأقصى لإجمالي جسم طلب HTTP قبل تحليل multipart؛ الافتراضي `2 × MAX_UPLOAD_MB + 2`، أي 22 MB عند إعداد Render الحالي.
 - `CORS_ORIGINS=https://abr1404abr1404-afk.github.io` — يجب تحديد أصل الواجهة صراحة؛ يرفض الخادم بدء التشغيل في وضع الإنتاج إذا كانت القيمة فارغة أو `*`.
 - `OPENAI_API_KEY` — مفتاح سري اختياري يُضاف من لوحة Render فقط، ولا يُحفظ في GitHub.
 - `OPENAI_MODEL=gpt-4.1-mini` — النموذج الافتراضي للمساعد.
+
+أما التشغيل المحلي أو صورة Docker الكاملة فتبدأ افتراضيًا بـ `MAX_UPLOAD_MB=25` و`MAX_PDF_PAGES=12` و`OCR_DPI=240` و`OCR_MODE=hybrid`، ما لم تُضبط متغيرات البيئة يدويًا.
 
 إذا نشرت الواجهة على نطاق آخر، حدّث `CORS_ORIGINS` في إعدادات خدمة Render ليحتوي على أصل الموقع فقط (scheme + hostname، دون مسار المشروع).
 
