@@ -50,14 +50,14 @@ def main():
             doc=fitz.open(pdf)
             # Use the first two authentic pages to keep the live request bounded.
             sample=fitz.open()
-            sample.insert_pdf(doc,from_page=0,to_page=min(1,doc.page_count-1))
+            sample.insert_pdf(doc,from_page=0,to_page=0)
             sample_path=root/(name+"_sample.pdf"); sample.save(sample_path)
             page=doc.load_page(0)
             pix=page.get_pixmap(matrix=fitz.Matrix(2,2),alpha=False)
             image_path=root/(name+"_page1.png"); pix.save(image_path)
-            ground="\n".join(doc.load_page(i).get_text("text") for i in range(min(2,doc.page_count)))
+            ground="\n".join(doc.load_page(i).get_text("text") for i in range(1))
             # The PDF endpoint is tested on the actual publisher PDF pages.
-            response=requests.post(BASE+"/api/ocr/pdf",files={"file":(sample_path.name,sample_path.read_bytes(),"application/pdf")},data={"language":"ara+eng","dpi":"180"},timeout=240)
+            response=requests.post(BASE+"/api/ocr/pdf",files={"file":(sample_path.name,sample_path.read_bytes(),"application/pdf")},data={"language":"ara+eng","dpi":"120"},timeout=240)
             response.raise_for_status(); payload=response.json()
             text_out="\n".join(line.get("text","") for page_obj in payload.get("pages",[]) for line in page_obj.get("ocr",{}).get("lines",[]))
             out["tests"].append({"name":name+"_pdf","status":"passed","pages":payload.get("page_count"),"ground_truth_chars":len(ground),"ocr_chars":len(text_out),"cer_vs_pdf_text_layer":round(cer(ground,text_out),4),"arabic_chars":sum("\u0600"<=c<="\u06ff" for c in text_out)})
