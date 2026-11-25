@@ -399,7 +399,11 @@ def _bidi_order(items: list, text_getter, x_getter) -> list:
     totals = [direction_counts(text) for text in texts]
     rtl_total = sum(item[0] for item in totals)
     ltr_total = sum(item[1] for item in totals)
-    base_rtl = rtl_total > ltr_total
+    strong_directions = [("rtl" if rtl else "ltr" if ltr or numbers else None)
+                         for rtl, ltr, numbers in totals]
+    first_strong = next((value for value in strong_directions if value), None)
+    last_strong = next((value for value in reversed(strong_directions) if value), None)
+    base_rtl = (first_strong == "rtl") if first_strong == last_strong and first_strong else rtl_total > ltr_total
     base_direction = "rtl" if base_rtl else "ltr"
     runs: list[tuple[str, list]] = []
     previous_direction = base_direction
