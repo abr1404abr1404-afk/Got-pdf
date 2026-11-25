@@ -29,6 +29,33 @@ def make_ocr_image(text="INVOICE 12345"):
     return buffer.getvalue()
 
 
+
+def make_arabic_dark_poster(text="تداول الذهب مثل الأسهم"):
+    image = Image.new("RGB", (1500, 420), (5, 7, 14))
+    from PIL import ImageDraw, ImageFont
+    draw = ImageDraw.Draw(image)
+    font = None
+    for path in (
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Bold.ttf",
+    ):
+        try:
+            font = ImageFont.truetype(path, 112)
+            break
+        except OSError:
+            continue
+    if font is None:
+        font = ImageFont.load_default()
+    try:
+        draw.text((1450, 80), text, fill=(245, 185, 45), font=font,
+                  anchor="ra", direction="rtl", language="ar")
+    except (KeyError, ValueError):
+        draw.text((40, 80), text, fill=(245, 185, 45), font=font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def make_pdf(text="Alfalqi PDF API test"):
     doc = pymupdf.open()
     page = doc.new_page(width=300, height=200)
@@ -77,6 +104,20 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("visual_style", payload["lines"][0])
         self.assertIsInstance(payload["lines"][0]["visual_style"], dict)
         self.assertEqual(payload["lines"][0]["visual_style"]["analysis"], "visual_heuristic")
+
+
+    async def test_image_ocr_route_recognizes_arabic_on_dark_poster(self):
+        response = await self.client.post(
+            "/api/ocr/image",
+            files={"file": ("arabic-poster.png", make_arabic_dark_poster(), "image/png")},
+            data={"language": "ara"},
+        )
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        payload = response.json()
+        recognized = " ".join(line.get("text", "") for line in payload.get("lines", []))
+        self.assertTrue(any("\\u0600" <= char <= "\\u06ff" for char in recognized),
+                        f"No Arabic characters recognized: {recognized!r}")
+        self.assertTrue(all(len(line.get("bbox", [])) == 4 for line in payload["lines"]))
 
     async def test_text_cleanup_preview_returns_image_without_applying_changes(self):
         response = await self.client.post(
