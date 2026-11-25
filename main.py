@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 import asyncio
 import io
 import json
