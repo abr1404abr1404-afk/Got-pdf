@@ -165,6 +165,10 @@ for (const feature of ['id="pdfReadMetadata"', 'doc.getMetadata()', 'dc:title', 
   if (!html.includes(feature)) failures.push("PDF metadata inspection is missing: " + feature);
 }
 
+for (const feature of ['id="pdfFillFontFile"', 'loadPdfFontkit()', '@pdf-lib/fontkit@1.1.1', 'pdfFillDoc.pdf.registerFontkit(fontkit)', 'pdfFillDoc.pdf.embedFont', 'hasArabic']) {
+  if (!html.includes(feature)) failures.push("Optional embedded font support for Arabic PDF form filling is missing: " + feature);
+}
+
 for (const feature of ["ocrReviewConfidence", "متوسط ثقة المحرك", "أسطر منخفضة الثقة"]) {
   if (!html.includes(feature)) failures.push("OCR confidence review guidance is missing: " + feature);
 }
