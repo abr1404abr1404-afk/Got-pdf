@@ -2495,7 +2495,7 @@ async function previewOcrCleanup(pg,o,wrap,el){
   const apiBase=(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
   if(!apiBase)return toast("خادم معالجة الصور غير مضبوط؛ تعذّر طلب معاينة الإزالة.");
   if(!pg.src||!pg.src.blob||!o.cleanupBBox)return toast("مصدر صورة OCR غير متاح لهذه المنطقة.");
-  let modal=null,previewData="",previewBlob=null,sourceBitmap=null,scaleX=1,scaleY=1,pxBox=null;
+  let modal=null,previewData="",previewBlob=null,sourceBitmap=null,originalUrl=null,scaleX=1,scaleY=1,pxBox=null;
   try{
     sourceBitmap=await createImageBitmap(pg.src.blob);
     scaleX=sourceBitmap.width/Math.max(1,pg.src.dw);scaleY=sourceBitmap.height/Math.max(1,pg.src.dh);
@@ -2517,11 +2517,11 @@ async function previewOcrCleanup(pg,o,wrap,el){
     const note=document.createElement("p");note.textContent="راجع الخلفية بعد إزالة الحبر. لم يتم تعديل ملف PDF أو الصورة الأصلية بعد.";note.style.cssText="font-size:13px;color:var(--mut,#777);line-height:1.7;margin:0 0 10px";
     const images=document.createElement("div");images.style.cssText="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px";
     const makeImage=(src,label)=>{const box=document.createElement("div"),cap=document.createElement("div"),im=document.createElement("img");cap.textContent=label;cap.style.cssText="font-size:12px;margin-bottom:5px";im.src=src;im.style.cssText="width:100%;max-height:48vh;object-fit:contain;background:#ddd;border-radius:8px";box.append(cap,im);return box};
-    images.append(makeImage(URL.createObjectURL(pg.src.blob),"الأصل"),makeImage(previewData,"بعد إزالة الحبر"));
+    originalUrl=URL.createObjectURL(pg.src.blob);images.append(makeImage(originalUrl,"الأصل"),makeImage(previewData,"بعد إزالة الحبر"));
     const details=document.createElement("p");details.textContent="نسبة القناع: "+Math.round((result.details?.mask_ratio||0)*100)+"٪ · الطريقة: "+(result.details?.method||"Telea")+" · "+(result.details?.limitations||"");details.style.cssText="font-size:12px;color:var(--mut,#777);line-height:1.6;margin:10px 0";
     const actions=document.createElement("div");actions.style.cssText="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-start";
     const btn=(label,primary,fn)=>{const b=document.createElement("button");b.textContent=label;b.style.cssText="border:1px solid var(--line,#bbb);border-radius:9px;padding:9px 13px;background:"+(primary?"var(--acc,#1769aa)":"transparent")+";color:"+(primary?"white":"inherit");b.onclick=fn;return b};
-    const close=()=>{if(modal){modal.remove();modal=null}if(sourceBitmap){sourceBitmap.close();sourceBitmap=null}};
+    const close=()=>{if(modal){modal.remove();modal=null}if(sourceBitmap){sourceBitmap.close();sourceBitmap=null}if(originalUrl){URL.revokeObjectURL(originalUrl);originalUrl=null}};
     const apply=btn("اعتماد المعاينة",true,async()=>{
       try{
         const cleaned=await createImageBitmap(previewBlob),[x0,y0,x1,y1]=pxBox;
