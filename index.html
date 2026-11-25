@@ -560,7 +560,7 @@ window.imgOcr=async function(pg,lang,auto){
         const result=await response.json();
         if(!response.ok)throw new Error(result.detail?.message||result.detail||"تعذّر تحليل الصفحة على الخادم");
         const mx=dw/Math.max(1,result.image_width),my=dh/Math.max(1,result.image_height);
-        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine}));
+        raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine,style:l.visual_style||null}));
         pg.tables=(result.tables||[]).map(table=>({rows:table.rows||[],row_count:table.row_count||0,column_count:table.column_count||0,direction:table.direction||"ltr"}));
         backendUsed=true;
         toast("اكتمل التحليل باستخدام "+(result.engine||"المحرك الهجين")+"…");
@@ -2423,9 +2423,15 @@ function isBold(page,fn){try{const f=page.commonObjs.get(fn);return !!(f&&(f.bol
 const AR_RE=/[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
 const fIdx=k=>{const i=FONTS.findIndex(f=>f[0].includes(k));return i<0?0:i};
 const arIdx=(rn,ff)=>fIdx(/traditional|amiri|scheherazade|naskh/i.test(rn||"")||(!rn&&/(^|[,\s])serif/.test(ff||"")&&!/sans/.test(ff||""))?"Amiri":"Noto Sans Arabic");
-async function bestFont(text,sz,bw,rn){
+async function bestFont(text,sz,bw,rn,visualStyle){
   const serif=/traditional|naskh|amiri|scheherazade|lateef/i.test(rn||""),mixed=/simplified|majalla|typesetting|arabic/i.test(rn||"");
-  const C=serif?["Amiri","Noto Naskh"]:mixed?["Noto Naskh","Noto Sans Arabic","Tajawal","Cairo"]:["Noto Sans Arabic","Cairo","Tajawal","IBM Plex","Almarai","Readex"];
+  // Treat irregular stroke measurements as a hint only; the user can always
+  // select another font because a scan cannot reveal the exact original typeface.
+  const C=visualStyle&&visualStyle.handwriting_candidate
+    ?["Katibeh","Aref Ruqaa","Lateef","Amiri","Noto Naskh","Caveat"]
+    :visualStyle&&Number(visualStyle.ink_density)>.24
+      ?["Changa","El Messiri","Reem Kufi","Cairo","Noto Sans Arabic","Lemonada"]
+      :serif?["Amiri","Noto Naskh","Lateef"]:mixed?["Noto Naskh","Noto Sans Arabic","Tajawal","Cairo"]:["Noto Sans Arabic","Cairo","Tajawal","IBM Plex","Almarai","Readex"];
   const cx=document.createElement("canvas").getContext("2d");let best=-1,bd=1e9;
   for(const n of C){const i=fIdx(n);if(i===0&&n!=="IBM Plex")continue;
     try{await Promise.race([document.fonts.load(sz+"px "+FONTS[i][1],text),new Promise(r=>setTimeout(r,1500))])}catch(e){}
@@ -2440,7 +2446,7 @@ function realName(page,fn){try{const f=page.commonObjs.get(fn);return(f&&f.name)
 const OF={};function origFont(fn,st){if(!fn)return 0;if(OF[fn]!=null)return OF[fn];FONTS.push(["الخط الأصلي "+(Object.keys(OF).length+1),'"'+fn+'",'+((st&&st.fontFamily)||"sans-serif")]);return OF[fn]=FONTS.length-1}
 async function buildDet(wrap,pg,page,s){
   let tc;try{tc=pg.ocr?{items:[],styles:{}}:await page.getTextContent()}catch(e){return}
-  const v=page.getViewport({scale:1,rotation:0}),W=v.width,H=v.height,L=[];(pg.ocr||[]).forEach(o=>{const hh=(o.y1-o.y0)/1.15;L.push({b:o.y0+hh*.9,h:hh,l:o.x0,r:o.x1,fn:null,it:[{x:o.x0,w:o.x1-o.x0,s:o.t}]})});
+  const v=page.getViewport({scale:1,rotation:0}),W=v.width,H=v.height,L=[];(pg.ocr||[]).forEach(o=>{const hh=(o.y1-o.y0)/1.15;L.push({b:o.y0+hh*.9,h:hh,l:o.x0,r:o.x1,fn:null,style:o.style||null,it:[{x:o.x0,w:o.x1-o.x0,s:o.t}]} )});
   tc.items.forEach(it=>{
     if(!it.str||!it.str.trim())return;
     const m=pdfjsLib.Util.transform(v.transform,it.transform),h=Math.hypot(m[2],m[3])||10,x=m[4],b=m[5],w=it.width;
@@ -2461,7 +2467,7 @@ async function buildDet(wrap,pg,page,s){
     d.onclick=async e=>{
       e.stopPropagation();
       const AR=AR_RE.test(text),rn=realName(page,g.fn),ocr=g.fn===null,afi=arIdx(rn,(tc.styles[g.fn]||{}).fontFamily);
-      const fi=AR?await bestFont(text,Math.min(160,Math.max(6,Math.round(ocr?g.h*.78:g.h))),g.r-g.l,rn):(ocr?0:origFont(g.fn,tc.styles[g.fn]));
+      const fi=AR?await bestFont(text,Math.min(160,Math.max(6,Math.round(ocr?g.h*.78:g.h))),g.r-g.l,rn,g.style):(ocr?0:origFont(g.fn,tc.styles[g.fn]));
       let sz=Math.min(160,Math.max(6,Math.round(ocr?g.h*.78:g.h)));
       try{await document.fonts.load(sz+"px "+FONTS[fi][1],text)}catch(e2){}
       let asc=.93*sz,dsc=.26*sz;
@@ -2474,7 +2480,7 @@ async function buildDet(wrap,pg,page,s){
         const mm=cx.measureText("Hgع");asc=mm.fontBoundingBoxAscent||asc;dsc=mm.fontBoundingBoxDescent||dsc;
       }catch(e2){}
       const off=(1.2*sz-(asc+dsc))/2+asc;
-      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg}};
+      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:(g.style&&g.style.ink_color)||sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,style:g.style||null,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg}};
       pg.ov.push(o);d.remove();
       const el=mkOv(pg,o,s,wrap);wrap.append(el);el.focus();
     };
