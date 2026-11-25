@@ -74,6 +74,9 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(payload.get("lines"))
         recognized = " ".join(line.get("text", "") for line in payload["lines"]).upper()
         self.assertIn("INVOICE", recognized)
+        self.assertIn("visual_style", payload["lines"][0])
+        self.assertIsInstance(payload["lines"][0]["visual_style"], dict)
+        self.assertEqual(payload["lines"][0]["visual_style"]["analysis"], "visual_heuristic")
 
     async def test_pdf_ocr_route_processes_a_scanned_page(self):
         scanned = pymupdf.open()
