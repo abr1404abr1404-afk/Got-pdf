@@ -108,7 +108,8 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
                     output_parts.append(cell.text)
 
         def tokens(value):
-            normalized = unicodedata.normalize("NFKC", value).casefold()
+            normalized = unicodedata.normalize("NFKC", value).casefold().replace("\u0640", "")
+            normalized = re.sub(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]", "", normalized)
             return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
         source_tokens = tokens("\n".join(source_parts))
