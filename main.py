@@ -498,10 +498,19 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
             gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
         )
         _, otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        adaptive_inverse = cv2.adaptiveThreshold(
+            gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 11
+        )
+        _, otsu_inverse = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+        # Posters and ads often use bright gold/white lettering on a dark field.
+        # Inverted views turn that lettering into dark ink on a light page, a
+        # complementary signal for Tesseract's Arabic recognizer.
         variants = [
             (prepared, 11),
             (cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR), 11),
             (cv2.cvtColor(otsu, cv2.COLOR_GRAY2BGR), 6),
+            (cv2.cvtColor(adaptive_inverse, cv2.COLOR_GRAY2BGR), 11),
+            (cv2.cvtColor(otsu_inverse, cv2.COLOR_GRAY2BGR), 6),
         ]
         tess_rows: list[dict] = []
         tess_errors: list[str] = []
