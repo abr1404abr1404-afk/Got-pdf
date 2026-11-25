@@ -59,6 +59,10 @@ class PdfBatchTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             compress_pdf_batch([("bad.pdf", b"not a pdf")])
 
+    def test_output_limit_rejected(self):
+        with self.assertRaisesRegex(ValueError, "حجم الحزمة الناتجة"):
+            compress_pdf_batch([("a.pdf", sample_pdf())], max_output_bytes=1)
+
     def test_invalid_level_rejected(self):
         with self.assertRaisesRegex(ValueError, "مستوى الضغط"):
             compress_pdf_batch([("a.pdf", sample_pdf())], "ultra")
