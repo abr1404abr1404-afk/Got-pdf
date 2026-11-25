@@ -449,7 +449,7 @@ def _reading_order(rows: list[dict], _detect_columns: bool = True) -> list[dict]
                 clusters[-1]["right"] = max(clusters[-1]["right"], right)
                 clusters[-1]["rows"].append(row)
         usable = [cluster for cluster in clusters if len(cluster["rows"]) >= 2]
-        if len(usable) >= 2 and sum(len(c["rows"]) for c in usable) >= len(rows) * 0.8:
+        if len(usable) >= 2 and sum(len(c["rows"]) for c in usable) == len(rows):
             arabic = sum(sum(unicodedata.bidirectional(ch) in {"R", "AL"}
                              for ch in str(r.get("text", ""))) for r in rows)
             latin = sum(sum(unicodedata.bidirectional(ch) == "L" and ch.isalpha()
