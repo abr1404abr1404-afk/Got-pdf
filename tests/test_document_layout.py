@@ -1,6 +1,6 @@
 import unittest
 
-from document_layout import analyze_layout
+from document_layout import analyze_layout, attach_table_regions
 
 
 def line(text, box):
@@ -53,6 +53,22 @@ class DocumentLayoutTests(unittest.TestCase):
     def test_footer_is_classified(self):
         result = analyze_layout([line("Page 4", [20, 550, 80, 570])], 200, 600)
         self.assertEqual(result["lines"][0]["region"], "footer")
+
+    def test_table_detection_is_applied_to_existing_ocr_lines(self):
+        original = {
+            "image_width": 200,
+            "image_height": 300,
+            "engine": "tesseract",
+            "engines": {"tesseract": {"available": True}},
+            "lines": [line("قيمة", [30, 100, 80, 120]), line("عنوان", [20, 20, 90, 35])],
+        }
+        result = attach_table_regions(original, [{"bbox": [10, 80, 190, 180]}])
+        self.assertEqual(result["lines"][0]["region"], "table")
+        self.assertEqual(result["lines"][1]["region"], "header")
+        self.assertEqual(result["layout"]["regions"]["table"], 1)
+        self.assertEqual(result["engine"], "tesseract")
+        self.assertEqual(result["engines"], original["engines"])
+        self.assertNotIn("region", original["lines"][0])
 
 
 if __name__ == "__main__":
