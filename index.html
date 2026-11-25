@@ -3212,6 +3212,7 @@ async function pdfToDocxLayout(){
       status:response.headers.get("X-Conversion-Analysis")||"analysis_unavailable",
       coverage:response.headers.get("X-Conversion-Text-Coverage"),
       precision:response.headers.get("X-Conversion-Text-Precision"),
+      order:response.headers.get("X-Conversion-Text-Order"),
       sourceWords:response.headers.get("X-Conversion-Source-Words")||"0",
       outputWords:response.headers.get("X-Conversion-Output-Words")||"0",
       tables:response.headers.get("X-Conversion-Output-Tables")||"0",
@@ -3223,10 +3224,11 @@ async function pdfToDocxLayout(){
     if(quality.status==="no_extractable_source_text"){
       toast("تم إنشاء Word، لكن الملف الأصلي يبدو ممسوحًا ضوئيًا؛ لا يمكن قياس تغطية النص. راجع النص والصور يدويًا.");
     }else if(quality.coverage!==null&&quality.coverage!==undefined){
-      const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision);
+      const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision),order=quality.order===null?null:Number(quality.order);
       const qualityText="تغطية النص "+coverage+"%"+(precision===null?"":"، دقة المطابقة "+precision+"%")+
-        "، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
-      toast("تم إنشاء Word. "+qualityText+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
+        (order===null?"":"، ترتيب الكلمات "+order+"%")+"، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
+      const orderWarning=order!==null&&order<85?" ترتيب الكلمات يحتاج مراجعة خاصة.":"";
+      toast("تم إنشاء Word. "+qualityText+orderWarning+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
     }else{
       toast("تم إنشاء Word. تعذر استخراج مؤشرات الجودة آليًا؛ راجع النص والتخطيط والجداول والصور قبل الاعتماد.");
     }
