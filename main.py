@@ -533,7 +533,8 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
             line["visual_style"] = analyze_text_style(prepared, line.get("bbox", []))
         except (ValueError, TypeError, cv2.error):
             line["visual_style"] = None
-    return {\n        "engine": used,
+    return {
+        "engine": used,
         "image_width": w,
         "image_height": h,
         "lines": merged,
