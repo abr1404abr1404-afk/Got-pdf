@@ -26,7 +26,7 @@ class AdaptiveOcrPassTests(unittest.TestCase):
     @patch.object(main, "analyze_layout")
     @patch.object(main, "_paddle", return_value=([], "disabled"))
     @patch.object(main, "_tesseract")
-    def test_weak_first_pass_uses_adaptive_and_inverted_fallbacks(self, tess, paddle, preprocess, layout, style):
+    def test_weak_first_pass_uses_adaptive_and_inverted_fallbacks(self, tess, paddle, layout, style):
         weak = {"text": "المجلس", "confidence": 20.0, "bbox": [10, 10, 120, 40], "engine": "tesseract"}
         strong = {"text": "المجلس", "confidence": 72.0, "bbox": [10, 10, 120, 40], "engine": "tesseract"}
         tess.side_effect = [([weak], None), ([strong], None), ([strong], None)]
