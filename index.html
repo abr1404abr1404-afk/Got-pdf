@@ -2916,7 +2916,7 @@ async function buildPdf(list){
     cp.setRotation(degrees((pg.nat+pg.rot)%360));out.addPage(cp);
     const {width:w,height:h}=cp.getSize();
     for(const o of pg.ov){if(!o.cover)continue;const c=o.cover;
-      if(c.img){try{const ie=await out.embedPng(Uint8Array.from(atob(c.img.split(",")[1]),x=>x.charCodeAt(0)));cp.drawImage(ie,{x:c.x*w,y:h-(c.y+c.h)*h,width:c.w*w,height:c.h*h});continue}catch(e){}}
+      if(c.img){let ie;try{const encoded=c.img.split(",")[1];if(!encoded)throw new Error("بيانات صورة غير صالحة");ie=await out.embedPng(Uint8Array.from(atob(encoded),x=>x.charCodeAt(0)))}catch(e){throw new Error("تعذّر تضمين صورة إزالة الحبر في PDF؛ أُوقف التصدير لتجنب استبدالها بتعبئة لونية قد تُفقد تفاصيل الخلفية.")}cp.drawImage(ie,{x:c.x*w,y:h-(c.y+c.h)*h,width:c.w*w,height:c.h*h});continue}
       cp.drawRectangle({x:c.x*w,y:h-(c.y+c.h)*h,width:c.w*w,height:c.h*h,color:rgb(...[1,3,5].map(i=>parseInt((c.bg||"#ffffff").slice(i,i+2),16)/255)),borderWidth:0})}
     for(const im of pg.img||[]){const e=im.m==="image/png"?await out.embedPng(im.b):await out.embedJpg(im.b),ww=im.w*w,hh=im.hh!=null?im.hh*h:ww*im.r;cp.drawImage(e,{x:im.x*w,y:h-im.y*h-hh,width:ww,height:hh})}
     for(const o of pg.ov){
