@@ -15,6 +15,20 @@ from PIL import Image
 import main
 
 
+def make_ocr_image(text="INVOICE 12345"):
+    image = Image.new("RGB", (1100, 300), "white")
+    from PIL import ImageDraw, ImageFont
+    draw = ImageDraw.Draw(image)
+    try:
+        font = ImageFont.truetype("DejaVuSans.ttf", 78)
+    except OSError:
+        font = ImageFont.load_default()
+    draw.text((55, 85), text, fill="black", font=font)
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
 def make_pdf(text="Alfalqi PDF API test"):
     doc = pymupdf.open()
     page = doc.new_page(width=300, height=200)
@@ -48,6 +62,35 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
 
     def upload(self, name="sample.pdf", payload=None):
         return {"file": (name, payload or self.pdf, "application/pdf")}
+
+    async def test_image_ocr_route_extracts_printed_english_text(self):
+        response = await self.client.post(
+            "/api/ocr/image",
+            files={"file": ("invoice.png", make_ocr_image(), "image/png")},
+            data={"language": "eng"},
+        )
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        payload = response.json()
+        self.assertTrue(payload.get("lines"))
+        recognized = " ".join(line.get("text", "") for line in payload["lines"]).upper()
+        self.assertIn("INVOICE", recognized)
+
+    async def test_pdf_ocr_route_processes_a_scanned_page(self):
+        scanned = pymupdf.open()
+        page = scanned.new_page(width=550, height=150)
+        page.insert_image(page.rect, stream=make_ocr_image())
+        scanned_bytes = scanned.tobytes()
+        scanned.close()
+        response = await self.client.post(
+            "/api/ocr/pdf",
+            files=self.upload(payload=scanned_bytes),
+            data={"language": "eng", "dpi": "180"},
+        )
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        payload = response.json()
+        self.assertEqual(payload.get("page_count"), 1)
+        self.assertTrue(payload.get("pages"))
+        self.assertTrue(payload["pages"][0]["ocr"].get("lines"))
 
     async def test_searchable_pdf_route_returns_searchable_pdf(self):
         ocr_data = {
