@@ -548,9 +548,9 @@ window.imgOcr=async function(pg,lang,auto){
     }
     const {ox=0,oy=0,dw,dh}=pg.src;
     let raw=[], backendUsed=false;
-    const apiBase=(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
+    const apiBase=(window.ALFALQI_API_BASE||"https://got-pdf.onrender.com").trim().replace(/\/$/,"");
     if(apiBase){
-      toast("جارٍ تحليل الصفحة بمحركي PaddleOCR وTesseract…");
+      toast("جارٍ تحليل الصفحة عبر خادم OCR العربي…");
       const fd=new FormData();
       fd.append("file",pg.src.blob,"page.png");
       fd.append("language",lang||"ara+eng");
@@ -563,10 +563,10 @@ window.imgOcr=async function(pg,lang,auto){
         raw=(result.lines||[]).map(l=>({t:(l.text||"").trim().replace(/\\s+/g," "),c:Number(l.confidence)||0,x0:ox+l.bbox[0]*mx,x1:ox+l.bbox[2]*mx,y0:oy+l.bbox[1]*my,y1:oy+l.bbox[3]*my,engine:l.engine,style:l.visual_style||null}));
         pg.tables=(result.tables||[]).map(table=>({rows:table.rows||[],row_count:table.row_count||0,column_count:table.column_count||0,direction:table.direction||"ltr"}));
         backendUsed=true;
-        toast("اكتمل التحليل باستخدام "+(result.engine||"المحرك الهجين")+"…");
+        toast("اكتمل التحليل باستخدام "+(result.engine||"محرك الخادم")+"…");
       }catch(serverError){
         console.warn("Alfalqi OCR API unavailable; using browser fallback",serverError);
-        toast("تعذّر الوصول إلى خادم التحليل؛ سنجرّب المحرك المحلي…");
+        toast("تعذّر خادم OCR ("+((serverError&&serverError.message)||"اتصال غير متاح")+ ")؛ سنجرّب المحرك المحلي وقد تقل دقته في الخطوط الزخرفية.");
       }finally{clearTimeout(timer)}
     }
     if(!backendUsed){
@@ -585,7 +585,7 @@ window.imgOcr=async function(pg,lang,auto){
     for(const o of raw){const ov=keep.some(k=>{const w=Math.min(o.x1,k.x1)-Math.max(o.x0,k.x0),h=Math.min(o.y1,k.y1)-Math.max(o.y0,k.y0);if(w<=0||h<=0)return false;const a=Math.min((o.x1-o.x0)*(o.y1-o.y0),(k.x1-k.x0)*(k.y1-k.y0));return w*h>.4*a});if(!ov)keep.push(o)}
     pg.ocr=keep;
     render();
-    if(auto&&keep.length&&!document.body.classList.contains("editing"))document.getElementById("edt").click();
+    if(keep.length&&!editing)document.getElementById("edt").click();
     const tableCount=(pg.tables||[]).length;
     toast(keep.length?"تم التعرّف على "+keep.length+" سطرًا"+(tableCount?" واكتشاف "+tableCount+" جدول. يمكنك تصديرها CSV من شريط الصفحة.":"")+". فعّل «تعديل النص» واضغط أي سطر لمراجعته.":"لم أجد نصًا واضحًا في الصورة. جرّب لغة أخرى أو ارفع الدقة.");
   }catch(e){console.error(e);toast("تعذّر تحليل النص: يحتاج إنترنت ولا يعمل داخل تطبيق Claude، افتح الملف مباشرة من Safari. ("+((e&&e.message)||e)+")")}
@@ -2492,7 +2492,7 @@ async function buildDet(wrap,pg,page,s){
 }
 
 async function previewOcrCleanup(pg,o,wrap,el){
-  const apiBase=(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
+  const apiBase=(window.ALFALQI_API_BASE||"https://got-pdf.onrender.com").trim().replace(/\/$/,"");
   if(!apiBase)return toast("خادم معالجة الصور غير مضبوط؛ تعذّر طلب معاينة الإزالة.");
   if(!pg.src||!pg.src.blob||!o.cleanupBBox)return toast("مصدر صورة OCR غير متاح لهذه المنطقة.");
   let modal=null,previewData="",previewBlob=null,sourceBitmap=null,originalUrl=null,scaleX=1,scaleY=1,pxBox=null;
@@ -2937,7 +2937,7 @@ async function buildPdf(list){
   if(META.title)out.setTitle(META.title);if(META.author)out.setAuthor(META.author);out.setCreator("الفلقي لتعديل PDF");out.setProducer("الفلقي لتعديل PDF");
   return await out.save();
 }
-const apiBase=()=>(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
+const apiBase=()=>(window.ALFALQI_API_BASE||"https://got-pdf.onrender.com").trim().replace(/\/$/,"");
 const fmtBytes=n=>n<1024?(n+" بايت"):n<1048576?((n/1024).toFixed(1)+" كيلوبايت"):((n/1048576).toFixed(2)+" ميجابايت");
 const aiModal=$("aim"),compressModal=$("cpm");
 function openAi(){if(!pages.length)return toast("افتح ملف PDF أولًا.");aiModal.classList.add("on");aiModal.setAttribute("aria-hidden","false");$("aiQuestion").focus()}
