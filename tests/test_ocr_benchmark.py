@@ -1,6 +1,10 @@
+import tempfile
 import unittest
+from pathlib import Path
 
-from tools.ocr_benchmark import edit_distance, error_rate, normalize_text
+from tools.ocr_benchmark import (
+    _validate_manifest, edit_distance, error_rate, normalize_text,
+)
 
 
 class OcrBenchmarkMetricTests(unittest.TestCase):
@@ -38,6 +42,43 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
         hybrid = next(row for row in decorative if row["engine"] == "hybrid")
         self.assertEqual(hybrid["successful_samples"], 1)
         self.assertAlmostEqual(hybrid["mean_cer"], 0.2)
+
+    def test_manifest_rejects_paths_outside_manifest_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root.parent / "outside.png"
+            outside.write_bytes(b"not an image")
+            try:
+                manifest = {"samples": [{
+                    "id": "escape", "image": "../outside.png", "reference": "نص"
+                }]}
+                with self.assertRaisesRegex(ValueError, "inside the manifest directory"):
+                    _validate_manifest(manifest, root / "manifest.json")
+            finally:
+                outside.unlink(missing_ok=True)
+
+    def test_manifest_requires_reference_transcription(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "sample.png"
+            image.write_bytes(b"placeholder")
+            with self.assertRaisesRegex(ValueError, "exact transcription"):
+                _validate_manifest(
+                    {"samples": [{"image": "sample.png", "reference": " "}]},
+                    root / "manifest.json",
+                )
+
+    def test_manifest_rejects_duplicate_sample_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "one.png").write_bytes(b"placeholder")
+            (root / "two.png").write_bytes(b"placeholder")
+            samples = [
+                {"id": "duplicate", "image": "one.png", "reference": "الأول"},
+                {"id": "duplicate", "image": "two.png", "reference": "الثاني"},
+            ]
+            with self.assertRaisesRegex(ValueError, "duplicate id"):
+                _validate_manifest({"samples": samples}, root / "manifest.json")
 
     def test_invalid_metric_unit(self):
         with self.assertRaises(ValueError):
