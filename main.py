@@ -1049,6 +1049,7 @@ async def ocr_pdf(request: Request, file: UploadFile = File(...), language: str 
                 image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
             result = await _run_ocr(_hybrid, image, language)
             result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
+            result = attach_table_regions(result, result["tables"])
             pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                           "ocr": result})
         return {"pages": pages, "page_count": len(pages)}
