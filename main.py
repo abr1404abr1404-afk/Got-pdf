@@ -376,7 +376,7 @@ def _dedupe(rows: list[dict]) -> list[dict]:
 
 
 def _reading_order(rows: list[dict]) -> list[dict]:
-    """Order OCR line boxes top-to-bottom and each line by its writing direction."""
+    """Order OCR boxes by line, respecting mixed Arabic/Latin bidirectional runs."""
     if len(rows) < 2:
         return rows
     ordered = sorted(rows, key=lambda r: (r["bbox"][1] + r["bbox"][3]) / 2)
@@ -393,15 +393,30 @@ def _reading_order(rows: list[dict]) -> list[dict]:
             bands[-1].append(row)
             centers[-1] = sum((item["bbox"][1] + item["bbox"][3]) / 2 for item in bands[-1]) / len(bands[-1])
 
+    def direction(item: dict) -> str:
+        text = str(item.get("text", ""))
+        arabic = sum("\u0600" <= ch <= "\u06ff" for ch in text)
+        latin = sum(("a" <= ch.lower() <= "z") for ch in text)
+        return "rtl" if arabic > latin else "ltr"
+
     result: list[dict] = []
     for band in bands:
-        text = " ".join(item.get("text", "") for item in band)
-        arabic_chars = sum("\u0600" <= ch <= "\u06ff" for ch in text)
-        latin_chars = sum(("a" <= ch.lower() <= "z") for ch in text)
-        rtl = arabic_chars >= latin_chars
-        result.extend(sorted(band, key=lambda r: r["bbox"][0], reverse=rtl))
+        visual = sorted(band, key=lambda r: (r["bbox"][0] + r["bbox"][2]) / 2)
+        arabic = sum(sum("\u0600" <= ch <= "\u06ff" for ch in str(item.get("text", ""))) for item in band)
+        latin = sum(sum("a" <= ch.lower() <= "z" for ch in str(item.get("text", ""))) for item in band)
+        base_rtl = arabic >= latin
+        runs: list[tuple[str, list[dict]]] = []
+        for item in visual:
+            item_direction = direction(item)
+            if not runs or runs[-1][0] != item_direction:
+                runs.append((item_direction, [item]))
+            else:
+                runs[-1][1].append(item)
+        if base_rtl:
+            runs.reverse()
+        for run_direction, run_items in runs:
+            result.extend(reversed(run_items) if run_direction == "rtl" else run_items)
     return result
-
 
 
 def _group_positions(values: list[int], gap: int = 3) -> list[int]:
