@@ -67,6 +67,20 @@ def analyze_text_style(
     if border.size < 8:
         border = gray.ravel()
 
+    # Estimate whether the surrounding page can be safely reconstructed with
+    # a flat fill, or whether a texture-aware/manual preview is needed.
+    border_gray_std = float(np.std(border))
+    if border_gray_std < 7.0:
+        background_complexity = "flat"
+        cleanup_strategy = "sampled_solid_fill"
+    elif border_gray_std < 22.0:
+        background_complexity = "light_texture"
+        cleanup_strategy = "inpaint_preview"
+    else:
+        background_complexity = "complex"
+        cleanup_strategy = "manual_review"
+    background_analysis_confidence = min(0.95, max(0.1, border.size / 500.0))
+
     background_luma = float(np.median(border))
     delta = np.abs(inner.astype(np.float32) - background_luma)
     threshold = max(18.0, float(np.percentile(delta, 55)))
@@ -125,6 +139,10 @@ def analyze_text_style(
     return {
         "ink_color": _hex_color(ink),
         "background_color": _hex_color(bg),
+        "background_texture_std": round(border_gray_std, 2),
+        "background_complexity": background_complexity,
+        "recommended_cleanup": cleanup_strategy,
+        "background_analysis_confidence": round(background_analysis_confidence, 3),
         "contrast": round(min(255.0, contrast), 2),
         "ink_density": round(density, 4),
         "component_count": int(useful.size),
