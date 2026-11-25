@@ -99,7 +99,7 @@ def analyze_text_style(
     if len(xs) >= 8:
         points = np.column_stack((xs, ys)).astype(np.float32).reshape(-1, 1, 2)
         vx, vy, _, _ = cv2.fitLine(points, cv2.DIST_L2, 0, 0.01, 0.01)
-        line_angle = float(np.degrees(np.arctan2(float(vy), float(vx))))
+        line_angle = float(np.degrees(np.arctan2(np.asarray(vy).item(), np.asarray(vx).item())))
         # Keep the estimate descriptive; text boxes can contain multiple glyph rows.
         if line_angle > 45:
             line_angle -= 90
