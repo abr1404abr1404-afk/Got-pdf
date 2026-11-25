@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install benchmark client
-        run: python -m pip install --disable-pip-version-check requests pymupdf
+        run: python -m pip install --disable-pip-version-check requests pymupdf pdf2docx python-docx
       - name: Test real public PDFs, page images and a real scan against Render
         env:
           OCR_API_BASE: https://got-pdf.onrender.com
