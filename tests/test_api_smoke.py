@@ -53,6 +53,19 @@ class ApiSmokeTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("mode", payload)
         self.assertIn("arabic_ocr_ready", payload)
         self.assertIn("searchable_pdf_available", payload)
+        capabilities = payload.get("capabilities", {})
+        for feature in (
+            "ocr.image", "ocr.pdf", "pdf.searchable", "pdf.unlock",
+            "pdf.to_docx", "pdf.inspect", "pdf.objects.edit",
+            "pdf.images.list", "pdf.images.edit", "pdf.redact",
+            "pdf.compress", "pdf.compare", "export.docx", "export.xlsx",
+            "convert.office_to_pdf", "assistant.chat", "assistant.extract",
+        ):
+            with self.subTest(feature=feature):
+                self.assertIn(feature, capabilities)
+                self.assertIn("available", capabilities[feature])
+        self.assertIn("configured", capabilities["convert.office_to_pdf"])
+        self.assertIn("configured", capabilities["assistant.chat"])
 
     async def test_all_expected_api_routes_are_registered(self):
         schema_response = await self.client.get("/openapi.json")
