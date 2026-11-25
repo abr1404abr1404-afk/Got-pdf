@@ -3151,9 +3151,8 @@ $("cpBatchGo").onclick=async()=>{
  if(files.length>10)return $("cpBatchStatus").textContent="الحد الأقصى 10 ملفات في الدفعة الواحدة.";
  if(!base)return $("cpBatchStatus").textContent="خادم الفلقي غير متصل. اضبط عنوان API أولًا.";
  if(!$("cpBatchConsent").checked)return $("cpBatchStatus").textContent="وافق على إرسال الملفات إلى الخادم قبل بدء المعالجة.";
- const total=files.reduce((sum,file)=>sum+file.size,0);
  if(files.some(file=>file.size===0||!(/\.pdf$/i.test(file.name)||file.type==="application/pdf")))return $("cpBatchStatus").textContent="تأكد أن جميع الملفات PDF وغير فارغة.";
- if(total>52*1024*1024)return $("cpBatchStatus").textContent="إجمالي الملفات يتجاوز الحد الأقصى الافتراضي 52 MB. اختر ملفات أصغر أو اضبط حد الخادم.";
+ $("cpBatchStatus").textContent="سيطبق الخادم حدود حجم الملفات والطلب المعلنة في إعداداته.";
  button.disabled=true;
  try{
   $("cpBatchStatus").textContent="جارٍ رفع الملفات المحددة وضغطها على خادم الفلقي…";
