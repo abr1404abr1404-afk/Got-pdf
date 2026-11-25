@@ -40,6 +40,10 @@ class ReadingOrderTests(unittest.TestCase):
             [item["text"] for item in result],
             ["كلمة ثانية", "Hello", "world", "كلمة عربية"],
         )
+    def test_unicode_arabic_extended_letters_are_rtl(self):
+        rows = [row("\u08a1", 10, 10, 40, 30), row("\u08a0", 50, 10, 80, 30)]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["\u08a0", "\u08a1"])
     def test_mixed_arabic_word_boxes_preserve_latin_phrase_order(self):
         words = [
             (10, 10, 35, 25, 95, "كلمة عربية"),
