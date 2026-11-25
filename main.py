@@ -40,8 +40,10 @@ from request_limits import (
     validate_pixel_dimensions,
 )
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
+from deployment_config import validate_cors_origins
 
 APP_NAME = "Alfalqi PDF OCR API"
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
 # The compare endpoint accepts two PDFs; reserve room for multipart fields and boundaries.
 MAX_REQUEST_BODY_MB = max(1, int(os.getenv("MAX_REQUEST_BODY_MB", str(2 * MAX_UPLOAD_MB + 2))))
@@ -84,7 +86,7 @@ class ExportRequest(BaseModel):
 
 
 
-origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
+origins = validate_cors_origins(APP_ENV, os.getenv("CORS_ORIGINS", "*").split(","))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -598,7 +600,7 @@ def _tesseract_languages() -> list[str]:
 @app.get("/api/health")
 def health():
     languages = _tesseract_languages()
-    return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB, "max_request_body_mb": MAX_REQUEST_BODY_MB,
+    return {"ok": True, "service": APP_NAME, "environment": APP_ENV, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB, "max_request_body_mb": MAX_REQUEST_BODY_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "tesseract_languages": languages,
