@@ -157,6 +157,51 @@ for (const feature of ['id="ann" type="button" title="يفتح لوحة مستق
   if (!html.includes(feature)) failures.push("PDF answer marks, drawing tools, or form autofill are missing: " + feature);
 }
 
+for (const feature of ['id="mti"', 'id="mau"', 'id="msu"', 'id="mkw"', 'id="mlg"', 'META.subject', 'META.keywords', 'out.setSubject(META.subject)', 'out.setKeywords(META.keywords)', 'out.setLanguage(META.language)']) {
+  if (!html.includes(feature)) failures.push("Extended PDF metadata editing is missing: " + feature);
+}
+
+for (const feature of ['id="pdfReadMetadata"', 'doc.getMetadata()', 'dc:title', 'dc:creator', 'dc:description', 'pdf:Keywords']) {
+  if (!html.includes(feature)) failures.push("PDF metadata inspection is missing: " + feature);
+}
+
+for (const feature of ['id="pdfFillFontFile"', 'loadPdfFontkit()', '@pdf-lib/fontkit@1.1.1', 'pdfFillDoc.pdf.registerFontkit(fontkit)', 'pdfFillDoc.pdf.embedFont', 'hasArabic']) {
+  if (!html.includes(feature)) failures.push("Optional embedded font support for Arabic PDF form filling is missing: " + feature);
+}
+
+for (const feature of ["ocrReviewConfidence", "متوسط ثقة المحرك", "أسطر منخفضة الثقة"]) {
+  if (!html.includes(feature)) failures.push("OCR confidence review guidance is missing: " + feature);
+}
+
+for (const feature of ["X-Conversion-Text-Order", "quality.order", "ترتيب الكلمات", "orderWarning"]) {
+  if (!html.includes(feature)) failures.push("PDF-to-Word reading-order quality feedback is missing: " + feature);
+}
+
+for (const feature of ['id="pdfCreateFields"', 'id="pdfCreateModal"', 'id="pdfCreateApply"', 'form.createTextField(name)', 'form.createCheckBox(name)', 'form.createDropdown(name)', 'form.createOptionList(name)', 'field.addToPage(page,style)', 'pdfCreateDocIndex']) {
+  if (!html.includes(feature)) failures.push("Interactive PDF form-field creation is missing: " + feature);
+}
+const createFormStart = html.indexOf('$("pdfCreateApply").onclick=async()=>{');
+const createFormEnd = html.indexOf('let pdfFillDoc=null,pdfFillFields=[];', createFormStart);
+if (createFormStart < 0 || createFormEnd < 0) {
+  failures.push("PDF form-field creation action is missing.");
+} else {
+  const createFormCode = html.slice(createFormStart, createFormEnd);
+  if (createFormCode.includes("fetch(") || createFormCode.includes("XMLHttpRequest")) {
+    failures.push("PDF form-field creation must remain local to the browser.");
+  }
+  for (const guard of ["form.getFields()", "pageNo>pdf.getPageCount()", "x+width>size.width||y+height>size.height", "docs[idx].bytes=bytes", "track()"]) {
+    if (!createFormCode.includes(guard)) failures.push("PDF form-field creation is missing validation or local save guard: " + guard);
+  }
+}
+
+if (html.includes("ignoreEncryption:true")) {
+  failures.push("PDF editing/export must not bypass encryption or owner permissions.");
+}
+
+for (const feature of ['id="cpBatchFiles"', 'id="cpBatchConsent"', 'id="cpBatchGo"', '/api/compress/pdf/batch', 'application/zip', 'alfalqi-batch-report.json']) {
+  if (!html.includes(feature)) failures.push("Consent-based batch PDF compression is missing: " + feature);
+}
+
 for (const feature of ["pdfToDocxLayout", "pdfImageAnalyze", "pdfImageManager", "/api/pdf/unlock", "/api/convert/pdf-to-docx", "/api/pdf/images/list", "/api/pdf/images/edit", "openedPdfBytes"]) {
   if (!html.includes(feature)) failures.push("PDF password, layout conversion, or image editing UI is missing: " + feature);
 }

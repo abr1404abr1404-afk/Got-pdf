@@ -1,15 +1,17 @@
 import ast
 import pathlib
 import unittest
+import unicodedata
 
 SOURCE = pathlib.Path("main.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
-FUNCTION = next(node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name == "_reading_order")
-MODULE = ast.Module(body=[FUNCTION], type_ignores=[])
+FUNCTIONS = [node for node in TREE.body if isinstance(node, ast.FunctionDef) and node.name in {"_reading_order", "_bidi_order"}]
+MODULE = ast.Module(body=FUNCTIONS, type_ignores=[])
 ast.fix_missing_locations(MODULE)
-NAMESPACE = {}
+NAMESPACE = {"unicodedata": unicodedata}
 exec(compile(MODULE, "main.py", "exec"), NAMESPACE)
 reading_order = NAMESPACE["_reading_order"]
+bidi_order = NAMESPACE["_bidi_order"]
 
 
 def row(text, x0, y0, x1, y1):
@@ -27,6 +29,96 @@ class ReadingOrderTests(unittest.TestCase):
         result = reading_order(rows)
         self.assertEqual([item["text"] for item in result], ["Hello", "world"])
 
+    def test_mixed_arabic_line_preserves_latin_phrase_order(self):
+        rows = [
+            row("كلمة عربية", 10, 10, 45, 30),
+            row("Hello", 50, 10, 90, 30),
+            row("world", 95, 10, 135, 30),
+            row("كلمة ثانية", 145, 10, 190, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual(
+            [item["text"] for item in result],
+            ["كلمة ثانية", "Hello", "world", "كلمة عربية"],
+        )
+    def test_arabic_line_keeps_numeric_run_left_to_right(self):
+        rows = [
+            row("الثاني", 10, 10, 55, 30),
+            row("123", 60, 10, 85, 30),
+            row("الأول", 90, 10, 135, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["الأول", "123", "الثاني"])
+
+    def test_neutral_punctuation_inherits_arabic_line_direction(self):
+        rows = [
+            row("الثاني", 10, 10, 55, 30),
+            row("،", 60, 10, 65, 30),
+            row("الأول", 70, 10, 115, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["الأول", "،", "الثاني"])
+    def test_unicode_arabic_extended_letters_are_rtl(self):
+        rows = [row("\u08a1", 10, 10, 40, 30), row("\u08a0", 50, 10, 80, 30)]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], ["\u08a0", "\u08a1"])
+    def test_line_edges_determine_arabic_base_direction_when_latin_is_longer(self):
+        rows = [
+            row("ك", 10, 10, 20, 30),
+            row("Hello", 30, 10, 65, 30),
+            row("wonderful", 70, 10, 125, 30),
+            row("world", 130, 10, 165, 30),
+            row("م", 170, 10, 180, 30),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "م", "Hello", "wonderful", "world", "ك"
+        ])
+    def test_mixed_arabic_word_boxes_preserve_latin_phrase_order(self):
+        words = [
+            (10, 10, 35, 25, 95, "كلمة عربية"),
+            (45, 10, 75, 25, 95, "Hello"),
+            (80, 10, 110, 25, 95, "world"),
+            (120, 10, 155, 25, 95, "كلمة ثانية"),
+        ]
+        result = bidi_order(words, lambda item: item[5], lambda item: item[0])
+        self.assertEqual([item[5] for item in result], [
+            "كلمة ثانية", "Hello", "world", "كلمة عربية"
+        ])
+    def test_arabic_two_column_page_reads_right_column_first(self):
+        rows = [
+            row("يسار أعلى", 10, 10, 100, 30),
+            row("يسار أسفل", 10, 60, 100, 80),
+            row("يمين أعلى", 250, 10, 340, 30),
+            row("يمين أسفل", 250, 60, 340, 80),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "يمين أعلى", "يمين أسفل", "يسار أعلى", "يسار أسفل"
+        ])
+
+    def test_english_two_column_page_reads_left_column_first(self):
+        rows = [
+            row("Left top", 10, 10, 100, 30),
+            row("Left bottom", 10, 60, 100, 80),
+            row("Right top", 250, 10, 340, 30),
+            row("Right bottom", 250, 60, 340, 80),
+        ]
+        result = reading_order(rows)
+        self.assertEqual([item["text"] for item in result], [
+            "Left top", "Left bottom", "Right top", "Right bottom"
+        ])
+    def test_spanning_title_is_not_dropped_when_columns_are_ambiguous(self):
+        rows = [
+            row("عنوان الصفحة", 10, 0, 340, 18),
+            row("يسار أعلى", 10, 30, 100, 50),
+            row("يسار أسفل", 10, 70, 100, 90),
+            row("يمين أعلى", 250, 30, 340, 50),
+            row("يمين أسفل", 250, 70, 340, 90),
+        ]
+        result = reading_order(rows)
+        self.assertEqual(len(result), len(rows))
+        self.assertCountEqual([item["text"] for item in result], [item["text"] for item in rows])
     def test_lines_are_ordered_top_to_bottom(self):
         rows = [row("السطر الثاني", 10, 60, 100, 80), row("السطر الأول", 10, 10, 100, 30)]
         result = reading_order(rows)

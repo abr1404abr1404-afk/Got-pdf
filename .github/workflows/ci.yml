@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, "fix/**", "chore/**"]
+    branches: [main, "fix/**", "chore/**", "improve/**"]
 
 jobs:
   syntax-and-ocr-order:
@@ -19,8 +19,8 @@ jobs:
           sudo apt-get update && sudo apt-get install -y fonts-noto-core libraqm0 libharfbuzz0b libfribidi0
           python -m pip install 'PyMuPDF>=1.28.0,<2' 'Pillow>=10.3' 'python-docx>=1.1,<2' 'openpyxl>=3.1,<4' 'pdf2docx>=0.5.8,<0.6'
       - name: Compile Python source
-        run: python -m py_compile main.py pdf_tools.py searchable_pdf.py redaction.py document_export.py pdf_security.py pdf_to_docx.py pdf_image_tools.py request_limits.py
-      - name: Test OCR reading order
+        run: python -m py_compile main.py pdf_tools.py searchable_pdf.py redaction.py document_export.py pdf_security.py pdf_to_docx.py pdf_image_tools.py request_limits.py deployment_config.py pdf_batch.py tools/ocr_benchmark.py
+      - name: Run Python regression suite
         run: python -m unittest discover -s tests -v
 
   frontend-static:

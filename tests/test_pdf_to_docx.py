@@ -40,10 +40,28 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertEqual(report["analysis_status"], "ok")
         self.assertTrue(report["source_extractable"])
         self.assertEqual(report["text_coverage_percent"], 100.0)
+        self.assertEqual(report["text_precision_percent"], 66.67)
         self.assertEqual(report["output_table_count"], 1)
         self.assertEqual(report["output_paragraph_count"], 1)
         self.assertGreater(report["source_word_count"], 0)
 
+    def test_quality_report_detects_word_order_changes(self):
+        source_doc = pymupdf.open()
+        page = source_doc.new_page()
+        page.insert_text((72, 100), "alpha beta gamma delta", fontsize=12)
+        source = source_doc.tobytes()
+        source_doc.close()
+
+        output_doc = Document()
+        output_doc.add_paragraph("gamma delta alpha beta")
+        buffer = io.BytesIO()
+        output_doc.save(buffer)
+
+        report = analyze_pdf_docx_quality(source, buffer.getvalue())
+
+        self.assertEqual(report["text_coverage_percent"], 100.0)
+        self.assertEqual(report["text_precision_percent"], 100.0)
+        self.assertLess(report["text_order_similarity_percent"], 100.0)
     def test_quality_report_marks_scanned_pdf_without_extractable_text(self):
         source_doc = pymupdf.open()
         source_doc.new_page()

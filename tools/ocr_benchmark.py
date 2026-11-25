@@ -11,6 +11,11 @@ import json
 import re
 import sys
 import time
+
+MAX_MANIFEST_BYTES = 2 * 1024 * 1024
+MAX_BENCHMARK_SAMPLES = 500
+MAX_BENCHMARK_IMAGE_BYTES = 25 * 1024 * 1024
+MAX_REFERENCE_CHARS = 100_000
 import unicodedata
 from pathlib import Path
 from typing import Iterable
@@ -98,11 +103,59 @@ def summarize_results(results: list[dict], engines: list[str]) -> tuple[list[dic
     return overall, by_category
 
 
+def _validate_manifest(manifest: dict, manifest_path: Path) -> list[dict]:
+    """Validate benchmark entries and confine image reads to the manifest directory."""
+    if not isinstance(manifest, dict):
+        raise ValueError("manifest must be a JSON object")
+    samples = manifest.get("samples")
+    if not isinstance(samples, list) or not samples or len(samples) > MAX_BENCHMARK_SAMPLES:
+        raise ValueError("manifest.samples must contain between 1 and 500 labeled samples")
+
+    root = manifest_path.resolve().parent
+    validated: list[dict] = []
+    seen_ids: set[str] = set()
+    for index, sample in enumerate(samples, 1):
+        if not isinstance(sample, dict):
+            raise ValueError(f"samples[{index}] must be an object")
+        image_value = sample.get("image")
+        if not isinstance(image_value, str) or not image_value.strip():
+            raise ValueError(f"samples[{index}].image must be a non-empty relative path")
+        candidate = Path(image_value)
+        if candidate.is_absolute():
+            raise ValueError(f"samples[{index}].image must be a relative path")
+        image_path = (root / candidate).resolve()
+        try:
+            image_path.relative_to(root)
+        except ValueError as exc:
+            raise ValueError(f"samples[{index}].image must stay inside the manifest directory") from exc
+        if not image_path.is_file():
+            raise FileNotFoundError(f"samples[{index}]: image not found: {image_path}")
+        if image_path.stat().st_size > MAX_BENCHMARK_IMAGE_BYTES:
+            raise ValueError(f"samples[{index}].image exceeds the 25 MB benchmark limit")
+
+        reference = sample.get("reference")
+        if not isinstance(reference, str) or not reference.strip() or len(reference) > MAX_REFERENCE_CHARS:
+            raise ValueError(f"samples[{index}].reference must contain the exact transcription")
+        sample_id = str(sample.get("id") or image_value).strip()
+        if not sample_id or len(sample_id) > 120 or sample_id in seen_ids:
+            raise ValueError(f"samples[{index}] has an empty or duplicate id")
+        seen_ids.add(sample_id)
+        validated.append({**sample, "_sample_id": sample_id, "_image_path": image_path})
+    return validated
+
+
 def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) -> dict:
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"manifest not found: {manifest_path}")
+    if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
+        raise ValueError("manifest exceeds the 2 MB benchmark limit")
+    allowed_engines = {"tesseract", "paddleocr", "hybrid"}
+    if not engines or len(set(engines)) != len(engines) or any(
+        engine not in allowed_engines for engine in engines
+    ):
+        raise ValueError("engines must be unique values from tesseract, paddleocr, hybrid")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    samples = manifest.get("samples", [])
-    if not isinstance(samples, list) or not samples:
-        raise ValueError("manifest.samples must contain at least one labeled sample")
+    samples = _validate_manifest(manifest, manifest_path)
 
     # Import the production pipeline so the benchmark measures the same preprocessing
     # and recognition functions used by the application.
@@ -115,13 +168,15 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
 
     results = []
     for sample in samples:
-        sample_id = str(sample.get("id") or sample.get("image") or "sample")
-        image_path = (manifest_path.parent / sample["image"]).resolve()
-        reference = str(sample.get("reference", ""))
+        sample_id = sample["_sample_id"]
+        image_path = sample["_image_path"]
+        reference = sample["reference"]
         language = str(sample.get("language") or manifest.get("language") or "ara")
         category = str(sample.get("category") or "uncategorized").strip() or "uncategorized"
         if not image_path.is_file():
             raise FileNotFoundError(f"{sample_id}: image not found: {image_path}")
+        if image_path.stat().st_size > 25 * 1024 * 1024:
+            raise ValueError(f"{sample_id}: image exceeds the 25 MB benchmark limit")
 
         raw = image_path.read_bytes()
         image = ocr._decode_image(raw)
@@ -130,6 +185,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
         for engine_name in engines:
             started = time.perf_counter()
             error = None
+            partial_engine_errors: list[str] = []
             try:
                 if engine_name == "tesseract":
                     lines, error = ocr._tesseract(prepared, language, 11)
@@ -141,7 +197,10 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
                     engine_errors = response.get("engines", {})
                     errors = [v.get("error") for v in engine_errors.values()
                               if isinstance(v, dict) and v.get("error")]
-                    error = "; ".join(errors) or None
+                    # Fallback OCR can still succeed; keep engine errors as diagnostics.
+                    partial_engine_errors = errors
+                    if not lines:
+                        error = "; ".join(errors) or "No OCR engine returned text"
                 else:
                     raise ValueError(f"Unsupported engine: {engine_name}")
                 lines = ocr._reading_order(lines)
@@ -159,6 +218,7 @@ def run_benchmark(manifest_path: Path, output_path: Path, engines: list[str]) ->
                 "reference": reference,
                 "prediction": prediction,
                 "error": error,
+                "partial_engine_errors": partial_engine_errors,
             })
 
     summary, category_summary = summarize_results(results, engines)

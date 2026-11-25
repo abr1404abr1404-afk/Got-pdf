@@ -1,6 +1,10 @@
+import tempfile
 import unittest
+from pathlib import Path
 
-from tools.ocr_benchmark import edit_distance, error_rate, normalize_text
+from tools.ocr_benchmark import (
+    _validate_manifest, edit_distance, error_rate, normalize_text, run_benchmark,
+)
 
 
 class OcrBenchmarkMetricTests(unittest.TestCase):
@@ -39,6 +43,82 @@ class OcrBenchmarkMetricTests(unittest.TestCase):
         self.assertEqual(hybrid["successful_samples"], 1)
         self.assertAlmostEqual(hybrid["mean_cer"], 0.2)
 
+    def test_manifest_rejects_paths_outside_manifest_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root.parent / f"{root.name}-outside.png"
+            outside.write_bytes(b"not an image")
+            try:
+                manifest = {"samples": [{
+                    "id": "escape", "image": f"../{root.name}-outside.png", "reference": "نص"
+                }]}
+                with self.assertRaisesRegex(ValueError, "inside the manifest directory"):
+                    _validate_manifest(manifest, root / "manifest.json")
+            finally:
+                outside.unlink(missing_ok=True)
+
+    def test_manifest_rejects_absolute_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "sample.png"
+            image.write_bytes(b"placeholder")
+            manifest = {"samples": [{
+                "image": str(image), "reference": "نص"
+            }]}
+            with self.assertRaisesRegex(ValueError, "relative path"):
+                _validate_manifest(manifest, root / "manifest.json")
+
+    def test_manifest_rejects_oversized_images(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "large.png"
+            with image.open("wb") as handle:
+                handle.truncate(25 * 1024 * 1024 + 1)
+            manifest = {"samples": [{
+                "image": "large.png", "reference": "نص"
+            }]}
+            with self.assertRaisesRegex(ValueError, "25 MB"):
+                _validate_manifest(manifest, root / "manifest.json")
+    def test_manifest_requires_reference_transcription(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            image = root / "sample.png"
+            image.write_bytes(b"placeholder")
+            with self.assertRaisesRegex(ValueError, "exact transcription"):
+                _validate_manifest(
+                    {"samples": [{"image": "sample.png", "reference": " "}]},
+                    root / "manifest.json",
+                )
+
+    def test_manifest_rejects_duplicate_sample_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "one.png").write_bytes(b"placeholder")
+            (root / "two.png").write_bytes(b"placeholder")
+            samples = [
+                {"id": "duplicate", "image": "one.png", "reference": "الأول"},
+                {"id": "duplicate", "image": "two.png", "reference": "الثاني"},
+            ]
+            with self.assertRaisesRegex(ValueError, "duplicate id"):
+                _validate_manifest({"samples": samples}, root / "manifest.json")
+
+    def test_benchmark_rejects_oversized_manifest_before_parsing(self):
+        from tools.ocr_benchmark import MAX_MANIFEST_BYTES
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            with manifest.open("wb") as handle:
+                handle.truncate(MAX_MANIFEST_BYTES + 1)
+            with self.assertRaisesRegex(ValueError, "2 MB"):
+                run_benchmark(manifest, root / "report.json", ["tesseract"])
+
+    def test_benchmark_rejects_duplicate_or_unsupported_engines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = root / "manifest.json"
+            manifest.write_text("{}", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unique values"):
+                run_benchmark(manifest, root / "report.json", ["tesseract", "tesseract"])
     def test_invalid_metric_unit(self):
         with self.assertRaises(ValueError):
             error_rate("a", "b", "lines")

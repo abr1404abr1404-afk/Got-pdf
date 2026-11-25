@@ -54,6 +54,7 @@ def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
 
 def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
     """Return bounded, approximate text and structure indicators for a PDF/DOCX pair."""
+    import difflib
     import io
     import re
     import unicodedata
@@ -67,6 +68,7 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
         "matched_word_count": 0,
         "text_coverage_percent": None,
         "text_precision_percent": None,
+        "text_order_similarity_percent": None,
         "source_extractable": False,
         "output_paragraph_count": 0,
         "output_table_count": 0,
@@ -106,11 +108,12 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
                     output_parts.append(cell.text)
 
         def tokens(value):
-            normalized = unicodedata.normalize("NFKC", value).casefold()
+            normalized = unicodedata.normalize("NFKC", value).casefold().replace("\u0640", "")
+            normalized = re.sub(r"[\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed]", "", normalized)
             return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
         source_tokens = tokens("\n".join(source_parts))
-        output_tokens = tokens("\\n".join(output_parts))
+        output_tokens = tokens("\n".join(output_parts))
         report["source_word_count"] = len(source_tokens)
         report["output_word_count"] = len(output_tokens)
         if not source_tokens:
@@ -122,6 +125,13 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
         report["text_coverage_percent"] = round(100 * overlap / len(source_tokens), 2)
         if output_tokens:
             report["text_precision_percent"] = round(100 * overlap / len(output_tokens), 2)
+        # Sequence matching is bounded to avoid pathological CPU use on very large documents.
+        if len(source_tokens) <= 3000 and len(output_tokens) <= 3000:
+            report["text_order_similarity_percent"] = round(
+                100 * difflib.SequenceMatcher(
+                    a=source_tokens, b=output_tokens, autojunk=False
+                ).ratio(), 2
+            )
         return report
     except Exception:
         report["analysis_status"] = "analysis_unavailable"

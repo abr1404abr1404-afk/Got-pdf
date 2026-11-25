@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import unicodedata
 import asyncio
 import io
 import json
@@ -11,6 +12,7 @@ import tempfile
 import threading
 import time
 from collections import deque
+from functools import partial
 from typing import Any
 
 import httpx
@@ -27,6 +29,7 @@ from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from pdf_tools import compress_pdf_bytes
+from pdf_batch import compress_pdf_batch
 from pdf_compare import compare_pdf_bytes
 from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
@@ -34,11 +37,19 @@ from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
 from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
 from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, replace_isolated_arabic_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
-from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from request_limits import (
+    RequestBodyLimitMiddleware,
+    SlidingWindowRateLimiter,
+    validate_pixel_dimensions,
+)
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
+from deployment_config import validate_cors_origins
 
 APP_NAME = "Alfalqi PDF OCR API"
+APP_ENV = os.getenv("APP_ENV", "development").strip().lower()
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
+# The compare endpoint accepts two PDFs; reserve room for multipart fields and boundaries.
+MAX_REQUEST_BODY_MB = max(1, int(os.getenv("MAX_REQUEST_BODY_MB", str(2 * MAX_UPLOAD_MB + 2))))
 MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "12"))
 OCR_DPI = int(os.getenv("OCR_DPI", "240"))
 MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "12000000"))
@@ -53,6 +64,10 @@ GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
 MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=MAX_REQUEST_BODY_MB * 1024 * 1024,
+)
 
 
 class AssistantRequest(BaseModel):
@@ -74,7 +89,7 @@ class ExportRequest(BaseModel):
 
 
 
-origins = [x.strip() for x in os.getenv("CORS_ORIGINS", "*").split(",") if x.strip()]
+origins = validate_cors_origins(APP_ENV, os.getenv("CORS_ORIGINS", "*").split(","))
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -89,6 +104,7 @@ app.add_middleware(
         "X-Conversion-Matched-Words",
         "X-Conversion-Text-Coverage",
         "X-Conversion-Text-Precision",
+        "X-Conversion-Text-Order",
         "X-Conversion-Source-Images",
         "X-Conversion-Output-Images",
         "X-Conversion-Output-Tables",
@@ -273,9 +289,7 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) ->
                     w, h = int(data["width"][i]), int(data["height"][i])
                     words.append((x, y, w, h, conf, word))
             if not words: continue
-            # Arabic runs are read right-to-left; Latin runs left-to-right.
-            rtl = any("\u0600" <= ch <= "\u06ff" for item in words for ch in item[5])
-            words.sort(key=lambda z: z[0], reverse=rtl)
+            words = _bidi_order(words, lambda item: item[5], lambda item: item[0])
             x0 = min(z[0] for z in words); y0 = min(z[1] for z in words)
             x1 = max(z[0] + z[2] for z in words); y1 = max(z[1] + z[3] for z in words)
             text = " ".join(z[5] for z in words)
@@ -364,10 +378,92 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     return kept
 
 
-def _reading_order(rows: list[dict]) -> list[dict]:
-    """Order OCR line boxes top-to-bottom and each line by its writing direction."""
+def _bidi_order(items: list, text_getter, x_getter) -> list:
+    """Reconstruct logical order from visual boxes while preserving embedded Latin runs."""
+    if len(items) < 2:
+        return items
+    visual = sorted(items, key=x_getter)
+    import unicodedata
+
+    texts = [str(text_getter(item) or "") for item in visual]
+
+    def direction_counts(text: str) -> tuple[int, int, int]:
+        rtl = ltr = numbers = 0
+        for char in text:
+            bidi = unicodedata.bidirectional(char)
+            if bidi in {"R", "AL"}:
+                rtl += 1
+            elif bidi == "L" and char.isalpha():
+                ltr += 1
+            elif bidi in {"EN", "AN"}:
+                numbers += 1
+        return rtl, ltr, numbers
+
+    totals = [direction_counts(text) for text in texts]
+    rtl_total = sum(item[0] for item in totals)
+    ltr_total = sum(item[1] for item in totals)
+    strong_directions = [("rtl" if rtl else "ltr" if ltr or numbers else None)
+                         for rtl, ltr, numbers in totals]
+    first_strong = next((value for value in strong_directions if value), None)
+    last_strong = next((value for value in reversed(strong_directions) if value), None)
+    base_rtl = (first_strong == "rtl") if first_strong == last_strong and first_strong else rtl_total > ltr_total
+    base_direction = "rtl" if base_rtl else "ltr"
+    runs: list[tuple[str, list]] = []
+    previous_direction = base_direction
+    for item, (rtl, ltr, numbers) in zip(visual, totals):
+        if rtl > ltr and rtl:
+            item_direction = "rtl"
+        elif ltr or numbers:
+            item_direction = "ltr"
+        else:
+            # Neutral punctuation inherits its surrounding direction.
+            item_direction = previous_direction
+        previous_direction = item_direction
+        if not runs or runs[-1][0] != item_direction:
+            runs.append((item_direction, [item]))
+        else:
+            runs[-1][1].append(item)
+    if base_rtl:
+        runs.reverse()
+    result = []
+    for run_direction, run_items in runs:
+        result.extend(reversed(run_items) if run_direction == "rtl" else run_items)
+    return result
+
+
+def _reading_order(rows: list[dict], _detect_columns: bool = True) -> list[dict]:
+    """Order OCR boxes by columns, then lines, respecting mixed-script direction."""
     if len(rows) < 2:
         return rows
+
+    if _detect_columns:
+        heights = sorted(max(1, r["bbox"][3] - r["bbox"][1]) for r in rows)
+        median_height = heights[len(heights) // 2]
+        merge_gap = max(20.0, median_height * 2.5)
+        intervals = sorted(
+            ((float(r["bbox"][0]), float(r["bbox"][2]), r) for r in rows),
+            key=lambda item: item[0],
+        )
+        clusters: list[dict] = []
+        for left, right, row in intervals:
+            if not clusters or left - clusters[-1]["right"] > merge_gap:
+                clusters.append({"left": left, "right": right, "rows": [row]})
+            else:
+                clusters[-1]["right"] = max(clusters[-1]["right"], right)
+                clusters[-1]["rows"].append(row)
+        usable = [cluster for cluster in clusters if len(cluster["rows"]) >= 2]
+        if len(usable) >= 2 and sum(len(c["rows"]) for c in usable) == len(rows):
+            arabic = sum(sum(unicodedata.bidirectional(ch) in {"R", "AL"}
+                             for ch in str(r.get("text", ""))) for r in rows)
+            latin = sum(sum(unicodedata.bidirectional(ch) == "L" and ch.isalpha()
+                            for ch in str(r.get("text", ""))) for r in rows)
+            usable.sort(key=lambda c: c["left"], reverse=arabic > latin)
+            return [
+                item
+                for cluster in usable
+                for item in _reading_order(cluster["rows"], _detect_columns=False)
+            ]
+
     ordered = sorted(rows, key=lambda r: (r["bbox"][1] + r["bbox"][3]) / 2)
     heights = sorted(max(1, r["bbox"][3] - r["bbox"][1]) for r in ordered)
     tolerance = max(8.0, heights[len(heights) // 2] * 0.65)
@@ -381,16 +477,14 @@ def _reading_order(rows: list[dict]) -> list[dict]:
         else:
             bands[-1].append(row)
             centers[-1] = sum((item["bbox"][1] + item["bbox"][3]) / 2 for item in bands[-1]) / len(bands[-1])
-
     result: list[dict] = []
     for band in bands:
-        text = " ".join(item.get("text", "") for item in band)
-        arabic_chars = sum("\u0600" <= ch <= "\u06ff" for ch in text)
-        latin_chars = sum(("a" <= ch.lower() <= "z") for ch in text)
-        rtl = arabic_chars >= latin_chars
-        result.extend(sorted(band, key=lambda r: r["bbox"][0], reverse=rtl))
+        result.extend(_bidi_order(
+            band,
+            lambda item: item.get("text", ""),
+            lambda item: (item["bbox"][0] + item["bbox"][2]) / 2,
+        ))
     return result
-
 
 
 def _group_positions(values: list[int], gap: int = 3) -> list[int]:
@@ -542,7 +636,7 @@ def _tesseract_languages() -> list[str]:
 @app.get("/api/health")
 def health():
     languages = _tesseract_languages()
-    return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
+    return {"ok": True, "service": APP_NAME, "environment": APP_ENV, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB, "max_request_body_mb": MAX_REQUEST_BODY_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "tesseract_languages": languages,
@@ -676,10 +770,11 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
         "X-Conversion-Output-Tables": str(quality.get("output_table_count", 0)),
         "X-Conversion-Output-Paragraphs": str(quality.get("output_paragraph_count", 0)),
     }
-    for key in ("text_coverage_percent", "text_precision_percent"):
+    for key in ("text_coverage_percent", "text_precision_percent", "text_order_similarity_percent"):
         value = quality.get(key)
         if value is not None:
-            header_name = "X-Conversion-" + ("Text-Coverage" if key == "text_coverage_percent" else "Text-Precision")
+            suffix = {"text_coverage_percent": "Text-Coverage", "text_precision_percent": "Text-Precision", "text_order_similarity_percent": "Text-Order"}[key]
+            header_name = "X-Conversion-" + suffix
             quality_headers[header_name] = str(value)
     return Response(content=output,
                     media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -817,6 +912,50 @@ async def compress_pdf(request: Request, file: UploadFile = File(...), level: st
             "X-Original-Size": str(len(data)),
             "X-Compressed-Size": str(len(optimized)),
             "X-Compression-Reduced": "true" if reduced else "false",
+        },
+    )
+
+
+@app.post("/api/compress/pdf/batch")
+async def compress_pdf_batch_endpoint(
+    request: Request,
+    files: list[UploadFile] = File(...),
+    level: str = Form("balanced"),
+):
+    """Compress a bounded batch of PDFs and return a ZIP with a JSON report."""
+    _guard_expensive_request(request, "compress-batch", client_limit=3, global_limit=10)
+    if not files or len(files) > 10:
+        raise HTTPException(400, "اختر من ملف واحد إلى 10 ملفات PDF.")
+    if level not in {"lossless", "balanced", "small"}:
+        raise HTTPException(400, "مستوى الضغط غير صالح.")
+    batch = []
+    total = 0
+    for index, upload in enumerate(files, start=1):
+        data = await upload.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+        _check_size(data)
+        total += len(data)
+        if total > MAX_REQUEST_BODY_MB * 1024 * 1024:
+            raise HTTPException(413, "إجمالي أحجام الملفات يتجاوز حد الطلب الجماعي.")
+        batch.append((upload.filename or f"document-{index}.pdf", data))
+    try:
+        batch_operation = partial(
+            compress_pdf_batch,
+            batch,
+            level,
+            max_files=10,
+            max_file_bytes=MAX_UPLOAD_MB * 1024 * 1024,
+            max_total_bytes=MAX_REQUEST_BODY_MB * 1024 * 1024,
+            max_output_bytes=MAX_CONVERTED_MB * 1024 * 1024,
+        )
+        archive, report = await _run_cpu(batch_operation)
+    except ValueError as exc:
+        raise HTTPException(415, str(exc)) from exc
+    return Response(
+        content=archive,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": 'attachment; filename="alfalqi-compressed-batch.zip"',
+            "X-Batch-File-Count": str(len(report)),
         },
     )
 

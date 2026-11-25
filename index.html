@@ -328,7 +328,7 @@ label.btn{position:relative}
 /* OCR text review */
 #ocrReview{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}#ocrReview.on{display:flex}#ocrReview .ocrbox{background:var(--panel);color:var(--ink);width:min(100%,760px);max-height:92vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}#ocrReview h2{margin:0 0 6px;font-size:1.1rem}#ocrReview p{margin:0 0 10px;color:var(--mut);font-size:.9rem;line-height:1.7}#ocrReview textarea{display:block;width:100%;min-height:48vh;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);color:var(--ink);font:16px/1.9 "IBM Plex Sans Arabic",sans-serif;direction:auto;unicode-bidi:plaintext} #ocrReview .ocr-multipage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}#ocrReview .ocr-multipage strong{font-size:.9rem}#ocrReview .ocr-multipage .sp{flex:1}#ocrReview .ocr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}#ocrReview .ocr-note{font-size:.82rem;color:var(--mut);margin-top:8px}
 
-.pdf-fill-overlay{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:14px}.pdf-fill-overlay.on{display:flex}.pdf-fill-card{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;width:min(100%,560px);max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}.pdf-fill-card header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px}.pdf-fill-card h2{font-size:1.1rem;margin:0}.pdf-fill-card p{color:var(--mut);line-height:1.7;font-size:.9rem}.pdf-fill-fields{display:grid;grid-template-columns:1fr;gap:10px}.pdf-fill-row{display:grid;gap:5px;padding:9px;border:1px solid var(--line);border-radius:10px}.pdf-fill-row label{font-size:.9rem;font-weight:600}.pdf-fill-row input,.pdf-fill-row select{width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}.pdf-fill-row .pdf-check{width:22px;min-height:22px}.pdf-fill-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pdf-fill-actions span{flex:1;color:var(--mut);font-size:.82rem}
+.pdf-fill-row input:disabled,.pdf-fill-row select:disabled{opacity:.65}.pdf-fill-overlay{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:14px}.pdf-fill-overlay.on{display:flex}.pdf-fill-card{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;width:min(100%,560px);max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}.pdf-fill-card header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px}.pdf-fill-card h2{font-size:1.1rem;margin:0}.pdf-fill-card p{color:var(--mut);line-height:1.7;font-size:.9rem}.pdf-fill-fields{display:grid;grid-template-columns:1fr;gap:10px}.pdf-fill-row{display:grid;gap:5px;padding:9px;border:1px solid var(--line);border-radius:10px}.pdf-fill-row label{font-size:.9rem;font-weight:600}.pdf-fill-row input,.pdf-fill-row select{width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}.pdf-fill-row .pdf-check{width:22px;min-height:22px}.pdf-fill-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pdf-fill-actions span{flex:1;color:var(--mut);font-size:.82rem}
 </style>
   <link rel="stylesheet" href="./experience.css">
 </head>
@@ -350,6 +350,7 @@ label.btn{position:relative}
    <button class="hb" id="ai" type="button" title="اسأل عن محتوى المستند"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-7 7v2a3 3 0 0 0 3 3h1v-5H7a5 5 0 0 1 10 0h-2v5h1a3 3 0 0 0 3-3v-2a7 7 0 0 0-7-7Z"/><path d="M9 19h6"/></svg><span class="lb">مساعد AI</span></button>
    <button class="hb" id="compress" type="button" title="ضغط نسخة من الملف لتقليل الحجم"><svg class="ic" viewBox="0 0 24 24"><path d="M4 7h16M7 4v6m10-6v6M6 13h12l-2 7H8z"/><path d="M10 16h4"/></svg><span class="lb">ضغط PDF</span></button>
    <button class="hb" id="pdfSearchBtn" type="button" title="بحث داخل نص الصفحات"><svg class="ic" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><span class="lb">بحث</span></button>
+   <button class="hb" id="pdfCreateFields" type="button" title="إنشاء حقول نموذج PDF جديدة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM8 8h8M8 12h5M8 16h8"/><path d="M18 2v6M15 5h6"/></svg><span class="lb">إنشاء حقول</span></button>
    <button class="hb" id="pdfAutoFill" type="button" title="تعبئة حقول نموذج PDF"><svg class="ic" viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h5M8 16h8"/></svg><span class="lb">تعبئة PDF</span></button>
    <button class="hb" id="tls" title="أدوات: علامة مائية، خصائص، عمليات سريعة"><svg class="ic" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span class="lb">أدوات</span></button>
   </div><span id="info"></span></div>
@@ -368,13 +369,13 @@ label.btn{position:relative}
 <label class="opt"><input type="radio" name="spmode" value="ranges"> نطاقات مخصّصة <input id="spr" type="text" dir="ltr" placeholder="1-3, 4, 5-8"></label>
 <div class="r"><button id="spx">إلغاء</button><span class="sp"></span><button id="spok" class="p">تقسيم وتنزيل ZIP</button></div></div></div>
 <div id="ocm"><div class="bx" role="dialog" aria-label="قراءة نص صورة"><h2>قراءة النص من صورة وتعديله</h2><p>اختر صورة (مستند، شاشة، لافتة…)، فتتحول إلى صفحة PDF ويُقرأ نصها ثم تُفعَّل أداة «تعديل النص» لتعدّل السطور مباشرة. القراءة تحتاج إنترنت، وأول مرة قد تستغرق دقيقة، وتعمل من المتصفح مباشرة وليس داخل تطبيق Claude.</p><label class="oc-l">لغة النص في الصورة<select id="ocl2"><option value="ara+eng" selected>عربي + English</option><option value="ara">عربي فقط</option><option value="eng">English فقط</option></select></label><div class="r"><label for="focr" class="btn p">اختيار صورة وتحليلها</label><input id="focr" type="file" accept="image/*,.heic,.heif" class="native-picker"><span class="sp"></span><button id="ocx">إلغاء</button></div></div></div>
-<div id="ocrReview" aria-hidden="true"><div class="ocrbox" role="dialog" aria-modal="true" aria-labelledby="ocrReviewTitle"><h2 id="ocrReviewTitle">مراجعة النص المستخرج</h2><p>راجع النص وصحّح الأخطاء. التعديلات تحفظ داخل جلسة العمل وتُستخدم في استخراج النص، ولا تغيّر محتوى ملف PDF الأصلي.</p><div class="ocr-multipage"><button id="ocrReviewPrev" type="button">السابق</button><strong id="ocrReviewCounter">صفحة 1 من 1</strong><button id="ocrReviewNext" type="button">التالي</button><span class="sp"></span><button id="ocrReviewAllCopy" type="button">نسخ كل الصفحات</button><button id="ocrReviewAllDownload" type="button">تنزيل كل الصفحات</button></div><textarea id="ocrReviewText" spellcheck="false" aria-label="النص المستخرج"></textarea><div class="ocr-note">للحفاظ على تطابق السطور مع مواضعها في الصفحة، لا تغيّر عدد الأسطر أثناء التصحيح. يمكنك نسخ النص أو تنزيله TXT.</div><div class="ocr-actions"><button id="ocrReviewCancel">إغلاق</button><button id="ocrReviewCopy">نسخ النص</button><button id="ocrReviewDownload">تنزيل TXT</button><span class="sp"></span><button id="ocrReviewSave" class="p">حفظ التصحيحات</button></div></div></div>
+<div id="ocrReview" aria-hidden="true"><div class="ocrbox" role="dialog" aria-modal="true" aria-labelledby="ocrReviewTitle"><h2 id="ocrReviewTitle">مراجعة النص المستخرج</h2><p>راجع النص وصحّح الأخطاء. التعديلات تحفظ داخل جلسة العمل وتُستخدم في استخراج النص، ولا تغيّر محتوى ملف PDF الأصلي.</p><div class="ocr-multipage"><button id="ocrReviewPrev" type="button">السابق</button><strong id="ocrReviewCounter">صفحة 1 من 1</strong><p id="ocrReviewConfidence" class="ocr-note" role="status" aria-live="polite"></p><button id="ocrReviewNext" type="button">التالي</button><span class="sp"></span><button id="ocrReviewAllCopy" type="button">نسخ كل الصفحات</button><button id="ocrReviewAllDownload" type="button">تنزيل كل الصفحات</button></div><textarea id="ocrReviewText" spellcheck="false" aria-label="النص المستخرج"></textarea><div class="ocr-note">للحفاظ على تطابق السطور مع مواضعها في الصفحة، لا تغيّر عدد الأسطر أثناء التصحيح. يمكنك نسخ النص أو تنزيله TXT.</div><div class="ocr-actions"><button id="ocrReviewCancel">إغلاق</button><button id="ocrReviewCopy">نسخ النص</button><button id="ocrReviewDownload">تنزيل TXT</button><span class="sp"></span><button id="ocrReviewSave" class="p">حفظ التصحيحات</button></div></div></div>
 <div id="pdfSearch" aria-hidden="true" style="position:fixed;inset:0;z-index:34;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px"><section role="dialog" aria-modal="true" aria-labelledby="pdfSearchTitle" style="background:var(--panel);color:var(--ink);width:min(100%,680px);max-height:90vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)"><h2 id="pdfSearchTitle">بحث داخل المستند</h2><p style="color:var(--mut);font-size:.9rem">يبحث محليًا داخل النص المستخرج أو النص القابل للتحديد في PDF. لا يرسل ملفاتك إلى الخادم. للصفحات المصوّرة شغّل OCR أولًا.</p><div class="r"><input id="pdfSearchInput" type="search" dir="auto" placeholder="اكتب كلمة أو عبارة للبحث" style="flex:1;min-width:0"><button id="pdfSearchGo" class="p" type="button">بحث</button></div><p id="pdfSearchStatus" role="status" aria-live="polite"></p><div id="pdfSearchResults" style="display:grid;gap:7px"></div><div class="r" style="margin-top:12px"><span class="sp"></span><button id="pdfSearchClose" type="button">إغلاق</button></div></section></div>
 <div id="mnm"><div class="bx" role="dialog" aria-label="القائمة الرئيسية"><div class="mh"><span class="logo"><svg class="ic" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 14h6M9 17h4"/></svg></span><h2>الفلقي لتعديل PDF</h2></div><p>شرح الأزرار واستخدامها. تُعالج ملفاتك محليًا، لكن عند تفعيل خادم OCR تُرسل الصفحة المراد تحليلها إلى ذلك الخادم.</p><div id="mnl"></div><div class="r"><button id="mnh" type="button">الدليل السريع</button><span class="sp"></span><button id="mnx" class="p" type="button">إغلاق</button></div></div></div>
 <div id="mgm"><div class="bx" role="dialog" aria-label="دمج الملفات"><h2>دمج الملفات</h2><p>رتّب الملفات بالأسهم أو احذف ما لا تريده، ثم اضغط «تطبيق». لإضافة ملف جديد استخدم «إضافة ملف».</p><div id="mglist"></div><div class="r"><label for="file" class="btn">+ إضافة ملف</label><span class="sp"></span><button id="mgx">إلغاء</button><button id="mgok" class="p">تطبيق</button></div></div></div>
 <div id="tlm"><div class="bx" role="dialog" aria-label="أدوات"><h2>أدوات إضافية</h2>
 <div class="tsec"><h3>علامة مائية (تُضاف عند التنزيل على كل الصفحات)</h3><input id="wmt" type="text" dir="auto" placeholder="مثال: سري / مسودة / اسم الجهة"><div class="r"><label>الشفافية <select id="wmo"><option value="0.10">خفيفة</option><option value="0.18" selected>متوسطة</option><option value="0.30">واضحة</option></select></label></div></div>
-<div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" placeholder="المؤلف"></div>
+<div class="tsec"><h3>خصائص الملف</h3><input id="mti" type="text" dir="auto" maxlength="255" placeholder="العنوان"><div style="height:6px"></div><input id="mau" type="text" dir="auto" maxlength="255" placeholder="المؤلف"><div style="height:6px"></div><input id="msu" type="text" dir="auto" maxlength="500" placeholder="الموضوع"><div style="height:6px"></div><input id="mkw" type="text" dir="auto" maxlength="1500" placeholder="كلمات مفتاحية، افصل بينها بفواصل"><div style="height:6px"></div><input id="mlg" type="text" dir="auto" maxlength="35" placeholder="لغة المستند (مثال: ar-SA)"><div style="height:8px"></div><button id="pdfReadMetadata" type="button">قراءة الخصائص الحالية من PDF</button></div>
 <div class="tsec"><h3>عمليات سريعة</h3><div class="qa"><button id="qrot">تدوير الكل</button><button id="qrev">عكس الترتيب</button><button id="qsel">تحديد الكل</button><button id="qdel">حذف المحدد</button></div></div>\n<div class="tsec"><h3>OCR وتصدير متقدم</h3><p class="dshint">أنشئ نسخة PDF قابلة للبحث بطبقة نص مخفية بعد مراجعة النصوص. تتطلب اتصالًا بخادم الفلقي، ولن يُرسل الملف إلا بعد تأكيدك.</p><div class="qa"><button id="searchablePdf" class="p" type="button">إنشاء PDF قابل للبحث</button></div></div>
 <div class="tsec"><h3>حجب آمن نهائي</h3><p class="dshint">ارسم مستطيلات سوداء بأداة «حجب بصري» فوق البيانات المراد إزالتها، ثم طبّق الحجب النهائي. سيُرسل ملف PDF ومناطق الحجب إلى خادم الفلقي بعد موافقتك. احتفظ بالأصل؛ الحجب النهائي لا يمكن التراجع عنه داخل النسخة الناتجة. يزيل بيانات المستند الوصفية والمرفقات المضمنة من النسخة الناتجة.</p><div class="qa"><button id="secureRedactPdf" class="p" type="button">تطبيق الحجب النهائي</button></div></div>
 <div class="tsec"><h3>فتح PDF محمي</h3><p class="dshint">عند فتح ملف محمي سيطلب البرنامج كلمة المرور. لفك الحماية إلى نسخة قابلة للتحرير، تُرسل النسخة المشفرة وكلمة المرور إلى خادم الفلقي بعد موافقتك. لا يمكن تجاوز كلمة مرور مفقودة أو صلاحيات المالك.</p></div>
@@ -416,13 +417,15 @@ label.btn{position:relative}
 <div class="tsec"><label for="cpLevel">مستوى الضغط</label> <select id="cpLevel"><option value="lossless">بدون فقد الجودة — ضغط بنيوي</option><option value="balanced" selected>متوازن — جودة صور أفضل</option><option value="small">حجم أصغر — ضغط أقوى للصور</option></select></div>
 <label class="ai-consent"><input id="cpServerConsent" type="checkbox"> أوافق على إرسال نسخة من الملف إلى خادم الفلقي لضغط الصور وتقليل حجم الملف.</label>
 <div id="cpStatus" role="status" aria-live="polite">بدون تحديد الموافقة، ستتم محاولة التحسين محليًا في المتصفح.</div>
+<div class="tsec"><h3>ضغط عدة ملفات دفعة واحدة</h3><p class="ai-note">اختر حتى 10 ملفات PDF. سيُعاد إليك ملف ZIP يحتوي على النسخ المضغوطة وتقرير أحجام لكل ملف. الحد الإجمالي للرفع يخضع لإعدادات الخادم.</p><input id="cpBatchFiles" type="file" accept="application/pdf,.pdf" multiple><label class="ai-consent"><input id="cpBatchConsent" type="checkbox"> أوافق على إرسال الملفات المحددة إلى خادم الفلقي للضغط الجماعي.</label><div id="cpBatchStatus" role="status" aria-live="polite">لم يتم اختيار ملفات بعد.</div><button id="cpBatchGo" type="button">ضغط الملفات المحددة وتنزيل ZIP</button></div>
 <div class="r"><button id="cpClose" type="button">إغلاق</button><span class="sp"></span><button id="cpGo" class="p" type="button">ضغط وتنزيل النسخة</button></div>
 </div></div>
 <div id="rdm"><div class="bx" role="dialog" aria-label="الملف جاهز"><h2>الملف جاهز ✔</h2><p id="rdn"></p><div class="rdb"><button id="rds" class="p">مشاركة / حفظ في «الملفات»</button><a id="rdd" class="rda p" href="#" download>تنزيل الملف</a><a id="rdo" class="rda" href="#" target="_blank" rel="noopener">فتح الملف</a><button id="rdx">إغلاق</button></div></div></div>
 <div id="hlp"><div class="bx" role="dialog" aria-label="دليل الاستخدام"><h2>دليل سريع</h2><ul class="hl"><li><b>فتح:</b> ملف PDF واحد أو عدة ملفات تُدمج. <b>صورة:</b> تحويل الصور إلى PDF بحجم الصفحة الذي تختاره.</li><li><b>تعديل النص:</b> فعّله ثم اضغط أي سطر في الملف. الضغط على النص المضاف يحدّده، والسحب يحرّكه، والضغط مرة ثانية يفتح الكتابة. الضغط بعيدًا ينهي التعديل.</li><li><b>شريط النص:</b> ✥ للنقل، A−/A+ للحجم، B للعريض، «Aa» للخطوط والألوان وتكرار النص ونسخه.</li><li><b>تعليق:</b> تظليل وقلم وحجب بصري. المربع الأسود وحده لا يزيل الأصل؛ لتطبيق الحجب الدائم استخدم «أدوات ← حجب آمن نهائي» بعد مراجعة المستطيلات والموافقة على إرسال نسخة الملف للخادم.</li><li><b>بحث:</b> يبحث محليًا في النص القابل للتحديد أو نص OCR، والصفحات المصوّرة تحتاج تحليل OCR أولًا.</li><li><b>باركود:</b> رمز QR أو Code128 على الصفحة أو على كل الصفحات.</li><li><b>مساعد AI:</b> يجيب عن أسئلتك من نص المستند بعد موافقتك على إرسال النص المستخرج فقط إلى خدمة الذكاء الاصطناعي.</li><li><b>ضغط PDF:</b> ينشئ نسخة محسّنة مع الحفاظ على النص والصفحات قدر الإمكان.</li><li><b>دمج / تقسيم / أدوات:</b> ترتيب الملفات، التقسيم بالنطاق، علامة مائية، خصائص الملف.</li><li><b>القرص بإصبعين:</b> يكبّر الملف فقط. <b>تراجع / إعادة:</b> من الشريط العلوي أو Ctrl+Z / Ctrl+Y.</li><li>تتم معالجة ملفات PDF محليًا في المتصفح. عند تفعيل خادم OCR، تُرسل الصفحة المراد تحليلها إلى خادم الخدمة؛ لا ترسل مستندات حساسة إلى خادم لا تثق به.</li><li><b>على iPhone:</b> إذا لم يستجب اختيار الملف داخل معاينة التطبيق، افتح ملف HTML في Safari ثم اختر «فتح PDF» أو «صورة→PDF». تأكد من اكتمال تنزيل الملف قبل اختياره.</li><li><b>اقتراحات تطوير:</b> صور مصغّرة للصفحات، حفظ تلقائي واستعادة آخر جلسة، سجل للملفات الأخيرة، بحث داخل النص، واختصارات قابلة للتخصيص.</li></ul><div class="r"><span class="sp"></span><button id="hlx" class="p">حسنًا</button></div></div></div>
 <div id="anp" role="toolbar" aria-label="لوحة الرموز والعلامات والقلم"><div class="ann-tools-head"><strong class="ann-tools-title">الرموز والعلامات</strong><button id="annToolsClose" type="button" title="إغلاق لوحة الرموز والقلم" aria-label="إغلاق لوحة الرموز والقلم">×</button></div><button id="ah" class="on" title="تظليل: اسحب على الصفحة لتحديد منطقة بلون شفاف">تظليل</button><button id="ap">قلم حر</button><button id="ack">✓ صح</button><button id="axx">✕ خطأ</button><button id="aci" title="رسم دائرة مفرغة">○ دائرة</button><button id="acif" title="رسم دائرة ممتلئة">● دائرة ممتلئة</button><button id="asq" title="رسم مربع مفرغ">□ مربع</button><button id="asqf" title="رسم مربع ممتلئ">■ مربع ممتلئ</button><button id="ab" type="button" title="حجب بصري فقط؛ لا يزيل النص الأصلي من PDF">حجب بصري</button><input id="ac" type="color" value="#ffd400" aria-label="اللون"><label class="ann-width-control" for="aw">السماكة <input id="aw" type="range" min="1" max="20" step="1" value="4" aria-label="سماكة القلم من 1 إلى 20 نقطة"><output id="awv" for="aw">4 pt</output></label><button id="aq" class="p" title="إنهاء وضع الرسم مع إبقاء اللوحة مفتوحة">إنهاء</button></div>
 <div id="sg"><div class="bx" role="dialog" aria-label="التوقيع"><h2>ارسم توقيعك</h2><p>ارسم بإصبعك أو بالفأرة داخل المربع الأبيض.</p><canvas id="sgc"></canvas><div class="r"><input id="sgcol" type="color" value="#111111" aria-label="لون التوقيع"><button id="sgsv" style="display:none">استخدام المحفوظ</button><button id="sgx">مسح</button><span class="sp"></span><button id="sgn">إلغاء</button><button id="sgok" class="p">إدراج</button></div></div></div>
-<div id="pdfFillModal" class="pdf-fill-overlay" aria-hidden="true"><section class="pdf-fill-card" role="dialog" aria-modal="true" aria-labelledby="pdfFillTitle"><header><h2 id="pdfFillTitle">تعبئة نموذج PDF</h2><button id="pdfFillClose" type="button" aria-label="إغلاق">×</button></header><p id="pdfFillInfo">اكتشاف الحقول القابلة للتعبئة في الملف.</p><div id="pdfFillFields" class="pdf-fill-fields"></div><div class="pdf-fill-import"><button id="pdfFillImportBtn" type="button">استيراد بيانات JSON</button><button id="pdfFillTemplateBtn" type="button">تنزيل قالب الحقول</button><input id="pdfFillImportFile" type="file" accept=".json,application/json" hidden><small>يمكنك تعبئة الحقول دفعة واحدة بملف JSON باستخدام أسماء الحقول الظاهرة.</small></div><div class="pdf-fill-actions"><span id="pdfFillStatus"></span><button id="pdfFillApply" class="p" type="button">تعبئة وتطبيق</button><button id="pdfFillCancel" type="button">إغلاق</button></div></section></div>
+<div id="pdfCreateModal" class="pdf-fill-overlay" aria-hidden="true"><section class="pdf-fill-card" role="dialog" aria-modal="true" aria-labelledby="pdfCreateTitle"><header><h2 id="pdfCreateTitle">إنشاء حقول نموذج PDF</h2><button id="pdfCreateClose" type="button" aria-label="إغلاق">×</button></header><p>أضف حقولًا تفاعلية حقيقية إلى ملف PDF. الإحداثيات والأبعاد بوحدة النقطة (pt)، ومبدأ الإحداثيات أسفل يسار الصفحة.</p><div class="pdf-fill-fields"><div class="pdf-fill-row"><label for="pdfCreateName">اسم الحقل (يجب أن يكون فريدًا)</label><input id="pdfCreateName" maxlength="120" placeholder="مثال: customer_name" autocomplete="off"></div><div class="pdf-fill-row"><label for="pdfCreateType">نوع الحقل</label><select id="pdfCreateType"><option value="text">نص</option><option value="checkbox">مربع اختيار</option><option value="dropdown">قائمة منسدلة</option><option value="optionlist">قائمة خيارات متعددة الأسطر</option></select></div><div class="pdf-fill-row"><label for="pdfCreatePage">رقم الصفحة</label><input id="pdfCreatePage" type="number" min="1" step="1" value="1"></div><div class="pdf-fill-row"><label for="pdfCreateX">الموضع الأفقي X (pt)</label><input id="pdfCreateX" type="number" min="0" step="1" value="72"></div><div class="pdf-fill-row"><label for="pdfCreateY">الموضع الرأسي Y (pt)</label><input id="pdfCreateY" type="number" min="0" step="1" value="700"></div><div class="pdf-fill-row"><label for="pdfCreateW">العرض (pt)</label><input id="pdfCreateW" type="number" min="8" step="1" value="180"></div><div class="pdf-fill-row"><label for="pdfCreateH">الارتفاع (pt)</label><input id="pdfCreateH" type="number" min="8" step="1" value="28"></div><div class="pdf-fill-row" id="pdfCreateOptionsRow" hidden><label for="pdfCreateOptions">خيارات القائمة (افصل بينها بفاصلة)</label><input id="pdfCreateOptions" maxlength="1000" placeholder="نعم،لا،غير محدد"></div></div><div class="pdf-fill-actions"><span id="pdfCreateStatus">سيتم تعديل النسخة المفتوحة محليًا فقط.</span><button id="pdfCreateApply" class="p" type="button">إضافة الحقل</button><button id="pdfCreateCancel" type="button">إغلاق</button></div></section></div>
+<div id="pdfFillModal" class="pdf-fill-overlay" aria-hidden="true"><section class="pdf-fill-card" role="dialog" aria-modal="true" aria-labelledby="pdfFillTitle"><header><h2 id="pdfFillTitle">تعبئة نموذج PDF</h2><button id="pdfFillClose" type="button" aria-label="إغلاق">×</button></header><p id="pdfFillInfo">اكتشاف الحقول القابلة للتعبئة في الملف.</p><div id="pdfFillFields" class="pdf-fill-fields"></div><div class="pdf-fill-import"><label for="pdfFillFontFile">خط مضمّن للنص العربي (اختياري)</label><input id="pdfFillFontFile" type="file" accept=".ttf,.otf,font/ttf,font/otf"><small>عند تعبئة قيم عربية، اختر ملف خط TTF أو OTF يدعم العربية. يُضمّن الخط داخل النسخة الناتجة، ولا يُرفع إلى الخادم.</small><button id="pdfFillImportBtn" type="button">استيراد بيانات JSON</button><button id="pdfFillTemplateBtn" type="button">تنزيل قالب الحقول</button><input id="pdfFillImportFile" type="file" accept=".json,application/json" hidden><small>يمكنك تعبئة الحقول دفعة واحدة بملف JSON باستخدام أسماء الحقول الظاهرة.</small></div><div class="pdf-fill-actions"><span id="pdfFillStatus"></span><button id="pdfFillApply" class="p" type="button">تعبئة وتطبيق</button><button id="pdfFillCancel" type="button">إغلاق</button></div></section></div>
 <div id="toolHint" role="status" aria-live="polite" aria-atomic="true"></div><div id="toast"></div>
 <div id="pwaInstallHelp" class="pwa-help-overlay" hidden role="presentation"><section class="pwa-help-card" role="dialog" aria-modal="true" aria-labelledby="pwaHelpTitle" aria-describedby="pwaHelpText"><header><h2 id="pwaHelpTitle">تحميل تطبيق الفلقي PDF</h2><button id="pwaHelpClose" type="button" aria-label="إغلاق نافذة التعليمات">×</button></header><div id="pwaHelpText" class="pwa-help-content"></div><div class="pwa-help-actions"><button id="pwaHelpAction" type="button" class="primary" hidden>تثبيت التطبيق</button><button id="pwaHelpDone" type="button">إغلاق</button></div></section></div>
 <script src="./config.js"></script>\n<script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -2208,6 +2211,11 @@ function ocrReviewLoadCurrent(){
   ocrReviewPage=ocrReviewPages[ocrReviewIndex];
   $("ocrReviewText").value=ocrReviewPage.ocr.map(line=>line.t||"").join("\n");
   $("ocrReviewCounter").textContent="صفحة "+(ocrReviewIndex+1)+" من "+ocrReviewPages.length+" (رقمها في المستند: "+(pages.indexOf(ocrReviewPage)+1)+")";
+  const scores=ocrReviewPage.ocr.map(line=>Number(line.c)).filter(Number.isFinite);
+  const low=scores.filter(score=>score<60).length;
+  $("ocrReviewConfidence").textContent=scores.length
+    ? "متوسط ثقة المحرك: "+Math.round(scores.reduce((sum,value)=>sum+value,0)/scores.length)+"٪ — أسطر منخفضة الثقة (أقل من 60٪): "+low+". هذه تقديرات آلية وليست ضمانًا لصحة النص؛ راجع خصوصًا الأسماء والأرقام."
+    : "لا تتوفر درجات ثقة لهذه الصفحة؛ راجع النص يدويًا قبل الاعتماد.";
   $("ocrReviewPrev").disabled=ocrReviewIndex===0;$("ocrReviewNext").disabled=ocrReviewIndex===ocrReviewPages.length-1;
 }
 function openOcrReview(pg){
@@ -2672,7 +2680,7 @@ function showReady(name,bytes,mime){
 }
 async function saveFile(name,bytes,mime){mime=mime||"application/pdf";if(mime==="application/pdf"&&await requestPdfHistoryConsent()){try{await recordPdfVersion(name,bytes)}catch(e){console.warn("PDF history:",e)}}const mob=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)||(navigator.maxTouchPoints>1&&/Mac/i.test(navigator.platform));if(!mob){try{dl??=await claude.use("downloads");if(dl){await dl.save({filename:name,data:bytes});return}}catch(e){}}showReady(name,bytes,mime)}
 $("rdx").onclick=()=>$("rdm").classList.remove("on");
-const WM={t:"",op:.18},META={title:"",author:""};
+const WM={t:"",op:.18},META={title:"",author:"",subject:"",keywords:[],language:""};
 let pdfHistorySessionChoice=null;
 async function requestPdfHistoryConsent(){
   try{if(localStorage.getItem("alfalqi_pdf_history_consent")==="yes")return true}catch(e){}
@@ -2844,7 +2852,7 @@ async function buildPdf(list){
   const {PDFDocument,degrees,rgb}=PDFLib;
   const out=await PDFDocument.create(),cache={};let wmI=null,wmE=null;
   for(const pg of list){
-    cache[pg.d]??=await PDFDocument.load(docs[pg.d].bytes,{ignoreEncryption:true});
+    cache[pg.d]??=await PDFDocument.load(docs[pg.d].bytes);
     const [cp]=await out.copyPages(cache[pg.d],[pg.i-1]);
     cp.setRotation(degrees((pg.nat+pg.rot)%360));out.addPage(cp);
     const {width:w,height:h}=cp.getSize();
@@ -2867,7 +2875,7 @@ async function buildPdf(list){
       else cp.drawRectangle({x:a.x*w,y:h-(a.y+a.h)*h,width:a.w*w,height:a.h*h,color:col,opacity:a.t==="hl"?.38:1,borderWidth:0})}
     if(WM.t){wmI??=await textPng(WM.t,{s:Math.max(24,Math.round(Math.min(w,h)/7)),f:0,c:"#808080",b:true});wmE??=await out.embedPng(wmI.data);const cs=Math.SQRT1_2,sn=Math.SQRT1_2;cp.drawImage(wmE,{x:w/2-(wmI.w/2*cs-wmI.h/2*sn),y:h/2-(wmI.w/2*sn+wmI.h/2*cs),width:wmI.w,height:wmI.h,rotate:degrees(45),opacity:WM.op})}
   }
-  if(META.title)out.setTitle(META.title);if(META.author)out.setAuthor(META.author);out.setCreator("الفلقي لتعديل PDF");out.setProducer("الفلقي لتعديل PDF");
+  if(META.title)out.setTitle(META.title);if(META.author)out.setAuthor(META.author);if(META.subject)out.setSubject(META.subject);if(META.keywords.length)out.setKeywords(META.keywords);if(META.language&&typeof out.setLanguage==="function")out.setLanguage(META.language);out.setCreator("الفلقي لتعديل PDF");out.setProducer("الفلقي لتعديل PDF");
   return await out.save();
 }
 const apiBase=()=>(window.ALFALQI_API_BASE||"").trim().replace(/\/$/,"");
@@ -2878,10 +2886,51 @@ function closeAi(){aiModal.classList.remove("on");aiModal.setAttribute("aria-hid
 function openCompress(){if(!pages.length)return toast("افتح ملف PDF أولًا.");compressModal.classList.add("on");compressModal.setAttribute("aria-hidden","false");$("cpStatus").textContent=apiBase()?"يمكنك اختيار الضغط على الخادم أو تركه فارغًا للمعالجة المحلية." :"لا يوجد خادم ضغط متصل؛ ستتم محاولة التحسين المحلي دون فقد جودة. خيارات تقليل جودة الصور تحتاج ربط الخادم."}
 function closeCompress(){compressModal.classList.remove("on");compressModal.setAttribute("aria-hidden","true")}
 $("ai").onclick=openAi;$("aiClose").onclick=closeAi;$("compress").onclick=openCompress;$("cpClose").onclick=closeCompress;
+let pdfCreateDocIndex=null;
+function closePdfCreate(){const box=$("pdfCreateModal");box.classList.remove("on");box.setAttribute("aria-hidden","true");pdfCreateDocIndex=null}
+$("pdfCreateClose").onclick=$("pdfCreateCancel").onclick=closePdfCreate;
+$("pdfCreateType").onchange=()=>{$("pdfCreateOptionsRow").hidden=!["dropdown","optionlist"].includes($("pdfCreateType").value)};
+$("pdfCreateFields").onclick=()=>{
+ if(!pages.length)return toast("افتح ملف PDF أولًا.");
+ const selected=pages.find(p=>p.sel)||pages[0];pdfCreateDocIndex=selected.d;
+ $("pdfCreatePage").value=String((selected.i||0)+1);
+ $("pdfCreatePage").max=String(docs[selected.d].pdf.numPages||1);
+ $("pdfCreateName").value="";$("pdfCreateStatus").textContent="اختر موضع الحقل وأبعاده بالنقاط (pt).";
+ $("pdfCreateModal").classList.add("on");$("pdfCreateModal").setAttribute("aria-hidden","false");$("pdfCreateName").focus();
+};
+$("pdfCreateApply").onclick=async()=>{
+ const button=$("pdfCreateApply");if(pdfCreateDocIndex===null)return;
+ const name=$("pdfCreateName").value.trim(),type=$("pdfCreateType").value;
+ const pageNo=Number($("pdfCreatePage").value),x=Number($("pdfCreateX").value),y=Number($("pdfCreateY").value),width=Number($("pdfCreateW").value),height=Number($("pdfCreateH").value);
+ const options=$("pdfCreateOptions").value.split(",").map(v=>v.trim()).filter(Boolean);
+ if(!/^[\p{L}_][\p{L}\p{N}_.-]{0,119}$/u.test(name)){ $("pdfCreateStatus").textContent="ابدأ الاسم بحرف أو _، ثم استخدم الحروف والأرقام والنقطة أو الشرطة أو _ (يدعم العربية والإنجليزية).";return}
+ if(![pageNo,x,y,width,height].every(Number.isFinite)||!Number.isInteger(pageNo)||pageNo<1||x<0||y<0||width<8||height<8){$("pdfCreateStatus").textContent="تحقق من رقم الصفحة والإحداثيات والأبعاد.";return}
+ if(["dropdown","optionlist"].includes(type)&&(!options.length||options.length>100)){ $("pdfCreateStatus").textContent="أدخل خيارًا واحدًا على الأقل وبحد أقصى 100 خيار.";return}
+ button.disabled=true;$("pdfCreateStatus").textContent="جارٍ إنشاء الحقل والتحقق من موضعه…";
+ try{
+  const idx=pdfCreateDocIndex,pdf=await PDFLib.PDFDocument.load(docs[idx].bytes,{}),form=pdf.getForm(),existing=form.getFields().some(field=>field.getName()===name);
+  if(existing)throw new Error("اسم الحقل مستخدم بالفعل. اختر اسمًا مختلفًا.");
+  if(pageNo>pdf.getPageCount())throw new Error("رقم الصفحة خارج نطاق الملف.");
+  const page=pdf.getPage(pageNo-1),size=page.getSize();
+  if(x+width>size.width||y+height>size.height)throw new Error("الحقل يتجاوز حدود الصفحة. أبعاد الصفحة "+Math.round(size.width)+" × "+Math.round(size.height)+" pt.");
+  const style={x,y,width,height,borderWidth:1,borderColor:PDFLib.rgb(.35,.45,.58),backgroundColor:PDFLib.rgb(1,1,1)};
+  if(type==="text"){const field=form.createTextField(name);field.setMaxLength(1000);field.addToPage(page,style)}
+  else if(type==="checkbox"){const field=form.createCheckBox(name);field.addToPage(page,{...style,width:Math.min(width,height),height:Math.min(width,height)})}
+  else if(type==="dropdown"){const field=form.createDropdown(name);field.addOptions([...new Set(options)]);field.addToPage(page,style)}
+  else{const field=form.createOptionList(name);field.addOptions([...new Set(options)]);field.addToPage(page,style)}
+  form.updateFieldAppearances();
+  const bytes=await pdf.save(),rendered=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
+  docs[idx].bytes=bytes;docs[idx].pdf=rendered;track();await render();
+  $("pdfCreateStatus").textContent="أُضيف الحقل بنجاح. يمكنك إضافة حقل آخر أو إغلاق النافذة.";
+  $("pdfCreateName").value="";
+  toast("تم إنشاء حقل نموذج تفاعلي في الصفحة "+pageNo+".");
+ }catch(error){console.error("PDF form field creation failed",error);$("pdfCreateStatus").textContent="تعذّر إنشاء الحقل: "+(error.message||"خطأ غير معروف")}
+ finally{button.disabled=false}
+};
 let pdfFillDoc=null,pdfFillFields=[];
 function pdfFieldKind(field){const n=field&&field.constructor&&field.constructor.name||"";if(n.includes("TextField"))return "text";if(n.includes("CheckBox"))return "check";if(n.includes("Dropdown")||n.includes("OptionList"))return "select";if(n.includes("RadioGroup"))return "radio";return "unsupported"}
 function pdfFieldAutocomplete(name){const n=(name||"").toLowerCase();if(/e.?mail|البريد/.test(n))return "email";if(/phone|mobile|tel|جوال|هاتف/.test(n))return "tel";if(/name|اسم/.test(n))return "name";if(/address|عنوان/.test(n))return "street-address";if(/city|مدينة/.test(n))return "address-level2";if(/postal|zip|رمز.?بريد/.test(n))return "postal-code";if(/company|organization|جهة|شركة/.test(n))return "organization";if(/birth|ميلاد/.test(n))return "bday";return "off"}
-function closePdfFill(){const box=$("pdfFillModal");box.classList.remove("on");box.setAttribute("aria-hidden","true");pdfFillDoc=null;pdfFillFields=[]}
+function closePdfFill(){const box=$("pdfFillModal");box.classList.remove("on");box.setAttribute("aria-hidden","true");pdfFillDoc=null;pdfFillFields=[];$("pdfFillFontFile").value=""}
 $("pdfFillClose").onclick=$("pdfFillCancel").onclick=closePdfFill;
 $("pdfFillImportBtn").onclick=()=>$("pdfFillImportFile").click();
 $("pdfFillImportFile").onchange=async e=>{
@@ -2911,7 +2960,7 @@ $("pdfAutoFill").onclick=async()=>{
  const selected=pages.find(p=>p.sel)||pages[0],docIndex=selected.d;
  try{
   $("pdfFillFields").replaceChildren();$("pdfFillStatus").textContent="جارٍ فحص الحقول…";
-  const pdf=await PDFLib.PDFDocument.load(docs[docIndex].bytes,{ignoreEncryption:true}),form=pdf.getForm(),fields=form.getFields();
+  const pdf=await PDFLib.PDFDocument.load(docs[docIndex].bytes),form=pdf.getForm(),fields=form.getFields();
   if(!fields.length){toast("لم أعثر على حقول نموذج PDF قابلة للتعبئة. قد يكون الملف صورة أو نصًا ثابتًا.");return}
   pdfFillDoc={pdf,form,docIndex};pdfFillFields=[];
   $("pdfFillInfo").textContent="تم العثور على "+fields.length+" حقلًا. أدخل القيم، وقد يقترح المتصفح بيانات محفوظة لبعض الحقول.";
@@ -2930,12 +2979,27 @@ $("pdfAutoFill").onclick=async()=>{
   $("pdfFillModal").classList.add("on");$("pdfFillModal").setAttribute("aria-hidden","false");
  }catch(error){console.error("PDF form inspection failed",error);toast("تعذّر قراءة نموذج PDF: "+(error.message||"خطأ غير معروف"))}
 };
+let pdfFontkitPromise=null;
+function loadPdfFontkit(){
+ if(window.fontkit)return Promise.resolve(window.fontkit);
+ if(!pdfFontkitPromise)pdfFontkitPromise=new Promise((resolve,reject)=>{
+  const script=document.createElement("script");script.src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js";
+  script.onload=()=>window.fontkit?resolve(window.fontkit):reject(new Error("تعذّر تحميل محرك الخطوط."));
+  script.onerror=()=>reject(new Error("تعذّر تحميل محرك الخطوط. تحقق من الاتصال ثم أعد المحاولة."));
+  document.head.append(script);
+ });
+ return pdfFontkitPromise;
+}
 $("pdfFillApply").onclick=async()=>{
  if(!pdfFillDoc)return;
  const button=$("pdfFillApply");button.disabled=true;$("pdfFillStatus").textContent="جارٍ تطبيق القيم…";
  try{
-  for(const item of pdfFillFields){const {field,input,kind}=item;if(kind==="text"){if(input.value.trim())field.setText(input.value)}else if(kind==="check"){input.checked?field.check():field.uncheck()}else if((kind==="select"||kind==="radio")&&input.value){field.select(input.value)}}
-  pdfFillDoc.form.updateFieldAppearances();pdfFillDoc.form.flatten();
+  const hasArabic=pdfFillFields.some(item=>["text","select","radio"].includes(item.kind)&&/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/.test(item.input.value));
+  const fontFile=$("pdfFillFontFile").files&&$("pdfFillFontFile").files[0];let appearanceFont=null;
+  if(hasArabic&&!fontFile)throw new Error("تحتوي القيم على أحرف عربية. اختر خط TTF أو OTF يدعم العربية لتضمينه في الملف.");
+  if(fontFile){if(fontFile.size>10*1024*1024)throw new Error("حجم ملف الخط يتجاوز 10 ميجابايت.");const fontkit=await loadPdfFontkit();pdfFillDoc.pdf.registerFontkit(fontkit);appearanceFont=await pdfFillDoc.pdf.embedFont(await fontFile.arrayBuffer(),{subset:true})}
+  for(const item of pdfFillFields){const {field,input,kind}=item;if(kind==="text"){field.setText(input.value)}else if(kind==="check"){input.checked?field.check():field.uncheck()}else if((kind==="select"||kind==="radio")&&input.value){field.select(input.value)}}
+  if(appearanceFont)pdfFillDoc.form.updateFieldAppearances(appearanceFont);else pdfFillDoc.form.updateFieldAppearances();pdfFillDoc.form.flatten();
   const bytes=await pdfFillDoc.pdf.save(),idx=pdfFillDoc.docIndex;
   const newPdf=await pdfjsLib.getDocument({data:bytes.slice()}).promise;
   docs[idx].bytes=bytes;docs[idx].pdf=newPdf;
@@ -3081,6 +3145,27 @@ $("cpGo").onclick=async()=>{
   }catch(error){$("cpStatus").textContent=error.message||"تعذّر ضغط الملف."}
   finally{btn.disabled=false}
 };
+$("cpBatchGo").onclick=async()=>{
+ const button=$("cpBatchGo"),files=[...($("cpBatchFiles").files||[])],base=apiBase();
+ if(!files.length)return $("cpBatchStatus").textContent="اختر ملف PDF واحدًا على الأقل.";
+ if(files.length>10)return $("cpBatchStatus").textContent="الحد الأقصى 10 ملفات في الدفعة الواحدة.";
+ if(!base)return $("cpBatchStatus").textContent="خادم الفلقي غير متصل. اضبط عنوان API أولًا.";
+ if(!$("cpBatchConsent").checked)return $("cpBatchStatus").textContent="وافق على إرسال الملفات إلى الخادم قبل بدء المعالجة.";
+ if(files.some(file=>file.size===0||!(/\.pdf$/i.test(file.name)||file.type==="application/pdf")))return $("cpBatchStatus").textContent="تأكد أن جميع الملفات PDF وغير فارغة.";
+ $("cpBatchStatus").textContent="سيطبق الخادم حدود حجم الملفات والطلب المعلنة في إعداداته.";
+ button.disabled=true;
+ try{
+  $("cpBatchStatus").textContent="جارٍ رفع الملفات المحددة وضغطها على خادم الفلقي…";
+  const form=new FormData();files.forEach(file=>form.append("files",file,file.name));form.append("level",$("cpLevel").value);
+  const response=await fetch(base+"/api/compress/pdf/batch",{method:"POST",body:form});
+  if(!response.ok){const err=await response.json().catch(()=>({}));throw new Error(err.detail||"تعذّرت المعالجة الجماعية.")}
+  const output=new Uint8Array(await response.arrayBuffer()),count=response.headers.get("X-Batch-File-Count")||files.length;
+  $("cpBatchStatus").textContent="اكتملت معالجة "+count+" ملفات. يجري تجهيز حزمة ZIP.";
+  await saveFile("alfalqi-compressed-batch.zip",output,"application/zip");
+  $("cpBatchStatus").textContent="اكتملت المعالجة. راجع تقرير alfalqi-batch-report.json داخل الحزمة.";
+ }catch(error){$("cpBatchStatus").textContent=error.message||"تعذّرت المعالجة الجماعية."}
+ finally{button.disabled=false}
+};
 const safeName=()=>(($("fn").value.trim().replace(/[\\/:*?"<>|]+/g,"-").replace(/\.pdf$/i,""))||"document");
 $("save").onclick=async()=>{
   const sel=pages.filter(p=>p.sel),list=sel.length?sel:pages;
@@ -3212,6 +3297,7 @@ async function pdfToDocxLayout(){
       status:response.headers.get("X-Conversion-Analysis")||"analysis_unavailable",
       coverage:response.headers.get("X-Conversion-Text-Coverage"),
       precision:response.headers.get("X-Conversion-Text-Precision"),
+      order:response.headers.get("X-Conversion-Text-Order"),
       sourceWords:response.headers.get("X-Conversion-Source-Words")||"0",
       outputWords:response.headers.get("X-Conversion-Output-Words")||"0",
       tables:response.headers.get("X-Conversion-Output-Tables")||"0",
@@ -3223,10 +3309,11 @@ async function pdfToDocxLayout(){
     if(quality.status==="no_extractable_source_text"){
       toast("تم إنشاء Word، لكن الملف الأصلي يبدو ممسوحًا ضوئيًا؛ لا يمكن قياس تغطية النص. راجع النص والصور يدويًا.");
     }else if(quality.coverage!==null&&quality.coverage!==undefined){
-      const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision);
+      const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision),order=quality.order===null?null:Number(quality.order);
       const qualityText="تغطية النص "+coverage+"%"+(precision===null?"":"، دقة المطابقة "+precision+"%")+
-        "، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
-      toast("تم إنشاء Word. "+qualityText+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
+        (order===null?"":"، ترتيب الكلمات "+order+"%")+"، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
+      const orderWarning=order!==null&&order<85?" ترتيب الكلمات يحتاج مراجعة خاصة.":"";
+      toast("تم إنشاء Word. "+qualityText+orderWarning+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
     }else{
       toast("تم إنشاء Word. تعذر استخراج مؤشرات الجودة آليًا؛ راجع النص والتخطيط والجداول والصور قبل الاعتماد.");
     }
@@ -3631,9 +3718,25 @@ $("mrg").onclick=()=>{if(!pages.length)return toast("افتح ملفين أو أ
 $("mgx").onclick=()=>$("mgm").classList.remove("on");
 $("mgok").onclick=()=>{const by={};pages.forEach(p=>(by[p.d]??=[]).push(p));pages=mord.flatMap(d=>by[d]||[]);$("mgm").classList.remove("on");render();toast("تم ترتيب الملفات. اضغط «تنزيل» للحصول على ملف واحد مدموج.")};
 // ===== أدوات إضافية =====
-$("tls").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");$("wmt").value=WM.t;$("wmo").value=String(WM.op.toFixed(2));$("mti").value=META.title;$("mau").value=META.author;$("qsel").textContent=pages.every(p=>p.sel)?"إلغاء التحديد":"تحديد الكل";$("tlm").classList.add("on")};
+$("tls").onclick=()=>{if(!pages.length)return toast("افتح ملف PDF أولًا.");$("wmt").value=WM.t;$("wmo").value=String(WM.op.toFixed(2));$("mti").value=META.title;$("mau").value=META.author;$("msu").value=META.subject;$("mkw").value=META.keywords.join(", ");$("mlg").value=META.language;$("qsel").textContent=pages.every(p=>p.sel)?"إلغاء التحديد":"تحديد الكل";$("tlm").classList.add("on")};
+$("pdfReadMetadata").onclick=async()=>{
+ if(!pages.length)return;
+ const selected=pages.find(p=>p.sel)||pages[0],doc=docs[selected.d]&&docs[selected.d].pdf;
+ if(!doc)return;
+ const button=$("pdfReadMetadata");button.disabled=true;
+ try{
+  const meta=await doc.getMetadata(),info=meta.info||{},xmp=meta.metadata;
+  const get=(primary,secondary)=>String(info[primary]||((xmp&&secondary)?xmp.get(secondary):"")||"");
+  META.title=get("Title","dc:title");META.author=get("Author","dc:creator");META.subject=get("Subject","dc:description");
+  const keywords=get("Keywords","pdf:Keywords");META.keywords=keywords.split(/[;,]/).map(v=>v.trim()).filter(Boolean).slice(0,30);
+  META.language=get("Language","dc:language");
+  $("mti").value=META.title;$("mau").value=META.author;$("msu").value=META.subject;$("mkw").value=META.keywords.join(", ");$("mlg").value=META.language;
+  toast("تمت قراءة الخصائص الوصفية من الملف المفتوح.");
+ }catch(error){toast("تعذّرت قراءة خصائص PDF: "+(error.message||"خطأ غير معروف"))}
+ finally{button.disabled=false}
+};
 $("tlx").onclick=()=>$("tlm").classList.remove("on");
-$("tlok").onclick=()=>{WM.t=$("wmt").value.trim();WM.op=parseFloat($("wmo").value)||.18;META.title=$("mti").value.trim();META.author=$("mau").value.trim();$("tlm").classList.remove("on");toast(WM.t?"سيُضاف «"+WM.t+"» كعلامة مائية عند التنزيل.":"تم حفظ الإعدادات.")};
+$("tlok").onclick=()=>{WM.t=$("wmt").value.trim();WM.op=parseFloat($("wmo").value)||.18;const language=$("mlg").value.trim();if(language&&!/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(language))return toast("صيغة اللغة غير صحيحة. استخدم رمزًا مثل ar-SA أو en-US.");META.title=$("mti").value.trim().slice(0,255);META.author=$("mau").value.trim().slice(0,255);META.subject=$("msu").value.trim().slice(0,500);META.keywords=[...new Set($("mkw").value.split(",").map(x=>x.trim()).filter(Boolean).map(x=>x.slice(0,80)))].slice(0,30);META.language=language;$("tlm").classList.remove("on");toast(WM.t?"سيُضاف «"+WM.t+"» كعلامة مائية عند التنزيل.":"تم حفظ الإعدادات.")};
 $("qrot").onclick=()=>{let sk=0;pages.forEach(p=>{if(p.ov.length||(p.img||[]).length||(p.an||[]).length)sk++;else p.rot=(p.rot+90)%360});$("tlm").classList.remove("on");render();if(sk)toast("تخطّيت "+sk+" صفحة فيها نص أو صور مضافة.")};
 $("qrev").onclick=()=>{pages=pages.slice().reverse();$("tlm").classList.remove("on");render()};
 $("qsel").onclick=()=>{const all=pages.every(p=>p.sel);pages.forEach(p=>p.sel=!all);$("tlm").classList.remove("on");render()};

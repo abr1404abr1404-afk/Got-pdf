@@ -13,7 +13,7 @@ class DockerRuntimeFilesTests(unittest.TestCase):
         imported = set(re.findall(r"^from ([a-zA-Z_][a-zA-Z0-9_]*) import ", main_source, re.M))
         stdlib_and_external = {
             "__future__", "asyncio", "io", "json", "math", "os", "re", "shutil",
-            "tempfile", "threading", "time", "collections", "typing", "httpx",
+            "tempfile", "threading", "time", "collections", "typing", "functools", "httpx",
             "cv2", "numpy", "pytesseract", "pymupdf", "fastapi", "pydantic",
             "PIL", "starlette",
         }

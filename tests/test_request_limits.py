@@ -1,6 +1,10 @@
 import unittest
 
-from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
+from request_limits import (
+    RequestBodyLimitMiddleware,
+    SlidingWindowRateLimiter,
+    validate_pixel_dimensions,
+)
 
 
 class SlidingWindowRateLimiterTests(unittest.TestCase):
@@ -42,3 +46,87 @@ class SlidingWindowRateLimiterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class RequestBodyLimitMiddlewareTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def scope(headers=(), method="POST", scope_type="http"):
+        return {
+            "type": scope_type,
+            "asgi": {"version": "3.0"},
+            "http_version": "1.1",
+            "method": method,
+            "scheme": "https",
+            "path": "/upload",
+            "raw_path": b"/upload",
+            "query_string": b"",
+            "headers": list(headers),
+            "client": ("127.0.0.1", 12345),
+            "server": ("example.test", 443),
+        }
+
+    async def invoke(self, chunks, *, limit=5, headers=(), scope_type="http"):
+        messages = []
+        iterator = iter(chunks)
+        app_called = False
+
+        async def receive():
+            try:
+                body = next(iterator)
+                return {"type": "http.request", "body": body, "more_body": True}
+            except StopIteration:
+                return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            messages.append(message)
+
+        async def app(scope, inner_receive, inner_send):
+            nonlocal app_called
+            app_called = True
+            if scope.get("type") != "http":
+                await inner_receive()
+                await inner_send({"type": "lifespan.startup.complete"})
+                return
+            while True:
+                message = await inner_receive()
+                if not message.get("more_body", False):
+                    break
+            await inner_send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [],
+            })
+            await inner_send({"type": "http.response.body", "body": b"ok"})
+
+        middleware = RequestBodyLimitMiddleware(app, max_body_bytes=limit)
+        await middleware(self.scope(headers=headers, scope_type=scope_type), receive, send)
+        return messages, app_called
+
+    async def test_rejects_content_length_before_calling_application(self):
+        messages, app_called = await self.invoke(
+            [b"ignored"],
+            headers=[(b"content-length", b"6")],
+        )
+        self.assertFalse(app_called)
+        self.assertEqual(messages[0]["status"], 413)
+        self.assertIn(b"no-store", dict(messages[0]["headers"])[b"cache-control"])
+
+    async def test_rejects_chunked_body_without_content_length(self):
+        messages, app_called = await self.invoke([b"123", b"456"])
+        self.assertTrue(app_called)
+        self.assertEqual(messages[0]["status"], 413)
+        self.assertEqual(messages[-1]["type"], "http.response.body")
+
+    async def test_accepts_body_exactly_at_limit(self):
+        messages, app_called = await self.invoke([b"12", b"345"])
+        self.assertTrue(app_called)
+        self.assertEqual(messages[0]["status"], 200)
+
+    async def test_passes_non_http_scopes_through(self):
+        messages, app_called = await self.invoke(
+            [],
+            scope_type="lifespan",
+        )
+        self.assertTrue(app_called)
+        self.assertEqual(messages, [{"type": "lifespan.startup.complete"}])
+
+
