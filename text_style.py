@@ -62,7 +62,7 @@ def analyze_text_style(image: np.ndarray, bbox: list[int] | tuple[int, ...]) -> 
     ink = np.median(ink_pixels, axis=0) if len(ink_pixels) else np.array([0, 0, 0])
     contrast = float(abs(np.mean(ink) - np.mean(bg)))
     density = float(ink_mask.mean())
-    components = cv2.connectedComponentsWithStats(ink_mask.astype(np.uint8), 8)[2]
+    components = cv2.connectedComponentsWithStats(ink_mask.astype(np.uint8), connectivity=8)[2]
     areas = components[1:, cv2.CC_STAT_AREA] if len(components) > 1 else np.array([], dtype=np.int32)
     useful = areas[areas >= 2]
     if useful.size >= 3:
