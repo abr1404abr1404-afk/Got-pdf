@@ -129,6 +129,10 @@ def main():
                     try:
                         data = r.content
                         if not data.startswith(b"PK"): raise ValueError("DOCX package signature missing")
+                        if test_name == "live_pdf_to_docx_full_document":
+                            artifact_dir = Path("benchmark-output")
+                            artifact_dir.mkdir(parents=True, exist_ok=True)
+                            (artifact_dir / "dubai-law-full-document.docx").write_bytes(data)
                         word = Document(io.BytesIO(data))
                         word_text = "\n".join(p.text for p in word.paragraphs)
                         add(out, test_name, "passed", bytes=len(data), paragraphs=len(word.paragraphs),
