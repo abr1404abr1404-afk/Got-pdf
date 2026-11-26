@@ -766,6 +766,11 @@ def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
     return sorted(found, key=lambda item: (item["bbox"][1], item["bbox"][0]))
 
 
+def _paddle_runtime_available() -> bool:
+    """PaddleOCR may run only when explicitly enabled and both packages exist."""
+    return bool(PADDLE_OCR_OPT_IN and importlib.util.find_spec("paddleocr") and importlib.util.find_spec("paddle"))
+
+
 def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None) -> dict:
     prepared = _preprocess(image)
     mode = OCR_MODE if OCR_MODE in {"hybrid", "paddleocr", "tesseract"} else "hybrid"
@@ -773,13 +778,16 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
         requested = str(engine_override).strip().lower()
         if requested not in {"hybrid", "paddleocr", "tesseract"}:
             raise ValueError("محرك OCR غير مدعوم.")
-        if requested == "paddleocr" and not (PADDLE_OCR_OPT_IN and importlib.util.find_spec("paddleocr") and importlib.util.find_spec("paddle")):
+        if requested == "paddleocr" and not _paddle_runtime_available():
             raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
         mode = requested
-    if mode in {"hybrid", "paddleocr"}:
+    paddle_ready = _paddle_runtime_available()
+    if mode == "paddleocr" and not paddle_ready:
+        raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
+    if mode in {"hybrid", "paddleocr"} and paddle_ready:
         paddle_rows, paddle_error = _paddle(prepared, language)
     else:
-        paddle_rows, paddle_error = [], "disabled by OCR_MODE"
+        paddle_rows, paddle_error = [], "PaddleOCR disabled or not installed; using Tesseract fallback"
     # A confident PaddleOCR result can stand alone in hybrid mode. Avoid
     # running a second full-page engine unnecessarily on low-CPU instances.
     paddle_confidence = (
@@ -855,7 +863,7 @@ def health():
     paddleocr_installed = importlib.util.find_spec("paddleocr") is not None
     paddlepaddle_installed = importlib.util.find_spec("paddle") is not None
     pdf2docx_installed = importlib.util.find_spec("pdf2docx") is not None
-    paddle_enabled = PADDLE_OCR_OPT_IN and OCR_MODE in {"hybrid", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
+    paddle_enabled = _paddle_runtime_available() and OCR_MODE in {"hybrid", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
