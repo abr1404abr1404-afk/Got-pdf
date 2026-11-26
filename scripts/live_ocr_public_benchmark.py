@@ -75,6 +75,8 @@ def api_post(out, name, endpoint, path, content_type, data=None, timeout=120):
                     data=data or {},
                     timeout=(15, timeout),
                 )
+            if response.status_code == 503 and ("timeout" in response.text.lower() or "لم يتمكن أي محرك" in response.text):
+                break
             if response.status_code not in {502, 503, 504} or attempt == 2:
                 break
             __import__("time").sleep(8 * (attempt + 1))
@@ -231,7 +233,7 @@ def main():
                 raw_scan_path = root / ("nod_real_scan" + Path(chosen.name).suffix.lower())
                 raw_scan_path.write_bytes(extracted_file.read())
             scan_path = prepare_image_for_api(raw_scan_path, root, "nod_real_scan")
-            for engine in ("tesseract", "paddleocr", "hybrid"):
+            for engine in benchmark_engines:
                 payload = api_post(
                     out, "nod_real_scanned_page_ocr_" + engine, "/api/ocr/image", scan_path,
                     "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
