@@ -68,7 +68,7 @@ input[type=checkbox]{accent-color:var(--acc);width:16px;height:16px}
 #sg .bx{border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 @media (max-width:860px){.lb,.nm small{display:none}.hb{padding:0 10px}header{padding:8px 10px;gap:8px}}
 #fn{height:40px;width:180px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;font-size:.9rem;background:var(--bg);color:var(--ink)}#fn:focus{outline:2px solid var(--acc);outline-offset:1px}@media (max-width:860px){#fn{width:130px}}
-.ov .tb,.im .tb{position:fixed;margin:0;bottom:auto;left:0;top:0;max-width:calc(100vw - 8px);overflow-x:auto}.ov.below .tb,.im.below .tb{margin:0;bottom:auto}
+.ov .tb{position:absolute;left:0;top:auto;bottom:100%;margin-bottom:6px;max-width:calc(100% + 260px);overflow-x:auto}.ov .tb{touch-action:pan-x pan-y}.ov .tb .m{touch-action:none}.im .tb{position:absolute;left:0;top:auto;bottom:100%;margin-bottom:6px;max-width:calc(100vw - 8px);overflow-x:auto}.ov.below .tb,.im.below .tb{margin:6px 0 0;bottom:auto;top:100%}
 .bar select{height:30px;padding:0 6px;font-size:.85rem;border-radius:8px}
 main{touch-action:pan-x pan-y}
 .ov{touch-action:none}.ov.edit{touch-action:auto}
@@ -2374,32 +2374,16 @@ $("thumbsClose").onclick=closeThumbs;
 
 function dock(el,tb){
   if(!el||!tb)return;
-  const vv=window.visualViewport,left=vv?Number(vv.offsetLeft)||0:0,top=vv?Number(vv.offsetTop)||0:0;
-  const width=vv?vv.width:innerWidth,height=vv?vv.height:innerHeight;
-  const right=left+width,bottom=top+height,margin=8;
-  const r=el.getBoundingClientRect();
-  const header=document.querySelector("header"),hr=header&&header.getBoundingClientRect();
-  const safeTop=hr&&hr.bottom>top&&hr.top<bottom?Math.max(top+margin,hr.bottom+margin):top+margin;
-  tb.style.maxWidth=Math.max(48,width-16)+"px";
-  tb.style.maxHeight=Math.max(80,bottom-safeTop-margin)+"px";
-  const w=tb.offsetWidth,h=tb.offsetHeight;
-  const minX=left+margin,maxX=Math.max(minX,right-w-margin);
-  const minY=safeTop,maxY=Math.max(minY,bottom-h-margin);
+  const wrap=el.closest(".wrap");if(!wrap)return;
   const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
-  const visibleTop=Math.max(top+margin,r.top),visibleBottom=Math.min(bottom-margin,r.bottom);
-  const visibleLeft=Math.max(left+margin,r.left),visibleRight=Math.min(right-margin,r.right);
-  const anchorX=visibleRight>=visibleLeft?(visibleLeft+visibleRight)/2:clamp((r.left+r.right)/2,left+margin,right-margin);
-  const x=clamp(anchorX-w/2,minX,maxX);
-  const above=r.top-h-margin,below=r.bottom+margin;
-  let y;
-  if(above>=minY&&above<=maxY)y=above;
-  else if(below>=minY&&below<=maxY)y=below;
-  else{
-    const anchorY=visibleBottom>=visibleTop?(visibleTop+visibleBottom)/2:clamp((r.top+r.bottom)/2,top+margin,bottom-margin);
-    y=clamp(anchorY-h/2,minY,maxY);
-  }
-  tb.style.left=x+"px";
-  tb.style.top=y+"px";
+  tb.style.position="absolute";tb.style.bottom="auto";
+  tb.style.maxWidth=Math.max(48,wrap.clientWidth-8)+"px";
+  tb.style.maxHeight=Math.max(80,wrap.clientHeight-8)+"px";
+  const w=tb.offsetWidth,h=tb.offsetHeight;
+  const x=clamp(-el.offsetLeft,0,Math.max(0,wrap.clientWidth-w-el.offsetLeft));
+  const above=-h-6,below=el.offsetHeight+6;
+  const y=above>=-el.offsetTop?above:below;
+  tb.style.left=x+"px";tb.style.top=y+"px";
 }
 const redock=()=>document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>dock(x,x.querySelector(".tb")));
 addEventListener("scroll",redock,true);addEventListener("resize",redock);if(window.visualViewport){visualViewport.addEventListener("resize",redock);visualViewport.addEventListener("scroll",redock)}
@@ -2634,8 +2618,12 @@ function mkOv(pg,o,s,wrap){
     if(src===el&&e.target.closest(".tb,.rzt"))return;
     if(el.classList.contains("edit")&&src===el)return;
     const was=el.classList.contains("sel");
-    e.preventDefault();act();
-    src.setPointerCapture(e.pointerId);
+    act();
+    // On touch, touching the text body selects it but preserves native page panning.
+    // Precise touch dragging is reserved for the explicit move handle in the toolbar.
+    if(e.pointerType==="touch"&&src===el){if(was&&!stopTap)startEdit();return}
+    e.preventDefault();
+    if(src.setPointerCapture)src.setPointerCapture(e.pointerId);
     const r=wrap.getBoundingClientRect(),x0=o.x,y0=o.y,sx=e.clientX,sy=e.clientY;let moved=false;
     src.onpointermove=ev=>{const dx=ev.clientX-sx,dy=ev.clientY-sy;if(!moved&&Math.hypot(dx,dy)<6)return;moved=true;const maxX=Math.max(0,1-el.offsetWidth/Math.max(1,r.width)),maxY=Math.max(0,1-el.offsetHeight/Math.max(1,r.height));o.x=Math.min(maxX,Math.max(0,x0+dx/r.width));o.y=Math.min(maxY,Math.max(0,y0+dy/r.height));el.style.left=o.x*100+"%";el.style.top=o.y*100+"%";place()};
     src.onpointerup=src.onpointercancel=()=>{src.onpointermove=null;if(!moved&&was&&!stopTap)startEdit()};
