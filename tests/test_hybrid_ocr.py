@@ -58,7 +58,7 @@ class HybridOcrSelectionTests(unittest.TestCase):
         with patch.object(main, "OCR_MODE", "hybrid"):
             result = main._hybrid(self.image, "ara")
         tesseract.assert_called_once()
-        self.assertEqual(result["engine"], "tesseract")
+        self.assertEqual(result["engine"], "hybrid")
         self.assertEqual(result["lines"][0]["text"], "المجلس")
 
 
