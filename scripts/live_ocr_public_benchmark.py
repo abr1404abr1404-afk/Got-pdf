@@ -176,16 +176,27 @@ def main():
                         test["status"] = "failed"
                         test["error"] = "PDF processing returned no Arabic characters"
 
-                image_payload = api_post(out, name + "_real_page_image_ocr", "/api/ocr/image", api_image_path,
-                                          "image/jpeg", {"language": "ara+eng"}, timeout=150)
-                if image_payload is not None:
-                    extracted = "\n".join(line.get("text", "") for line in image_payload.get("lines", []))
-                    test = out["tests"][-1]
-                    test.update({"ocr_chars": len(extracted), "arabic_chars": arabic_count(extracted),
-                                 "lines": len(image_payload.get("lines", []))})
-                    if arabic_count(extracted) == 0:
-                        test["status"] = "failed"
-                        test["error"] = "Image OCR returned no Arabic characters"
+                for engine in ("tesseract", "paddleocr", "hybrid"):
+                    image_payload = api_post(
+                        out, name + "_real_page_image_ocr_" + engine, "/api/ocr/image",
+                        api_image_path, "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
+                    )
+                    if image_payload is not None:
+                        extracted = "\\n".join(line.get("text", "") for line in image_payload.get("lines", []))
+                        image_test = out["tests"][-1]
+                        image_cer = cer(ground, extracted) if ground.strip() else None
+                        image_test.update({
+                            "requested_engine": engine,
+                            "actual_engine": image_payload.get("engine"),
+                            "ocr_chars": len(extracted),
+                            "arabic_chars": arabic_count(extracted),
+                            "lines": len(image_payload.get("lines", [])),
+                            "cer_vs_embedded_pdf_text": image_cer,
+                            "character_accuracy_percent": round(max(0.0, 1.0 - image_cer) * 100, 2) if image_cer is not None else None,
+                        })
+                        if arabic_count(extracted) == 0:
+                            image_test["status"] = "failed"
+                            image_test["error"] = "Image OCR returned no Arabic characters"
 
                 sample.close()
                 doc.close()
