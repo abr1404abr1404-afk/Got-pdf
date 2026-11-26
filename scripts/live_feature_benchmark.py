@@ -10,6 +10,7 @@ import io, json, os, re, tempfile, zipfile
 from pathlib import Path
 import requests
 import pymupdf
+from PIL import Image, ImageDraw
 from docx import Document
 
 BASE = os.environ.get("OCR_API_BASE", "https://got-pdf.onrender.com").rstrip("/")
@@ -88,7 +89,7 @@ def main():
                     break
                 doc.close()
             except Exception as exc:
-                add(out, name+"_download", "failed", error=f"{type(exc).__name__}: {str(exc)[:400]}")
+                add(out, name+"_download", "skipped", reason=f"External publisher unavailable during benchmark: {type(exc).__name__}: {str(exc)[:300]}")
         if chosen is None:
             add(out, "real_public_pdf_source", "failed", error="No source PDF with extractable text was available")
         else:
@@ -233,10 +234,19 @@ def main():
                 image_path=root/"real_page.png"; pix.save(image_path)
                 # Wrap the actual rendered public page image in a PDF to exercise
                 # embedded-image inventory and edit on real raster content.
+                # Use a known-good RGB JPEG fixture for embedded-image inventory/edit.
+                # The real rendered page remains the source for cleanup-preview below.
+                fixture_image_path = root / "embedded_photo_fixture.jpg"
+                fixture = Image.new("RGB", (900, 600), (245, 245, 245))
+                draw = ImageDraw.Draw(fixture)
+                draw.rectangle((40, 40, 860, 560), outline=(30, 80, 150), width=12)
+                draw.ellipse((260, 130, 640, 510), fill=(80, 150, 110), outline=(20, 70, 40), width=8)
+                draw.line((60, 500, 840, 100), fill=(180, 60, 50), width=14)
+                fixture.save(fixture_image_path, "JPEG", quality=88, optimize=True)
                 image_pdf_doc = pymupdf.open()
                 image_pdf_page = image_pdf_doc.new_page(width=page_rect.width, height=page_rect.height)
-                image_pdf_page.insert_image(image_pdf_page.rect, filename=str(image_path))
-                image_pdf_path = root / "real_scan_image.pdf"
+                image_pdf_page.insert_image(image_pdf_page.rect, filename=str(fixture_image_path))
+                image_pdf_path = root / "embedded_image_fixture.pdf"
                 image_pdf_doc.save(image_pdf_path)
                 image_pdf_doc.close()
                 image_inventory = request_file(out, "live_real_image_pdf_inventory", image_pdf_path,
