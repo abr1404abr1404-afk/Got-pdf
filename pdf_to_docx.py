@@ -59,6 +59,83 @@ def _apply_arabic_direction(docx_bytes: bytes) -> bytes:
     return output.getvalue()
 
 
+def create_ocr_docx(pages: list[dict]) -> bytes:
+    """Rebuild editable Word paragraphs from OCR lines while retaining RTL, size and spacing cues."""
+    from docx import Document
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.shared import Inches, Pt
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    if not pages or len(pages) > 20:
+        raise ValueError("عدد صفحات OCR للتحويل غير صالح.")
+    total_chars = sum(
+        len(str(line.get("text", "")))
+        for page in pages for line in (page.get("lines") or [])
+    )
+    if total_chars < 1 or total_chars > 200_000:
+        raise ValueError("النص المستخرج غير كافٍ أو يتجاوز حد التحويل.")
+
+    document = Document()
+    document.core_properties.title = "مستند مستخرج ضوئيًا - الفلقي PDF"
+    document.core_properties.author = "الفلقي PDF"
+    for page_index, page in enumerate(pages):
+        if page_index:
+            document.add_page_break()
+        dpi = max(72, int(page.get("dpi", 180)))
+        points_per_pixel = 72.0 / dpi
+        direction = page.get("direction", "rtl")
+        lines = [line for line in (page.get("lines") or []) if str(line.get("text", "")).strip()]
+        # Layout analysis assigns columns in reading order; within each column,
+        # preserve top-to-bottom placement and use OCR boxes to approximate spacing.
+        lines.sort(key=lambda line: (
+            int(line.get("column", 1)),
+            float((line.get("bbox") or [0, 0, 0, 0])[1]),
+            -float((line.get("bbox") or [0, 0, 0, 0])[0]) if direction == "rtl" else float((line.get("bbox") or [0, 0, 0, 0])[0]),
+        ))
+        previous_bottom = 0.0
+        for line in lines:
+            text = str(line.get("text", "")).strip()
+            box = line.get("bbox") or [0, 0, 0, 0]
+            try:
+                y0, y1 = float(box[1]), float(box[3])
+            except (TypeError, ValueError, IndexError):
+                y0, y1 = previous_bottom, previous_bottom + 16
+            gap_pt = max(0.0, min(18.0, (y0 - previous_bottom) * points_per_pixel * 0.45))
+            height_pt = max(7.0, min(24.0, (y1 - y0) * points_per_pixel * 0.82))
+            paragraph = document.add_paragraph()
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT if direction == "rtl" else WD_ALIGN_PARAGRAPH.LEFT
+            paragraph.paragraph_format.space_before = Pt(gap_pt)
+            paragraph.paragraph_format.space_after = Pt(1.5)
+            paragraph.paragraph_format.line_spacing = 1.0
+            if direction == "rtl":
+                p_pr = paragraph._p.get_or_add_pPr()
+                bidi = OxmlElement("w:bidi")
+                bidi.set(qn("w:val"), "1")
+                p_pr.append(bidi)
+            run = paragraph.add_run(text)
+            run.font.name = "Arial"
+            run.font.size = Pt(height_pt)
+            run.bold = line.get("region") == "heading"
+            r_pr = run._element.get_or_add_rPr()
+            r_fonts = r_pr.rFonts
+            if r_fonts is not None:
+                r_fonts.set(qn("w:cs"), "Arial")
+            if any(0x0600 <= ord(char) <= 0x06ff for char in text):
+                rtl = OxmlElement("w:rtl")
+                rtl.set(qn("w:val"), "1")
+                r_pr.append(rtl)
+                lang = OxmlElement("w:lang")
+                lang.set(qn("w:val"), "ar-SA")
+                lang.set(qn("w:bidi"), "ar-SA")
+                r_pr.append(lang)
+            previous_bottom = max(previous_bottom, y1)
+
+    output = io.BytesIO()
+    document.save(output)
+    return output.getvalue()
+
+
 def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
     try:
         source = pymupdf.open(stream=data, filetype="pdf")
