@@ -154,8 +154,6 @@ async def parse_with_paddle_vl(
         "fileType": file_type,
         "visualize": False,
         "useLayoutDetection": True,
-        "restructurePages": True,
-        "mergeTables": True,
         "prettifyMarkdown": True,
     }
     headers = {"Authorization": "Bearer " + api_key} if api_key else {}
