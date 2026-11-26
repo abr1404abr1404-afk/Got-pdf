@@ -262,62 +262,51 @@ if (!html.includes("function setAnnotationPanelOpen") || !html.includes('menu.cl
 if (!html.includes("return true;") || !html.includes("return false;") || !html.includes("restored!==true")) failures.push("Project recovery must verify successful project import before reporting success.");
 
 
-// Regression tests for edit-toolbar anchoring while the PDF is zoomed or panned.
+// Regression tests: the editor toolbar must stay attached to its text inside the PDF page.
 const dockStart = html.indexOf("function dock(el,tb){");
-const dockEnd = html.indexOf("\nconst redock=", dockStart);
+const dockEnd = html.indexOf("\\nconst redock=", dockStart);
 if (dockStart < 0 || dockEnd < 0) {
   failures.push("Text/image edit toolbar docking function is missing.");
 } else {
   const dockCode = html.slice(dockStart, dockEnd);
-  const makeDockCase = (viewport, headerRect, elementRect, toolbarSize) => {
-    const context = {
-      window: { visualViewport: viewport },
-      innerWidth: viewport.width,
-      innerHeight: viewport.height,
-      document: { querySelector: () => ({ getBoundingClientRect: () => headerRect }) },
-      Math
+  const makeDockCase = (wrapSize, elementPos, toolbarSize) => {
+    const wrap = { clientWidth: wrapSize.width, clientHeight: wrapSize.height };
+    const el = {
+      closest: selector => selector === ".wrap" ? wrap : null,
+      offsetLeft: elementPos.left, offsetTop: elementPos.top,
+      offsetWidth: elementPos.width, offsetHeight: elementPos.height
     };
-    const el = { getBoundingClientRect: () => elementRect };
     const tb = { style: {} };
     Object.defineProperties(tb, {
       offsetWidth: { get() { return Math.min(toolbarSize.width, parseFloat(tb.style.maxWidth) || toolbarSize.width); } },
       offsetHeight: { get() { return Math.min(toolbarSize.height, parseFloat(tb.style.maxHeight) || toolbarSize.height); } }
     });
-    context.el = el;
-    context.tb = tb;
-    vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
-    return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top), width: toolbarSize.width, height: toolbarSize.height };
+    const context = { Math, el, tb };
+    vm.runInNewContext(dockCode + "\\ndock(el,tb);", context);
+    return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top),
+      position: tb.style.position, maxWidth: parseFloat(tb.style.maxWidth),
+      maxHeight: parseFloat(tb.style.maxHeight), width: tb.offsetWidth, height: tb.offsetHeight };
   };
-  const zoomViewport = { offsetLeft: 160, offsetTop: 90, width: 360, height: 600 };
-  const headerRect = { top: 0, bottom: 70 };
-  const toolbarSize = { width: 250, height: 118 };
   const cases = [
-    { name: "zoomed visible text", rect: { left: 230, right: 290, top: 320, bottom: 346 }, expectedNear: 8 },
-    { name: "text near viewport top", rect: { left: 220, right: 280, top: 110, bottom: 136 }, expectedNear: 8 },
-    { name: "text near viewport bottom", rect: { left: 220, right: 280, top: 650, bottom: 676 }, expectedNear: 8 },
-    { name: "narrow zoomed viewport", viewport: { offsetLeft: 300, offsetTop: 200, width: 220, height: 400 }, rect: { left: 350, right: 410, top: 360, bottom: 386 }, size: { width: 330, height: 260 }, expectedNear: null }
+    { name: "normal page", wrap: {width: 600,height: 900}, text: {left: 180,top: 300,width: 220,height: 32}, toolbar: {width: 340,height: 80}, above: true },
+    { name: "text near page top", wrap: {width: 600,height: 900}, text: {left: 120,top: 30,width: 180,height: 30}, toolbar: {width: 300,height: 70}, above: false },
+    { name: "text near page bottom", wrap: {width: 600,height: 900}, text: {left: 120,top: 850,width: 180,height: 30}, toolbar: {width: 300,height: 70}, above: true },
+    { name: "narrow zoomed page", wrap: {width: 220,height: 400}, text: {left: 80,top: 190,width: 100,height: 28}, toolbar: {width: 330,height: 260}, above: true }
   ];
   for (const item of cases) {
-    const viewport = item.viewport || zoomViewport;
-    const size = item.size || toolbarSize;
-    const pos = makeDockCase(viewport, headerRect, item.rect, size);
-    const minLeft = viewport.offsetLeft + 8;
-    const maxLeft = viewport.offsetLeft + viewport.width - Math.min(size.width, viewport.width - 16) - 8;
-    const minTop = viewport.offsetTop + 8;
-    const maxTop = viewport.offsetTop + viewport.height - Math.min(size.height, viewport.height - 16) - 8;
-    if (!Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
-        pos.left < minLeft - 0.5 || pos.left > maxLeft + 0.5 ||
-        pos.top < minTop - 0.5 || pos.top > maxTop + 0.5) {
-      failures.push("Edit toolbar escapes the visible zoomed viewport for " + item.name + ".");
+    const pos = makeDockCase(item.wrap, item.text, item.toolbar);
+    const expectedTop = item.above ? -pos.height-6 : item.text.height+6;
+    if (pos.position !== "absolute" || !Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
+        pos.left < -item.text.left-0.5 ||
+        pos.left+pos.width > item.wrap.width-item.text.left+0.5 ||
+        Math.abs(pos.top-expectedTop)>1) {
+      failures.push("Edit toolbar is detached from its text or escapes the page for " + item.name + ": " + JSON.stringify(pos));
     }
-    const aboveGap = item.rect.top - (pos.top + toolbarSize.height);
-    const belowGap = pos.top - item.rect.bottom;
-    if (item.expectedNear !== null && Math.min(Math.abs(aboveGap), Math.abs(belowGap)) > item.expectedNear + 1) {
-      failures.push("Edit toolbar is detached from selected text for " + item.name + ".");
+    if (pos.width > item.wrap.width+0.5 || pos.height > item.wrap.height+0.5) {
+      failures.push("Edit toolbar exceeds its PDF page for " + item.name + ".");
     }
   }
 }
-
 if (failures.length) {
   console.error("Frontend checks failed:");
   for (const failure of failures) console.error("- " + failure);
