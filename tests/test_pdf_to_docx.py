@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pymupdf
 from docx import Document
 
-from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality, _apply_arabic_direction
+from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality, _apply_arabic_direction, _docx_text_parts
 
 
 class PdfToDocxTests(unittest.TestCase):
@@ -44,6 +44,29 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertEqual(report["output_table_count"], 1)
         self.assertEqual(report["output_paragraph_count"], 1)
         self.assertGreater(report["source_word_count"], 0)
+
+
+    def test_quality_report_does_not_double_count_merged_table_cells(self):
+        source_doc = pymupdf.open()
+        page = source_doc.new_page()
+        page.insert_text((72, 100), "Name Value", fontsize=12)
+        source = source_doc.tobytes()
+        source_doc.close()
+
+        output_doc = Document()
+        table = output_doc.add_table(rows=1, cols=2)
+        merged = table.cell(0, 0).merge(table.cell(0, 1))
+        merged.text = "Name Value"
+
+        parts = _docx_text_parts(output_doc)
+        self.assertEqual(parts, ["Name Value"])
+        buffer = io.BytesIO()
+        output_doc.save(buffer)
+        report = analyze_pdf_docx_quality(source, buffer.getvalue())
+
+        self.assertEqual(report["output_word_count"], 2)
+        self.assertEqual(report["matched_word_count"], 2)
+        self.assertEqual(report["text_precision_percent"], 100.0)
 
     def test_quality_report_marks_scanned_pdf_without_extractable_text(self):
         source_doc = pymupdf.open()
