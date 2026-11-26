@@ -11,6 +11,11 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+# Both live suites hit the same single-worker Render instance. Serialize them
+# across workflows to avoid manufacturing 503s by benchmarking concurrently.
+concurrency:
+  group: got-pdf-render-live-benchmarks
+  cancel-in-progress: false
 jobs:
   live-public-documents:
     runs-on: ubuntu-latest
