@@ -110,7 +110,9 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
     return data
 
 
-def normalize_paddle_vl_response(payload: dict[str, Any]) -> dict:
+def normalize_paddle_vl_response(
+    payload: dict[str, Any], export_docx: bool = False
+) -> tuple[dict, bytes | None]:
     if not isinstance(payload, dict):
         raise PaddleVLError("استجابة محرك تحليل المستندات غير صالحة.")
     if payload.get("errorCode", 0) not in (0, None):
@@ -120,6 +122,7 @@ def normalize_paddle_vl_response(payload: dict[str, Any]) -> dict:
     if not isinstance(raw_pages, list) or not raw_pages:
         raise PaddleVLError("لم يتمكن محرك التحليل من استخراج صفحات المستند.")
     pages, markdown_parts = [], []
+    docx_bytes = None
     for index, page in enumerate(raw_pages):
         if not isinstance(page, dict):
             continue
@@ -127,14 +130,34 @@ def normalize_paddle_vl_response(payload: dict[str, Any]) -> dict:
         md_text = markdown.get("text", "") if isinstance(markdown, dict) else ""
         if md_text:
             markdown_parts.append(str(md_text))
-        pages.append({"page": index + 1,
-                      "layout": page.get("prunedResult") if isinstance(page.get("prunedResult"), dict) else {},
-                      "markdown": str(md_text)})
+        pages.append({
+            "page": index + 1,
+            "layout": page.get("prunedResult") if isinstance(page.get("prunedResult"), dict) else {},
+            "markdown": str(md_text),
+        })
+        if export_docx and docx_bytes is None:
+            exports = page.get("exports") or {}
+            docx_export = exports.get("docx") if isinstance(exports, dict) else None
+            encoded = docx_export.get("content") if isinstance(docx_export, dict) else None
+            if encoded:
+                try:
+                    docx_bytes = base64.b64decode(encoded, validate=True)
+                except (binascii.Error, ValueError) as exc:
+                    raise PaddleVLError("ملف Word الذي أعاده المحرك غير صالح.") from exc
+                if not docx_bytes.startswith(b"PK"):
+                    raise PaddleVLError("ملف Word الذي أعاده المحرك ليس DOCX صالحًا.")
     if not pages:
         raise PaddleVLError("لم يتمكن محرك التحليل من استخراج صفحات المستند.")
-    return {"engine": "PaddleOCR-VL-1.6", "page_count": len(pages), "pages": pages,
-            "markdown": "\n\n".join(markdown_parts),
-            "log_id": str(payload.get("logId") or "")[:128]}
+    parsed = {
+        "engine": "PaddleOCR-VL-1.6",
+        "page_count": len(pages),
+        "pages": pages,
+        "markdown": "\\n\\n".join(markdown_parts),
+        "log_id": str(payload.get("logId") or "")[:128],
+    }
+    if export_docx and docx_bytes is None:
+        docx_bytes = markdown_pages_to_docx(pages)
+    return parsed, docx_bytes
 
 
 async def parse_with_paddle_vl(
@@ -153,9 +176,19 @@ async def parse_with_paddle_vl(
         "file": base64.b64encode(data).decode("ascii"),
         "fileType": file_type,
         "visualize": False,
+        "useDocOrientationClassify": True,
+        "useDocUnwarping": True,
         "useLayoutDetection": True,
+        "useChartRecognition": True,
+        "useOcrForImageBlock": True,
+        "formatBlockContent": True,
         "prettifyMarkdown": True,
+        "restructurePages": True,
+        "mergeTables": True,
+        "relevelTitles": True,
     }
+    if export_docx:
+        payload["outputFormats"] = ["docx"]
     headers = {"Authorization": "Bearer " + api_key} if api_key else {}
     timeout = httpx.Timeout(timeout_seconds, connect=20.0)
     async with httpx.AsyncClient(timeout=timeout) as client:
@@ -165,6 +198,4 @@ async def parse_with_paddle_vl(
             response_payload = response.json()
         except ValueError as exc:
             raise PaddleVLError("أعاد محرك التحليل استجابة غير مفهومة.") from exc
-    parsed = normalize_paddle_vl_response(response_payload)
-    docx_bytes = markdown_pages_to_docx(parsed["pages"]) if export_docx else None
-    return parsed, docx_bytes
+    return normalize_paddle_vl_response(response_payload, export_docx=export_docx)
