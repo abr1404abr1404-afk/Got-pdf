@@ -13,11 +13,23 @@ services:
       - key: MAX_PDF_PAGES
         value: "5"
       - key: OCR_DPI
-        value: "180"
+        value: "150"
       - key: TESSERACT_TIMEOUT_SECONDS
-        value: "55"
+        value: "40"
       - key: OCR_MAX_IMAGE_EDGE
-        value: "2400"
+        value: "1600"
+      - key: OPENCV_THREADS
+        value: "1"
+      - key: OMP_THREAD_LIMIT
+        value: "1"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
+      - key: NUMEXPR_NUM_THREADS
+        value: "1"
       - key: OCR_QUEUE_WAIT_SECONDS
         value: "120"
       - key: CPU_QUEUE_WAIT_SECONDS
