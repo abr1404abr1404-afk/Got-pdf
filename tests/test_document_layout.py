@@ -38,6 +38,29 @@ class DocumentLayoutTests(unittest.TestCase):
         self.assertEqual(result["lines"][0]["column"], 1)
         self.assertEqual(result["lines"][1]["column"], 2)
 
+    def test_reading_order_is_right_column_then_left_for_arabic(self):
+        rows = [
+            line("يسار أعلى", [10, 80, 140, 100]),
+            line("يمين أعلى", [260, 80, 390, 100]),
+            line("يسار أسفل", [10, 130, 140, 150]),
+            line("يمين أسفل", [260, 130, 390, 150]),
+        ]
+        result = analyze_layout(rows, 400, 600)
+        self.assertEqual(result["reading_order"], [1, 3, 0, 2])
+        self.assertEqual([item["reading_order"] for item in result["lines"]], [3, 1, 4, 2])
+
+    def test_full_width_title_precedes_two_columns(self):
+        rows = [
+            line("عنوان الصفحة", [10, 10, 390, 45]),
+            line("يسار 1", [10, 80, 140, 100]),
+            line("يمين 1", [260, 80, 390, 100]),
+            line("يسار 2", [10, 130, 140, 150]),
+            line("يمين 2", [260, 130, 390, 150]),
+        ]
+        result = analyze_layout(rows, 400, 600)
+        self.assertEqual(result["reading_order"][0], 0)
+        self.assertEqual(result["lines"][0]["column"], 0)
+
     def test_table_region_uses_table_bounds(self):
         result = analyze_layout(
             [line("خلية", [30, 100, 80, 120])], 200, 300,
