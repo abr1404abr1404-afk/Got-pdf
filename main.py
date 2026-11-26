@@ -388,10 +388,8 @@ def _preprocess(image: np.ndarray) -> np.ndarray:
     h, w = image.shape[:2]
     # Upscale small scans while limiting memory use.
     longest_edge = max(h, w)
-    if longest_edge > OCR_MAX_IMAGE_EDGE:
-        scale = OCR_MAX_IMAGE_EDGE / float(longest_edge)
-    else:
-        scale = min(2.0, max(1.0, OCR_PREPROCESS_TARGET_EDGE / max(1, longest_edge)))
+    processing_edge = min(OCR_MAX_IMAGE_EDGE, OCR_PREPROCESS_TARGET_EDGE)
+    scale = min(2.0, processing_edge / float(max(1, longest_edge)))
     if abs(scale - 1.0) > 0.01:
         interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
