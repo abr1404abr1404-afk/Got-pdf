@@ -34,7 +34,7 @@ After connecting, `/api/health` reports whether the URL is configured. This is n
 - PaddleOCR documentation lists x86_64 CPU inference as supported; measure latency on real Arabic files before opening the feature to all users.
 - Start with one request at a time on CPU and keep the model cache on persistent storage.
 - The worker is independent of Render Free. A remote worker may incur hosting and bandwidth costs.
-- Keep upstream license and notice files when redistributing PaddleOCR or model artifacts.
+- The PaddleOCR-VL-1.6 model card declares Apache-2.0. Retain upstream license and notice files; also review licenses for PaddleOCR, PaddleX, PaddlePaddle, and any other dependencies before redistribution.
 
-Official documentation: https://www.paddleocr.ai/v3.3.2/en/version3.x/pipeline_usage/PaddleOCR-VL.html
+Official documentation: https://www.paddleocr.ai/v3.6.0/en/version3.x/pipeline_usage/PaddleOCR-VL.html
 Model card: https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6
