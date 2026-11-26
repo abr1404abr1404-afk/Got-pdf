@@ -46,6 +46,36 @@ class HybridOcrSelectionTests(unittest.TestCase):
         "engine": "paddleocr",
     }], None))
     @patch.object(main, "_preprocess", side_effect=lambda image: image)
+    @patch.object(main, "analyze_text_style", return_value=None)
+    @patch.object(main, "analyze_layout")
+    @patch.object(main, "_tesseract", return_value=([{
+        "text": "المجلس", "confidence": 82.0, "bbox": [10, 20, 150, 55],
+        "engine": "tesseract",
+    }], None))
+    @patch.object(main, "_paddle", return_value=([{
+        "text": "المجلس", "confidence": 90.0, "bbox": [10, 20, 150, 55],
+        "engine": "paddleocr",
+    }], None))
+    @patch.object(main, "_preprocess", side_effect=lambda image: image)
+    def test_explicit_tesseract_override_runs_even_when_paddle_is_confident(
+        self, preprocess, paddle, tesseract, analyze_layout, style
+    ):
+        analyze_layout.return_value = {
+            "lines": [{
+                "text": "المجلس", "confidence": 82.0, "bbox": [10, 20, 150, 55],
+                "engine": "tesseract",
+            }], "direction": "rtl"
+        }
+        with patch.object(main, "OCR_MODE", "hybrid"):
+            result = main._hybrid(self.image, "ara", "tesseract")
+        tesseract.assert_called_once()
+        self.assertEqual(result["engine"], "tesseract")
+
+    def test_explicit_paddle_override_requires_opt_in(self):
+        with patch.object(main, "PADDLE_OCR_OPT_IN", False):
+            with self.assertRaises(ValueError):
+                main._hybrid(self.image, "ara", "paddleocr")
+
     def test_weak_paddle_result_falls_back_to_tesseract(
         self, preprocess, paddle, tesseract, analyze_layout, style
     ):
