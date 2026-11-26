@@ -1,0 +1,40 @@
+name: PaddleOCR Arabic real-document benchmark
+on:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/live_paddleocr_benchmark.py"
+      - ".github/workflows/live-paddleocr-benchmark.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: got-pdf-paddleocr-benchmark
+  cancel-in-progress: false
+jobs:
+  paddleocr-real-documents:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    env:
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install CPU PaddlePaddle and PaddleOCR
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install "paddlepaddle>=3.0,<4" "paddleocr>=3.0,<4" requests pymupdf pillow
+      - name: Run Arabic PP-OCRv5 on authentic PDF page and scanned TIFF
+        run: python scripts/live_paddleocr_benchmark.py
+      - name: Upload PaddleOCR benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paddleocr-arabic-results
+          path: paddle-live-results.json
+          if-no-files-found: ignore
