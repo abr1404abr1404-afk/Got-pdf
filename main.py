@@ -451,7 +451,12 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) ->
             x1 = max(z[0] + z[2] for z in words); y1 = max(z[1] + z[3] for z in words)
             text = " ".join(z[5] for z in words)
             conf = sum(z[4] for z in words) / len(words)
-            outputs.append({"text": text, "confidence": conf, "bbox": [x0, y0, x1, y1], "engine": "tesseract"})
+            word_boxes = [
+                {"text": z[5], "confidence": z[4], "bbox": [z[0], z[1], z[0] + z[2], z[1] + z[3]]}
+                for z in words
+            ]
+            outputs.append({"text": text, "confidence": conf, "bbox": [x0, y0, x1, y1],
+                            "words": word_boxes, "engine": "tesseract"})
         return _dedupe(outputs), None
     except Exception as exc:
         return [], str(exc)
@@ -530,8 +535,11 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     rows = sorted(rows, key=lambda r: r["confidence"], reverse=True)
     kept: list[dict] = []
     for row in rows:
-        if not any(_iou(row["bbox"], other["bbox"]) > 0.55 for other in kept):
+        duplicate = next((other for other in kept if _iou(row["bbox"], other["bbox"]) > 0.55), None)
+        if duplicate is None:
             kept.append(row)
+        elif row.get("words") and not duplicate.get("words"):
+            duplicate["words"] = row["words"]
     return kept
 
 
@@ -612,12 +620,94 @@ def _table_from_grid(bounds: list[int], xs: list[int], ys: list[int], lines: lis
             "direction": "rtl" if rtl else "ltr", "rows": rows, "cells": cells}
 
 
+def _detect_borderless_tables(lines: list[dict], width: int, height: int) -> list[dict]:
+    """Conservatively infer borderless tables from repeated aligned OCR word groups."""
+    candidates = []
+    for line in lines or []:
+        words = []
+        for word in line.get("words") or []:
+            box = word.get("bbox") if isinstance(word, dict) else None
+            text = str(word.get("text", "")).strip() if isinstance(word, dict) else ""
+            if not text or not isinstance(box, (list, tuple)) or len(box) != 4:
+                continue
+            try:
+                x0, y0, x1, y1 = (float(v) for v in box)
+            except (TypeError, ValueError):
+                continue
+            if x1 > x0 and y1 > y0:
+                words.append({"text": text, "bbox": [x0, y0, x1, y1]})
+        words.sort(key=lambda item: item["bbox"][0])
+        if len(words) < 2:
+            continue
+        gaps = [words[i + 1]["bbox"][0] - words[i]["bbox"][2] for i in range(len(words) - 1)]
+        positive_gaps = sorted(gap for gap in gaps if gap > 0)
+        if not positive_gaps:
+            continue
+        median_gap = positive_gaps[len(positive_gaps) // 2]
+        heights = sorted(item["bbox"][3] - item["bbox"][1] for item in words)
+        median_height = heights[len(heights) // 2]
+        split_gap = max(18.0, median_gap * 2.4, median_height * 1.4)
+        groups, current = [], [words[0]]
+        for index, gap in enumerate(gaps):
+            if gap >= split_gap:
+                groups.append(current)
+                current = [words[index + 1]]
+            else:
+                current.append(words[index + 1])
+        groups.append(current)
+        if 2 <= len(groups) <= 8 and all(group for group in groups):
+            cells = []
+            for group in groups:
+                text = " ".join(item["text"] for item in group)
+                box = [min(item["bbox"][0] for item in group), min(item["bbox"][1] for item in group),
+                       max(item["bbox"][2] for item in group), max(item["bbox"][3] for item in group)]
+                cells.append({"text": text, "bbox": box})
+            candidates.append({"cells": cells, "bbox": [cells[0]["bbox"][0],
+                min(cell["bbox"][1] for cell in cells), cells[-1]["bbox"][2],
+                max(cell["bbox"][3] for cell in cells)]})
+
+    if len(candidates) < 3:
+        return []
+    column_count = len(candidates[0]["cells"])
+    rows = [item for item in candidates if len(item["cells"]) == column_count]
+    if len(rows) < 3:
+        return []
+    # Each inferred column must recur at a stable horizontal position across rows.
+    tolerance = max(18.0, width * 0.045)
+    column_anchors = []
+    for column in range(column_count):
+        anchors = [row["cells"][column]["bbox"][0] for row in rows]
+        anchor = sum(anchors) / len(anchors)
+        spread = max(abs(value - anchor) for value in anchors)
+        if spread > tolerance:
+            return []
+        column_anchors.append(anchor)
+    all_text = " ".join(cell["text"] for row in rows for cell in row["cells"])
+    arabic_count = sum(0x0600 <= ord(ch) <= 0x06ff for ch in all_text)
+    latin_count = sum("a" <= ch.lower() <= "z" for ch in all_text)
+    rtl = arabic_count > latin_count
+    table_rows, cells = [], []
+    for row_index, row in enumerate(rows):
+        row_cells = row["cells"] if not rtl else list(reversed(row["cells"]))
+        table_rows.append([cell["text"] for cell in row_cells])
+        for column_index, cell in enumerate(row_cells):
+            cells.append({"row": row_index, "column": column_index,
+                          "bbox": [int(round(v)) for v in cell["bbox"]], "text": cell["text"]})
+    bounds = [int(round(min(row["bbox"][0] for row in rows))),
+              int(round(min(row["bbox"][1] for row in rows))),
+              int(round(max(row["bbox"][2] for row in rows))),
+              int(round(max(row["bbox"][3] for row in rows)))]
+    return [{"bbox": bounds, "row_count": len(rows), "column_count": column_count,
+             "direction": "rtl" if rtl else "ltr", "rows": table_rows, "cells": cells,
+             "detection": "text-alignment", "confidence": 0.65}]
+
+
 def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
-    """Detect ruled tables and populate their cells with OCR text where possible."""
+    """Detect ruled and high-confidence borderless tables from OCR word geometry."""
     height, width = image.shape[:2]
     block_size = _adaptive_threshold_block_size(height, width)
     if block_size is None:
-        return []
+        return _detect_borderless_tables(lines, width, height)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
                                    cv2.THRESH_BINARY_INV, block_size, 15)
@@ -645,6 +735,9 @@ def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
         ys = [y + v for v in _group_positions(np.where(y_projection >= y_threshold)[0].tolist())]
         table = _table_from_grid([x, y, x + w, y + h], xs, ys, lines)
         if table and not any(_iou(table["bbox"], old["bbox"]) > 0.70 for old in found):
+            found.append(table)
+    for table in _detect_borderless_tables(lines, width, height):
+        if not any(_iou(table["bbox"], old["bbox"]) > 0.45 for old in found):
             found.append(table)
     return sorted(found, key=lambda item: (item["bbox"][1], item["bbox"][0]))
 
