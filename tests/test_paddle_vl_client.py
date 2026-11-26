@@ -69,6 +69,20 @@ class PaddleVLClientTests(unittest.TestCase):
         with self.assertRaisesRegex(PaddleVLError, "ليس DOCX صالحًا"):
             normalize_paddle_vl_response(payload, export_docx=True)
 
+    def test_embedded_markdown_figures_are_preserved_in_reconstructed_docx(self):
+        from PIL import Image
+
+        image = io.BytesIO()
+        Image.new("RGB", (24, 18), "white").save(image, format="PNG")
+        payload = self.payload()
+        payload["result"]["layoutParsingResults"][0]["markdown"] = {
+            "text": "![رسم توضيحي](diagram.png)",
+            "images": {"diagram.png": base64.b64encode(image.getvalue()).decode("ascii")},
+        }
+        _, output = normalize_paddle_vl_response(payload, export_docx=True)
+        converted = Document(io.BytesIO(output))
+        self.assertEqual(len(converted.inline_shapes), 1)
+
     def test_rejects_service_error(self):
         with self.assertRaisesRegex(PaddleVLError, "خدمة التحليل"):
             normalize_paddle_vl_response({"errorCode": 500, "errorMsg": "خدمة التحليل فشلت"})
