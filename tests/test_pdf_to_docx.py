@@ -120,6 +120,25 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertIn("هذا نص عربي تجريبي", text)
         self.assertTrue(any(paragraph._p.pPr is not None for paragraph in converted.paragraphs))
 
+    def test_ocr_docx_uses_explicit_rtl_reading_order(self):
+        from pdf_to_docx import create_ocr_docx
+
+        pages = [{
+            "direction": "rtl",
+            "dpi": 180,
+            "lines": [
+                {"text": "يسار أعلى", "bbox": [10, 80, 140, 100], "column": 2, "reading_order": 3},
+                {"text": "يمين أعلى", "bbox": [260, 80, 390, 100], "column": 1, "reading_order": 1},
+                {"text": "يسار أسفل", "bbox": [10, 130, 140, 150], "column": 2, "reading_order": 4},
+                {"text": "يمين أسفل", "bbox": [260, 130, 390, 150], "column": 1, "reading_order": 2},
+            ],
+        }]
+        converted = Document(io.BytesIO(create_ocr_docx(pages)))
+        self.assertEqual(
+            [paragraph.text for paragraph in converted.paragraphs],
+            ["يمين أعلى", "يمين أسفل", "يسار أعلى", "يسار أسفل"],
+        )
+
     def test_rejects_more_than_twenty_pages(self):
         doc = pymupdf.open()
         for _ in range(21):
