@@ -282,7 +282,7 @@ if (dockStart < 0 || dockEnd < 0) {
       offsetHeight: { get() { return Math.min(toolbarSize.height, parseFloat(tb.style.maxHeight) || toolbarSize.height); } }
     });
     const context = { Math, el, tb };
-    vm.runInNewContext(dockCode + "\\ndock(el,tb);", context);
+    vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
     return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top),
       position: tb.style.position, maxWidth: parseFloat(tb.style.maxWidth),
       maxHeight: parseFloat(tb.style.maxHeight), width: tb.offsetWidth, height: tb.offsetHeight };
