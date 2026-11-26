@@ -550,8 +550,12 @@ window.imgOcr=async function(pg,lang,auto){
     const {ox=0,oy=0,dw,dh}=pg.src;
     let raw=[], backendUsed=false;
     // OCR runs on the user device by default: the Render Free API repeatedly times out on real Arabic scans.\n    // A dedicated OCR service can be opted into without changing the API used by other PDF features.\n    const configuredOcrBase=window.ALFALQI_OCR_API_BASE;
-    const apiBase=typeof configuredOcrBase==="string"?configuredOcrBase.trim().replace(/\/$/,""):"";
-    if(configuredOcrBase&&typeof configuredOcrBase!=="string")console.warn("ALFALQI_OCR_API_BASE must be a string; using local browser OCR instead.");
+    let apiBase="";
+    if(typeof configuredOcrBase==="string"&&configuredOcrBase.trim()){
+      try{const endpoint=new URL(configuredOcrBase.trim());if(endpoint.protocol==="https:"&&endpoint.pathname==="/"&&!endpoint.search&&!endpoint.hash)apiBase=endpoint.origin;}
+      catch(error){console.warn("Invalid OCR API endpoint; using local browser OCR instead.",error)}
+    }
+    if(configuredOcrBase&&!apiBase)console.warn("ALFALQI_OCR_API_BASE must be a valid HTTPS origin; using local browser OCR instead.");
     if(apiBase){
       toast("جارٍ تحليل الصفحة عبر خادم OCR العربي…");
       const fd=new FormData();
