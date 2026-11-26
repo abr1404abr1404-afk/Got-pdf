@@ -104,7 +104,15 @@ def main():
         health = requests.get(BASE + "/api/health", timeout=(15, 60))
         health.raise_for_status()
         out["health_status"] = health.status_code
-        health_data = health.json()\n        out["health"] = health_data\n        paddle_enabled = bool(health_data.get("paddleocr_enabled"))\n        benchmark_engines = ("tesseract", "paddleocr", "hybrid") if paddle_enabled else ("tesseract",)\n        if not paddle_enabled:\n            out["tests"].extend([\n                {"name": "paddleocr_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled"},\n                {"name": "hybrid_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled; hybrid comparison requires it"},\n            ])
+        health_data = health.json()
+        out["health"] = health_data
+        paddle_enabled = bool(health_data.get("paddleocr_enabled"))
+        benchmark_engines = ("tesseract", "paddleocr", "hybrid") if paddle_enabled else ("tesseract",)
+        if not paddle_enabled:
+            out["tests"].extend([
+                {"name": "paddleocr_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled"},
+                {"name": "hybrid_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled; hybrid comparison requires it"},
+            ])
     except requests.RequestException as exc:
         out["health_error"] = f"{type(exc).__name__}: {str(exc)[:500]}"
         Path("live-ocr-results.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
