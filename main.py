@@ -646,7 +646,7 @@ def _detect_borderless_tables(lines: list[dict], width: int, height: int) -> lis
         median_gap = positive_gaps[len(positive_gaps) // 2]
         heights = sorted(item["bbox"][3] - item["bbox"][1] for item in words)
         median_height = heights[len(heights) // 2]
-        split_gap = max(18.0, median_gap * 2.4, median_height * 1.4)
+        split_gap = max(18.0, median_height * 1.4, median_gap * 2.4 if len(positive_gaps) >= 3 else 0.0)
         groups, current = [], [words[0]]
         for index, gap in enumerate(gaps):
             if gap >= split_gap:
