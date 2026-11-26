@@ -48,6 +48,13 @@ class AdaptiveOcrPassTests(unittest.TestCase):
         self.assertEqual(tess.call_count, 1)
         self.assertEqual(result["engine"], "none")
 
+    def test_preprocess_uses_cpu_bounded_target_edge(self):
+        image = np.full((2200, 1600, 3), 255, dtype=np.uint8)
+        with patch.object(main, "OCR_PREPROCESS_TARGET_EDGE", 1200):
+            prepared = main._preprocess(image)
+        self.assertEqual(max(prepared.shape[:2]), 1200)
+        self.assertEqual(prepared.ndim, 3)
+
 
 if __name__ == "__main__":
     unittest.main()
