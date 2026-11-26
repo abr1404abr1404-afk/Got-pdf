@@ -16,6 +16,8 @@ services:
         value: "180"
       - key: OCR_QUEUE_WAIT_SECONDS
         value: "30"
+      - key: CPU_QUEUE_WAIT_SECONDS
+        value: "90"
       - key: OCR_DENOISE
         value: "false"
       - key: PDF_NATIVE_TEXT_MIN_CHARS
