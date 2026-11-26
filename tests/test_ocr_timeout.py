@@ -24,7 +24,7 @@ class BoundedOcrTests(unittest.TestCase):
         image = np.full((3000, 2000, 3), 255, dtype=np.uint8)
         with patch.object(main, "OCR_MAX_IMAGE_EDGE", 1600), patch.object(main, "_deskew", side_effect=lambda value: value):
             result = main._preprocess(image)
-        self.assertEqual(max(result.shape[:2]), 1600)
+        self.assertEqual(max(result.shape[:2]), min(1600, main.OCR_PREPROCESS_TARGET_EDGE))
         self.assertLess(result.shape[0] * result.shape[1], image.shape[0] * image.shape[1])
 
 
