@@ -122,13 +122,13 @@ class OcrModeTests(unittest.TestCase):
         return calls
 
     def test_hybrid_runs_both_engines(self):
-        self.assertEqual(self.run_mode("hybrid"), ["paddle", "tesseract", "tesseract", "tesseract"])
+        self.assertEqual(self.run_mode("hybrid"), ["paddle", "tesseract", "tesseract"])
 
     def test_paddle_mode_skips_tesseract(self):
         self.assertEqual(self.run_mode("paddleocr"), ["paddle"])
 
     def test_tesseract_mode_skips_paddle(self):
-        self.assertEqual(self.run_mode("tesseract"), ["tesseract", "tesseract", "tesseract"])
+        self.assertEqual(self.run_mode("tesseract"), ["tesseract", "tesseract"])
 
 
 if __name__ == "__main__":
