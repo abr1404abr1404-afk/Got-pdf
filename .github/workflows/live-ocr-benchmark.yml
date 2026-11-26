@@ -5,6 +5,7 @@ on:
     paths:
       - "scripts/live_ocr_public_benchmark.py"
       - "main.py"
+      - "paddle_vl_client.py"
       - "Dockerfile.free"
       - "render.yaml"
       - ".github/workflows/live-ocr-benchmark.yml"
