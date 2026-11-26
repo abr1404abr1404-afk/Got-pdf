@@ -29,7 +29,7 @@ class HybridOcrSelectionTests(unittest.TestCase):
         analyze_layout.return_value = {
             "lines": [dict(self.row)], "direction": "rtl"
         }
-        with patch.object(main, "OCR_MODE", "hybrid"):
+        with patch.object(main, "_paddle_runtime_available", return_value=True), patch.object(main, "OCR_MODE", "hybrid"):
             result = main._hybrid(self.image, "ara")
         tesseract.assert_not_called()
         self.assertEqual(result["engine"], "paddleocr")
@@ -55,7 +55,7 @@ class HybridOcrSelectionTests(unittest.TestCase):
                 "engine": "tesseract",
             }], "direction": "rtl"
         }
-        with patch.object(main, "OCR_MODE", "hybrid"):
+        with patch.object(main, "_paddle_runtime_available", return_value=True), patch.object(main, "OCR_MODE", "hybrid"):
             result = main._hybrid(self.image, "ara")
         tesseract.assert_called_once()
         self.assertEqual(result["engine"], "hybrid")
@@ -85,6 +85,21 @@ class HybridOcrSelectionTests(unittest.TestCase):
             result = main._hybrid(self.image, "ara", "tesseract")
         tesseract.assert_called_once()
         paddle.assert_not_called()
+        self.assertEqual(result["engine"], "tesseract")
+
+
+    def test_hybrid_without_paddle_uses_tesseract_fallback(self):
+        tess_row = dict(self.row, engine="tesseract")
+        with patch.object(main, "_preprocess", return_value=self.image), \
+             patch.object(main, "_paddle") as paddle, \
+             patch.object(main, "_tesseract", return_value=([tess_row], None)) as tesseract, \
+             patch.object(main, "analyze_layout", return_value={"lines": [tess_row], "direction": "rtl"}), \
+             patch.object(main, "analyze_text_style", return_value=None), \
+             patch.object(main, "_paddle_runtime_available", return_value=False), \
+             patch.object(main, "OCR_MODE", "hybrid"):
+            result = main._hybrid(self.image, "ara")
+        paddle.assert_not_called()
+        tesseract.assert_called_once()
         self.assertEqual(result["engine"], "tesseract")
 
     def test_explicit_paddle_override_requires_opt_in(self):
