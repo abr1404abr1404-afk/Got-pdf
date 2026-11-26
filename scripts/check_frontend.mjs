@@ -281,7 +281,7 @@ if (dockStart < 0 || dockEnd < 0) {
       offsetWidth: { get() { return Math.min(toolbarSize.width, parseFloat(tb.style.maxWidth) || toolbarSize.width); } },
       offsetHeight: { get() { return Math.min(toolbarSize.height, parseFloat(tb.style.maxHeight) || toolbarSize.height); } }
     });
-    const context = { Math, el, tb };
+    const context = { Math, el, tb, window: { visualViewport: null }, innerWidth: 390, innerHeight: 844 };
     vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
     return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top),
       position: tb.style.position, maxWidth: parseFloat(tb.style.maxWidth),
