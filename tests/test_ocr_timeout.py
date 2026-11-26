@@ -43,6 +43,10 @@ class BoundedOcrTests(unittest.TestCase):
         self.assertIsNone(error)
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["text"], "المجلس")
+        # The retry ran at half resolution; restore boxes to original image
+        # coordinates so PDF editing overlays remain correctly placed.
+        self.assertEqual(rows[0]["bbox"], [20, 20, 220, 70])
+        self.assertEqual(rows[0]["words"][0]["bbox"], [20, 20, 220, 70])
         self.assertEqual(image_to_data.call_count, 2)
         self.assertEqual(image_to_data.call_args.kwargs["timeout"], 12)
         self.assertEqual(max(image_to_data.call_args.args[0].shape[:2]), 900)
