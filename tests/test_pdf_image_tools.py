@@ -20,6 +20,15 @@ class PdfImageToolsTests(unittest.TestCase):
         doc.close()
         return data
 
+    def test_list_images_returns_empty_for_vector_only_pdf(self):
+        doc = pymupdf.open()
+        page = doc.new_page(width=300, height=200)
+        page.insert_text((30, 50), "Arabic PDF without raster images")
+        page.draw_rect(pymupdf.Rect(40, 70, 120, 110), color=(1, 0, 0))
+        source = doc.tobytes()
+        doc.close()
+        self.assertEqual(list_pdf_images(source), [])
+
     def test_list_images_returns_occurrence_and_preview(self):
         items = list_pdf_images(self.source_pdf())
         self.assertEqual(len(items), 1)
