@@ -264,7 +264,7 @@ if (!html.includes("return true;") || !html.includes("return false;") || !html.i
 
 // Regression tests: the editor toolbar must stay attached to its text inside the PDF page.
 const dockStart = html.indexOf("function dock(el,tb){");
-const dockEnd = html.indexOf("\\nconst redock=", dockStart);
+const dockEnd = html.indexOf("\nconst redock=", dockStart);
 if (dockStart < 0 || dockEnd < 0) {
   failures.push("Text/image edit toolbar docking function is missing.");
 } else {
