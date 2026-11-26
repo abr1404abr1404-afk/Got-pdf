@@ -40,6 +40,7 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
     await checkToolbar();
     for(let i=0;i<6;i++) await page.locator("#zi").click();
     await page.waitForTimeout(400);
+    await page.locator(".ov").last().click({force:true});
     const zoomedToolbar=page.locator(".ov.sel .tb").first();
     await zoomedToolbar.waitFor({state:"visible"});
     const r=await zoomedToolbar.boundingBox(),vp=page.viewportSize();
