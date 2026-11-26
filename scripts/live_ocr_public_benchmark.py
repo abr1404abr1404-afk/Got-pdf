@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import requests
 import pymupdf
+from PIL import Image, ImageOps
 
 BASE = os.environ.get("OCR_API_BASE", "https://got-pdf.onrender.com").rstrip("/")
 SOURCES = [
@@ -49,6 +50,19 @@ def download(url, path):
     response.raise_for_status()
     path.write_bytes(response.content)
     return response.content
+
+
+def prepare_image_for_api(source_path, output_dir, stem):
+    """Keep authentic scan content while respecting Render's upload/pixel limits."""
+    output_path = Path(output_dir) / f"{stem}_api.jpg"
+    with Image.open(source_path) as source:
+        image = ImageOps.exif_transpose(source).convert("RGB")
+        image.thumbnail((2600, 2600), Image.Resampling.LANCZOS)
+        for quality in (92, 88, 84, 80, 76):
+            image.save(output_path, "JPEG", quality=quality, optimize=True, progressive=True)
+            if output_path.stat().st_size <= 9 * 1024 * 1024 and image.width * image.height <= 12_000_000:
+                return output_path
+    raise ValueError("Could not normalize the real scan within Render upload/pixel limits")
 
 def api_post(out, name, endpoint, path, content_type, data=None, timeout=120):
     try:
@@ -109,6 +123,7 @@ def main():
                 pix = page.get_pixmap(matrix=pymupdf.Matrix(1.5, 1.5), alpha=False)
                 image_path = root / f"{name}_page1.png"
                 pix.save(image_path)
+                api_image_path = prepare_image_for_api(image_path, root, name + "_page1")
                 ground = page.get_text("text") or ""
 
                 # Real PDF -> DOCX conversion and quality inspection run locally
@@ -147,8 +162,8 @@ def main():
                         test["status"] = "failed"
                         test["error"] = "OCR returned no Arabic characters"
 
-                image_payload = api_post(out, name + "_real_page_image_ocr", "/api/ocr/image", image_path,
-                                          "image/png", {"language": "ara+eng"}, timeout=150)
+                image_payload = api_post(out, name + "_real_page_image_ocr", "/api/ocr/image", api_image_path,
+                                          "image/jpeg", {"language": "ara+eng"}, timeout=150)
                 if image_payload is not None:
                     extracted = "\n".join(line.get("text", "") for line in image_payload.get("lines", []))
                     test = out["tests"][-1]
@@ -180,11 +195,11 @@ def main():
                 extracted_file = tar.extractfile(chosen)
                 if extracted_file is None:
                     raise ValueError("Could not read selected scan")
-                scan_path = root / ("nod_real_scan" + Path(chosen.name).suffix.lower())
-                scan_path.write_bytes(extracted_file.read())
+                raw_scan_path = root / ("nod_real_scan" + Path(chosen.name).suffix.lower())
+                raw_scan_path.write_bytes(extracted_file.read())
+            scan_path = prepare_image_for_api(raw_scan_path, root, "nod_real_scan")
             payload = api_post(out, "nod_real_scanned_page_ocr", "/api/ocr/image", scan_path,
-                               "image/tiff" if scan_path.suffix == ".tif" else "image/jpeg",
-                               {"language": "ara+eng"}, timeout=150)
+                               "image/jpeg", {"language": "ara+eng"}, timeout=150)
             if payload is not None:
                 text_out = "\n".join(line.get("text", "") for line in payload.get("lines", []))
                 test = out["tests"][-1]
