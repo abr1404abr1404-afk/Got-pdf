@@ -72,7 +72,9 @@ OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
 OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS", "30"))))
 CPU_QUEUE_WAIT_SECONDS = min(180, max(1, int(os.getenv("CPU_QUEUE_WAIT_SECONDS", "90"))))
 OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
-TESSERACT_TIMEOUT_SECONDS = min(90, max(10, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "55"))))
+TESSERACT_TIMEOUT_SECONDS = min(90, max(10, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "40"))))
+TESSERACT_RETRY_TIMEOUT_SECONDS = min(30, max(5, int(os.getenv("TESSERACT_RETRY_TIMEOUT_SECONDS", "18"))))
+TESSERACT_RETRY_MAX_EDGE = min(1600, max(800, int(os.getenv("TESSERACT_RETRY_MAX_EDGE", "1000"))))
 OCR_MAX_IMAGE_EDGE = min(3200, max(1200, int(os.getenv("OCR_MAX_IMAGE_EDGE", "2400"))))
 PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
 OCR_PREPROCESS_TARGET_EDGE = min(2000, max(1000, int(os.getenv("OCR_PREPROCESS_TARGET_EDGE", "1400"))))
@@ -415,51 +417,74 @@ def _lang_pair(language: str) -> tuple[str, str]:
 
 def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) -> tuple[list[dict], str | None]:
     tess_lang, _ = _lang_pair(language)
-    try:
-        # PSM 11 handles scattered text; PSM 6 is useful for compact blocks.
-        outputs: list[dict] = []
+
+    def recognize(source: np.ndarray, psm: int, timeout: int) -> list[dict]:
         data = pytesseract.image_to_data(
-            image,
+            source,
             lang=tess_lang,
-            config=f"--oem 1 --psm {page_segmentation} -c preserve_interword_spaces=1",
+            config=f"--oem 1 --psm {psm} -c preserve_interword_spaces=1",
             output_type=pytesseract.Output.DICT,
-            timeout=TESSERACT_TIMEOUT_SECONDS,
+            timeout=timeout,
         )
         groups: dict[tuple, list[int]] = {}
         for i, raw_text in enumerate(data.get("text", [])):
-            text = re.sub(r"\s+", " ", (raw_text or "")).strip()
-            if not text:
+            value = re.sub(r"\s+", " ", (raw_text or "")).strip()
+            if not value:
                 continue
             key = tuple(data[k][i] for k in ("page_num", "block_num", "par_num", "line_num"))
             groups.setdefault(key, []).append(i)
+        outputs: list[dict] = []
         for indices in groups.values():
             words = []
             for i in indices:
                 word = re.sub(r"\s+", " ", (data["text"][i] or "")).strip()
-                try: conf = float(data["conf"][i])
-                except (ValueError, TypeError, KeyError): conf = 0.0
+                try:
+                    conf = float(data["conf"][i])
+                except (ValueError, TypeError, KeyError):
+                    conf = 0.0
                 if word and conf >= 10:
                     x, y = int(data["left"][i]), int(data["top"][i])
                     w, h = int(data["width"][i]), int(data["height"][i])
                     words.append((x, y, w, h, conf, word))
-            if not words: continue
-            # Arabic runs are read right-to-left; Latin runs left-to-right.
+            if not words:
+                continue
             rtl = any("\u0600" <= ch <= "\u06ff" for item in words for ch in item[5])
             words.sort(key=lambda z: z[0], reverse=rtl)
-            x0 = min(z[0] for z in words); y0 = min(z[1] for z in words)
-            x1 = max(z[0] + z[2] for z in words); y1 = max(z[1] + z[3] for z in words)
+            x0 = min(z[0] for z in words)
+            y0 = min(z[1] for z in words)
+            x1 = max(z[0] + z[2] for z in words)
+            y1 = max(z[1] + z[3] for z in words)
             text = " ".join(z[5] for z in words)
-            conf = sum(z[4] for z in words) / len(words)
+            confidence = sum(z[4] for z in words) / len(words)
             word_boxes = [
                 {"text": z[5], "confidence": z[4], "bbox": [z[0], z[1], z[0] + z[2], z[1] + z[3]]}
                 for z in words
             ]
-            outputs.append({"text": text, "confidence": conf, "bbox": [x0, y0, x1, y1],
+            outputs.append({"text": text, "confidence": confidence, "bbox": [x0, y0, x1, y1],
                             "words": word_boxes, "engine": "tesseract"})
-        return _dedupe(outputs), None
-    except Exception as exc:
-        return [], str(exc)
+        return _dedupe(outputs)
 
+    try:
+        return recognize(image, page_segmentation, TESSERACT_TIMEOUT_SECONDS), None
+    except Exception as first_error:
+        # On low-CPU hosts, large Arabic+English pages can exceed the primary
+        # budget. Retry once on a smaller raster with a compact-block layout;
+        # this is a bounded recovery path, not an unbounded second full-page run.
+        if "timeout" not in str(first_error).lower():
+            return [], str(first_error)
+        height, width = image.shape[:2]
+        longest_edge = max(height, width)
+        scale = min(1.0, TESSERACT_RETRY_MAX_EDGE / float(max(1, longest_edge)))
+        if scale >= 0.999:
+            return [], f"{first_error}; reduced-resolution retry unavailable"
+        retry_image = cv2.resize(
+            image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
+        )
+        try:
+            rows = recognize(retry_image, 6, TESSERACT_RETRY_TIMEOUT_SECONDS)
+            return rows, None if rows else f"{first_error}; reduced-resolution retry returned no text"
+        except Exception as retry_error:
+            return [], f"{first_error}; reduced-resolution retry failed: {retry_error}"
 
 def _get_paddle(language: str):
     _, paddle_lang = _lang_pair(language)
