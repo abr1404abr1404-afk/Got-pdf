@@ -51,6 +51,8 @@ jobs:
           exit 1
       - name: Test real PDF and image OCR through the browser UI
         run: node tests/e2e/real-arabic-ocr.spec.cjs
+      - name: Test mobile zoom, floating text toolbar, and bottom-page dragging
+        run: node tests/e2e/editor-interaction.spec.cjs
       - name: Test both Word export paths on a real Arabic PDF and scanned page
         run: python tests/e2e/real_pdf_to_docx.py
       - name: Upload OCR browser test report
