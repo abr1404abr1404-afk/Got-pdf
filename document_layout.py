@@ -1,7 +1,7 @@
-"""Lightweight document layout analysis for OCR line boxes.
+"""Explainable document layout analysis for OCR line boxes.
 
-This module deliberately avoids heavyweight ML dependencies. It adds explainable
-page direction, column and line-region metadata without changing OCR text.
+The module preserves OCR's original line array and adds an explicit reading-order
+index so clients can render/reconstruct multi-column pages without losing provenance.
 """
 from __future__ import annotations
 
@@ -20,30 +20,34 @@ def _valid_box(item: dict[str, Any], width: int, height: int) -> list[float] | N
         return None
     if x1 <= x0 or y1 <= y0:
         return None
-    return [max(0.0, min(float(width), x0)), max(0.0, min(float(height), y0)),
-            max(0.0, min(float(width), x1)), max(0.0, min(float(height), y1))]
+    x0, x1 = sorted((max(0.0, min(float(width), x0)), max(0.0, min(float(width), x1))))
+    y0, y1 = sorted((max(0.0, min(float(height), y0)), max(0.0, min(float(height), y1))))
+    return [x0, y0, x1, y1] if x1 > x0 and y1 > y0 else None
 
 
 def _direction(text: str) -> tuple[str, float]:
-    arabic = sum("\u0600" <= char <= "\u06ff" for char in text)
-    latin = sum(("a" <= char.lower() <= "z") for char in text)
+    arabic = sum("\\u0600" <= char <= "\\u06ff" for char in text)
+    latin = sum("a" <= char.lower() <= "z" for char in text)
     total = arabic + latin
     if not total:
         return "unknown", 0.0
     return ("rtl" if arabic >= latin else "ltr"), abs(arabic - latin) / total
 
 
-def _find_columns(lines: list[dict[str, Any]], width: int) -> list[list[int]]:
-    """Find a strong vertical whitespace gutter; wide title lines do not bridge it."""
+def _find_columns(
+    lines: list[dict[str, Any]], width: int
+) -> tuple[list[list[int]], float | None]:
+    """Find a strong vertical whitespace gutter; return columns and gutter center."""
+    all_indices = list(range(len(lines)))
     if len(lines) < 4 or width < 100:
-        return [list(range(len(lines)))]
+        return [all_indices], None
     eligible = []
     for index, line in enumerate(lines):
         x0, _, x1, _ = line["_box"]
         if x1 - x0 <= width * 0.72:
             eligible.append((index, x0, x1))
     if len(eligible) < 4:
-        return [list(range(len(lines)))]
+        return [all_indices], None
     occupancy = [0] * width
     for _, x0, x1 in eligible:
         left, right = max(0, int(x0)), min(width, int(x1 + 0.999))
@@ -62,35 +66,32 @@ def _find_columns(lines: list[dict[str, Any]], width: int) -> list[list[int]]:
                     best = candidate
             start = None
     if best is None:
-        return [list(range(len(lines)))]
+        return [all_indices], None
     _, gap_start, gap_end = best
     split = (gap_start + gap_end) / 2
-    left, right, spanning = [], [], []
+    left, right = [], []
     for index, line in enumerate(lines):
         x0, _, x1, _ = line["_box"]
         if x1 <= split:
             left.append(index)
         elif x0 >= split:
             right.append(index)
-        else:
-            spanning.append(index)
+        # Lines crossing the gutter are page-spanning blocks, not column members.
     if len(left) < 2 or len(right) < 2:
-        return [list(range(len(lines)))]
-    # Full-width headings remain a separate first region.
-    columns = [left, right]
-    for index in spanning:
-        columns[0].append(index)
-    return columns
+        return [all_indices], None
+    return [left, right], split
 
 
 def analyze_layout(
     lines: list[dict[str, Any]], width: int, height: int,
     tables: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return explainable layout metadata while preserving original line order."""
+    """Return layout metadata, preserving original OCR line order and content."""
     width, height = max(1, int(width)), max(1, int(height))
     prepared = []
     for index, source in enumerate(lines or []):
+        if not isinstance(source, dict):
+            continue
         box = _valid_box(source, width, height)
         if box is None:
             continue
@@ -101,22 +102,49 @@ def analyze_layout(
         prepared.append(item)
 
     directions = [item["direction"] for item in prepared if item["direction"] != "unknown"]
-    rtl_count = directions.count("rtl")
-    ltr_count = directions.count("ltr")
+    rtl_count, ltr_count = directions.count("rtl"), directions.count("ltr")
     page_direction = "rtl" if rtl_count >= ltr_count and rtl_count else ("ltr" if ltr_count else "unknown")
     direction_confidence = max(rtl_count, ltr_count) / len(directions) if directions else 0.0
 
-    columns = _find_columns(prepared, width)
+    columns, split = _find_columns(prepared, width)
     if len(columns) == 2:
-        # OCR boxes are not rewritten; this is a reading-order suggestion only.
         columns.sort(
             key=lambda group: min(prepared[i]["_box"][0] for i in group),
             reverse=page_direction == "rtl",
         )
     column_ids: dict[int, int] = {}
-    for column_id, group in enumerate(columns):
+    for column_id, group in enumerate(columns, start=1):
         for index in group:
             column_ids[index] = column_id
+
+    spanning = []
+    if split is not None:
+        spanning = [
+            i for i, item in enumerate(prepared)
+            if item["_box"][0] < split < item["_box"][2]
+        ]
+    # A full-width title above the columns is read first. Column content is then
+    # read top-to-bottom in RTL/LTR column order; remaining spanning blocks follow.
+    first_column_y = min(
+        (min(prepared[i]["_box"][1] for i in group) for group in columns if group),
+        default=0.0,
+    )
+    top_spanning = [i for i in spanning if prepared[i]["_box"][3] <= first_column_y + 1]
+    other_spanning = [i for i in spanning if i not in top_spanning]
+    reading_indices = sorted(top_spanning, key=lambda i: prepared[i]["_box"][1])
+    for group in columns:
+        reading_indices.extend(sorted(
+            group,
+            key=lambda i: (
+                prepared[i]["_box"][1],
+                -prepared[i]["_box"][0] if page_direction == "rtl" else prepared[i]["_box"][0],
+            ),
+        ))
+    reading_indices.extend(sorted(other_spanning, key=lambda i: prepared[i]["_box"][1]))
+    # Map prepared indices to positions in the original returned line array.
+    original_indices = [item["_index"] for item in prepared]
+    output_position = {original_index: pos for pos, original_index in enumerate(original_indices)}
+    reading_order = [output_position[prepared[i]["_index"]] for i in reading_indices]
 
     heights = [item["_box"][3] - item["_box"][1] for item in prepared]
     typical_height = median(heights) if heights else 1.0
@@ -134,6 +162,8 @@ def analyze_layout(
         text = str(item.get("text", "")).strip()
         if in_table:
             region, confidence = "table", 0.92
+        elif item["_index"] in spanning and len(text) <= 120:
+            region, confidence = "heading", 0.7
         elif line_height >= typical_height * 1.15 and len(text) <= 100:
             region, confidence = "heading", min(0.9, 0.62 + (line_height / typical_height - 1.15) * 0.3)
         elif y0 >= height * 0.88:
@@ -146,31 +176,30 @@ def analyze_layout(
         clean.update({
             "region": region,
             "region_confidence": round(float(confidence), 3),
-            "column": column_ids.get(item["_index"], 0) + 1,
+            "column": 0 if item["_index"] in spanning else column_ids.get(item["_index"], 1),
+            "reading_order": reading_order.index(output_position[item["_index"]]) + 1,
         })
         enriched.append((item["_index"], clean))
         regions.append(region)
 
     enriched.sort(key=lambda pair: pair[0])
-    region_counts = dict(Counter(regions))
     return {
         "direction": page_direction,
         "direction_confidence": round(direction_confidence, 3),
         "column_count": len(columns),
-        "regions": region_counts,
+        "regions": dict(Counter(regions)),
+        "reading_order": reading_order,
         "lines": [item for _, item in enriched],
         "analysis": "heuristic",
     }
 
 
-
 def attach_table_regions(result: dict[str, Any], tables: list[dict[str, Any]] | None) -> dict[str, Any]:
-    """Re-apply layout labels after table detection, preserving the OCR response schema."""
+    """Re-apply layout labels after table detection, preserving OCR response schema."""
     if not isinstance(result, dict):
         return result
     try:
-        width = int(result.get("image_width", 0))
-        height = int(result.get("image_height", 0))
+        width, height = int(result.get("image_width", 0)), int(result.get("image_height", 0))
     except (TypeError, ValueError):
         return result
     if width < 1 or height < 1:
