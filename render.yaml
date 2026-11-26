@@ -44,9 +44,10 @@ services:
         value: "false"
       - key: PDF_NATIVE_TEXT_MIN_CHARS
         value: "30"
+      # The free Docker image intentionally excludes PyTorch/PaddleOCR to stay within its memory budget.
       - key: OCR_MODE
-        value: hybrid
+        value: tesseract
       - key: ENABLE_PADDLE_OCR
-        value: "true"
+        value: "false"
       - key: CORS_ORIGINS
         value: https://abr1404abr1404-afk.github.io
