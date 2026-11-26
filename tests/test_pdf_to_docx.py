@@ -1,5 +1,6 @@
 import io
 import unittest
+from unittest.mock import patch
 
 import pymupdf
 from docx import Document
@@ -80,6 +81,44 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertTrue(
             english_ppr is None or english_ppr.find(qn("w:bidi")) is None
         )
+
+
+    def test_scanned_pdf_uses_ocr_and_creates_editable_rtl_word(self):
+        from PIL import Image
+        import main
+
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (300, 420), "white").save(image_buffer, format="PNG")
+        source_doc = pymupdf.open()
+        page = source_doc.new_page(width=595, height=842)
+        page.insert_image(page.rect, stream=image_buffer.getvalue())
+        source = source_doc.tobytes()
+        source_doc.close()
+
+        fake_ocr = {
+            "engine": "tesseract",
+            "image_width": 1488,
+            "image_height": 2105,
+            "lines": [{
+                "text": "هذا نص عربي تجريبي",
+                "confidence": 96.0,
+                "bbox": [120, 180, 720, 230],
+                "engine": "tesseract",
+                "region": "body",
+                "column": 1,
+            }],
+            "layout": {"direction": "rtl"},
+        }
+        with patch.object(main, "_hybrid", return_value=fake_ocr), patch.object(
+            main, "_detect_tables", return_value=[]
+        ):
+            output, engine = main._convert_pdf_to_docx_adaptive(source)
+
+        converted = Document(io.BytesIO(output))
+        text = "\\n".join(paragraph.text for paragraph in converted.paragraphs)
+        self.assertEqual(engine, "ocr-layout")
+        self.assertIn("هذا نص عربي تجريبي", text)
+        self.assertTrue(any(paragraph._p.pPr is not None for paragraph in converted.paragraphs))
 
     def test_rejects_more_than_twenty_pages(self):
         doc = pymupdf.open()
