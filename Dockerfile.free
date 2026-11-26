@@ -5,6 +5,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     OCR_MODE=tesseract \
     ENABLE_PADDLE_OCR=false \
+    OMP_THREAD_LIMIT=1 \
+    OMP_NUM_THREADS=1 \
+    OPENBLAS_NUM_THREADS=1 \
+    MKL_NUM_THREADS=1 \
+    NUMEXPR_NUM_THREADS=1 \
+    OPENCV_THREADS=1 \
     PORT=10000
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
