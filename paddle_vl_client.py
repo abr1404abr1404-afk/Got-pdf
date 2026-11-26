@@ -81,7 +81,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
                 continue
             heading = re.match(r"^(#{1,6})\s+(.+)$", line)
             bullet = re.match(r"^[-*+]\s+(.+)$", line)
-            numbered = re.match(r"^\\d+[.)]\s+(.+)$", line)
+            numbered = re.match(r"^\d+[.)]\s+(.+)$", line)
             if heading:
                 p = doc.add_paragraph(style=f"Heading {min(3, len(heading.group(1)))}")
                 value = heading.group(2)
@@ -91,7 +91,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
             else:
                 parts = [line]
                 i += 1
-                while i < len(lines) and lines[i].strip() and not lines[i].strip().startswith("|") and not re.match(r"^(#{1,6})\s+|^[-*+]\s+|^\\d+[.)]\s+", lines[i].strip()):
+                while i < len(lines) and lines[i].strip() and not lines[i].strip().startswith("|") and not re.match(r"^(#{1,6})\s+|^[-*+]\s+|^\d+[.)]\s+", lines[i].strip()):
                     parts.append(lines[i].strip())
                     i += 1
                 value = " ".join(parts)
