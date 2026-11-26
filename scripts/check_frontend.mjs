@@ -274,7 +274,8 @@ if (dockStart < 0 || dockEnd < 0) {
     const el = {
       closest: selector => selector === ".wrap" ? wrap : null,
       offsetLeft: elementPos.left, offsetTop: elementPos.top,
-      offsetWidth: elementPos.width, offsetHeight: elementPos.height
+      offsetWidth: elementPos.width, offsetHeight: elementPos.height,
+      getBoundingClientRect: () => ({left:elementPos.left,top:elementPos.top,right:elementPos.left+elementPos.width,bottom:elementPos.top+elementPos.height})
     };
     const tb = { style: {} };
     Object.defineProperties(tb, {
@@ -295,15 +296,13 @@ if (dockStart < 0 || dockEnd < 0) {
   ];
   for (const item of cases) {
     const pos = makeDockCase(item.wrap, item.text, item.toolbar);
-    const expectedTop = item.above ? -pos.height-6 : item.text.height+6;
-    if (pos.position !== "absolute" || !Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
-        item.text.left+pos.left < -0.5 ||
-        item.text.left+pos.left+pos.width > item.wrap.width+0.5 ||
-        Math.abs(pos.top-expectedTop)>1) {
-      failures.push("Edit toolbar is detached from its text or escapes the page for " + item.name + ": " + JSON.stringify(pos));
+    if (pos.position !== "fixed" || !Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
+        pos.left < 7.5 || pos.top < 7.5 ||
+        pos.left+pos.width > 382.5 || pos.top+pos.height > 836.5) {
+      failures.push("Edit toolbar is hidden outside the mobile viewport for " + item.name + ": " + JSON.stringify(pos));
     }
-    if (pos.width > item.wrap.width+0.5 || pos.height > item.wrap.height+0.5) {
-      failures.push("Edit toolbar exceeds its PDF page for " + item.name + ".");
+    if (pos.width > 374.5 || pos.height > 828.5) {
+      failures.push("Edit toolbar exceeds the available viewport for " + item.name + ".");
     }
   }
 }
