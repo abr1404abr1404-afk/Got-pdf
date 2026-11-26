@@ -549,7 +549,9 @@ window.imgOcr=async function(pg,lang,auto){
     }
     const {ox=0,oy=0,dw,dh}=pg.src;
     let raw=[], backendUsed=false;
-    // OCR runs on the user device by default: the Render Free API repeatedly times out on real Arabic scans.\n    // A dedicated OCR service can be opted into without changing the API used by other PDF features.\n    const configuredOcrBase=window.ALFALQI_OCR_API_BASE;
+    // OCR runs on the user device by default: the Render Free API repeatedly times out on real Arabic scans.
+    // A dedicated OCR service can be opted into without changing the API used by other PDF features.
+    const configuredOcrBase=window.ALFALQI_OCR_API_BASE;
     let apiBase="";
     if(typeof configuredOcrBase==="string"&&configuredOcrBase.trim()){
       try{const endpoint=new URL(configuredOcrBase.trim());if(endpoint.protocol==="https:"&&endpoint.pathname==="/"&&!endpoint.search&&!endpoint.hash)apiBase=endpoint.origin;}
