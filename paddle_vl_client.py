@@ -122,7 +122,7 @@ def normalize_paddle_vl_response(
     if not isinstance(raw_pages, list) or not raw_pages:
         raise PaddleVLError("لم يتمكن محرك التحليل من استخراج صفحات المستند.")
     pages, markdown_parts = [], []
-    docx_bytes = None
+    native_docx_exports = []
     for index, page in enumerate(raw_pages):
         if not isinstance(page, dict):
             continue
@@ -135,17 +135,18 @@ def normalize_paddle_vl_response(
             "layout": page.get("prunedResult") if isinstance(page.get("prunedResult"), dict) else {},
             "markdown": str(md_text),
         })
-        if export_docx and docx_bytes is None:
+        if export_docx:
             exports = page.get("exports") or {}
             docx_export = exports.get("docx") if isinstance(exports, dict) else None
             encoded = docx_export.get("content") if isinstance(docx_export, dict) else None
             if encoded:
                 try:
-                    docx_bytes = base64.b64decode(encoded, validate=True)
+                    candidate = base64.b64decode(encoded, validate=True)
                 except (binascii.Error, ValueError) as exc:
                     raise PaddleVLError("ملف Word الذي أعاده المحرك غير صالح.") from exc
-                if not docx_bytes.startswith(b"PK"):
+                if not candidate.startswith(b"PK"):
                     raise PaddleVLError("ملف Word الذي أعاده المحرك ليس DOCX صالحًا.")
+                native_docx_exports.append(candidate)
     if not pages:
         raise PaddleVLError("لم يتمكن محرك التحليل من استخراج صفحات المستند.")
     parsed = {
@@ -155,8 +156,17 @@ def normalize_paddle_vl_response(
         "markdown": "\\n\\n".join(markdown_parts),
         "log_id": str(payload.get("logId") or "")[:128],
     }
-    if export_docx and docx_bytes is None:
-        docx_bytes = markdown_pages_to_docx(pages)
+    # A single native export is safe to use as-is. If the service returns one
+    # export per page, rebuild from all page Markdown rather than silently
+    # returning only the first page's Word file.
+    docx_bytes = None
+    if export_docx:
+        if len(raw_pages) == 1 and len(native_docx_exports) == 1:
+            docx_bytes = native_docx_exports[0]
+            parsed["docx_engine"] = "PaddleOCR-VL native DOCX"
+        else:
+            docx_bytes = markdown_pages_to_docx(pages)
+            parsed["docx_engine"] = "Got-pdf Markdown reconstruction"
     return parsed, docx_bytes
 
 
