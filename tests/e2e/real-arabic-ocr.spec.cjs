@@ -27,10 +27,11 @@ function cer(reference, actual) {
   return a.length ? Number((editDistance(a, b) / a.length).toFixed(4)) : null;
 }
 
+let activePage = null;
+const results = [];
+const failures = [];
 (async () => {
   const browser = await chromium.launch({headless: true});
-  const results = [];
-  const failures = [];
   try {
     const context = await browser.newContext({acceptDownloads: true});
     const page = await context.newPage();
@@ -45,6 +46,7 @@ function cer(reference, actual) {
 
     // Path A: real PDF upload -> render page -> browser OCR -> review/edit/save.
     const pdfPage = await context.newPage();
+    activePage = pdfPage;
     pdfPage.setDefaultTimeout(timeout);
     pdfPage.on("dialog", dialog => dialog.accept());
     pdfPage.on("pageerror", error => failures.push("PDF pageerror: " + error.message));
@@ -73,6 +75,7 @@ function cer(reference, actual) {
 
     // Path B: real page image upload -> image-to-PDF -> browser OCR -> review/edit/save.
     const imagePage = await context.newPage();
+    activePage = imagePage;
     imagePage.setDefaultTimeout(timeout);
     imagePage.on("dialog", dialog => dialog.accept());
     imagePage.on("pageerror", error => failures.push("image pageerror: " + error.message));
@@ -106,7 +109,18 @@ function cer(reference, actual) {
   } finally {
     await browser.close();
   }
-})().catch(error => {
+})().catch(async error => {
   console.error(error);
+  try {
+    if (activePage && !activePage.isClosed()) {
+      await activePage.screenshot({ path: "browser-ocr-failure.png", fullPage: true }).catch(() => {});
+    }
+    fs.writeFileSync("browser-ocr-e2e-results.json", JSON.stringify({
+      engine: "Tesseract.js in browser",
+      results,
+      failures,
+      fatal_error: { name: error.name, message: error.message, stack: error.stack }
+    }, null, 2));
+  } catch (reportError) { console.error("Could not write failure report:", reportError); }
   process.exitCode = 1;
 });
