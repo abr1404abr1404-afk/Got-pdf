@@ -33,7 +33,7 @@ from searchable_pdf import add_searchable_text_layer
 from redaction import redact_pdf_bytes
 from document_export import create_docx, create_xlsx
 from pdf_security import unlock_pdf_bytes
-from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
+from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality, create_ocr_docx
 from pdf_image_tools import list_pdf_images, edit_pdf_images, inspect_pdf_objects, edit_pdf_vector_objects, delete_isolated_pdf_text, replace_isolated_latin_pdf_text, replace_isolated_arabic_pdf_text, recolor_isolated_pdf_vector, scale_isolated_pdf_vector, restyle_isolated_pdf_vector, move_isolated_pdf_vector
 from request_limits import SlidingWindowRateLimiter, validate_pixel_dimensions
 from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf_response
@@ -154,6 +154,75 @@ async def _run_ocr(function, *args):
         return await run_in_threadpool(function, *args)
     finally:
         _ocr_semaphore.release()
+
+
+def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "") -> tuple[bytes, str]:
+    """Use layout-preserving PDF conversion for text PDFs and OCR reconstruction for scans."""
+    try:
+        source = pymupdf.open(stream=data, filetype="pdf")
+    except Exception as exc:
+        raise ValueError("الملف ليس PDF صالحًا.") from exc
+    try:
+        auth = 0
+        if source.needs_pass:
+            if not password:
+                raise ValueError("الملف محمي. أدخل كلمة المرور الصحيحة أولًا.")
+            auth = source.authenticate(password)
+            if auth <= 0:
+                raise ValueError("كلمة مرور الملف غير صحيحة.")
+        if source.needs_pass and auth != 4 and not (source.permissions & pymupdf.PDF_PERM_MODIFY):
+            raise PermissionError("كلمة المرور لا تسمح بالتعديل؛ يلزم إذن مالك الملف.")
+        if not 1 <= source.page_count <= 20:
+            raise ValueError("التحويل يدعم من صفحة واحدة إلى 20 صفحة في الطلب الواحد.")
+
+        scale = OCR_DPI / 72.0
+        pages_for_docx = []
+        needs_ocr = False
+        total_rendered_pixels = 0
+        for index in range(source.page_count):
+            page = source.load_page(index)
+            result = _native_pdf_page_result(page, scale)
+            if result is None:
+                needs_ocr = True
+                if source.page_count > MAX_PDF_PAGES:
+                    raise ValueError(
+                        f"الملف يحتوي على صفحات ممسوحة ضوئيًا؛ حد OCR الحالي {MAX_PDF_PAGES} صفحات."
+                    )
+                width = max(1, math.ceil(page.rect.width * scale))
+                height = max(1, math.ceil(page.rect.height * scale))
+                try:
+                    page_pixels = validate_pixel_dimensions(width, height, MAX_RENDERED_PIXELS)
+                except ValueError as exc:
+                    raise ValueError("أبعاد إحدى صفحات PDF أكبر من الحد الآمن للمعالجة.") from exc
+                total_rendered_pixels += page_pixels
+                if total_rendered_pixels > MAX_DOCUMENT_RENDERED_PIXELS:
+                    raise ValueError("إجمالي دقة صفحات PDF يتجاوز الحد الآمن للمعالجة.")
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+                image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+                if pix.n == 4:
+                    image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+                else:
+                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                result = _hybrid(image, "ara+eng")
+                if not result.get("lines"):
+                    raise ValueError(f"تعذّر استخراج نص قابل للتحرير من الصفحة {index + 1}.")
+                result["tables"] = _detect_tables(image, result["lines"])
+                result = attach_table_regions(result, result["tables"])
+
+            pages_for_docx.append({
+                "page": index + 1,
+                "dpi": OCR_DPI,
+                "direction": (result.get("layout") or {}).get("direction", "rtl"),
+                "lines": result.get("lines") or [],
+            })
+
+        if not needs_ocr:
+            source.close()
+            return convert_pdf_to_docx(data, password), "pdf2docx"
+        return create_ocr_docx(pages_for_docx), "ocr-layout"
+    finally:
+        if not source.is_closed:
+            source.close()
 
 
 def _native_pdf_page_result(page, scale: float) -> dict | None:
@@ -657,7 +726,7 @@ def health():
             "pdf2docx_installed": pdf2docx_installed,
             "pdf_image_edit_available": True,
             "office_conversion_engine": "Gotenberg 9 / LibreOffice" if GOTENBERG_URL else None,
-            "pdf_to_docx_engine": "pdf2docx" if pdf2docx_installed else None,
+            "pdf_to_docx_engine": "adaptive pdf2docx + OCR layout" if pdf2docx_installed else None,
             # Machine-readable feature registry for the frontend and integrations.
             # "configured" means credentials/URL exist; it does not claim that an
             # external provider is reachable at this instant.
@@ -805,14 +874,16 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
-        output = await _run_cpu(convert_pdf_to_docx, data, password)
+        output, conversion_engine = await _run_cpu(_convert_pdf_to_docx_adaptive, data, password)
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
     quality = await _run_cpu(analyze_pdf_docx_quality, data, output)
+    if conversion_engine == "ocr-layout":
+        quality["analysis_status"] = "ocr_reconstructed"
     quality_headers = {
-        "X-Conversion-Engine": "pdf2docx",
+        "X-Conversion-Engine": conversion_engine,
         "X-Conversion-Analysis": str(quality.get("analysis_status", "analysis_unavailable")),
         "X-Conversion-Source-Words": str(quality.get("source_word_count", 0)),
         "X-Conversion-Output-Words": str(quality.get("output_word_count", 0)),
