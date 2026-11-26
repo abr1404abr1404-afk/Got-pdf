@@ -56,7 +56,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
             if not line:
                 i += 1
                 continue
-            image_match = re.match(r"^!\\[([^\\]]*)\\]\\(([^)]+)\\)$", line)
+            image_match = re.match(r"^!\[(.*?)\]\((.+?)\)$", line)
             if image_match:
                 image_name = image_match.group(2).strip().strip("<>")
                 image_map = page.get("markdown_images") or {}
