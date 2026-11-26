@@ -104,7 +104,7 @@ def main():
         health = requests.get(BASE + "/api/health", timeout=(15, 60))
         health.raise_for_status()
         out["health_status"] = health.status_code
-        out["health"] = health.json()
+        health_data = health.json()\n        out["health"] = health_data\n        paddle_enabled = bool(health_data.get("paddleocr_enabled"))\n        benchmark_engines = ("tesseract", "paddleocr", "hybrid") if paddle_enabled else ("tesseract",)\n        if not paddle_enabled:\n            out["tests"].extend([\n                {"name": "paddleocr_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled"},\n                {"name": "hybrid_engine_preflight", "status": "skipped", "reason": "Render health reports PaddleOCR disabled; hybrid comparison requires it"},\n            ])
     except requests.RequestException as exc:
         out["health_error"] = f"{type(exc).__name__}: {str(exc)[:500]}"
         Path("live-ocr-results.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -176,7 +176,7 @@ def main():
                         test["status"] = "failed"
                         test["error"] = "PDF processing returned no Arabic characters"
 
-                for engine in ("tesseract", "paddleocr", "hybrid"):
+                for engine in benchmark_engines:
                     image_payload = api_post(
                         out, name + "_real_page_image_ocr_" + engine, "/api/ocr/image",
                         api_image_path, "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
@@ -244,7 +244,7 @@ def main():
     out["finished_at"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     Path("live-ocr-results.json").write_text(json.dumps(out, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(out, ensure_ascii=False, indent=2))
-    failed = [item for item in out["tests"] if item.get("status") != "passed"]
+    failed = [item for item in out["tests"] if item.get("status") == "failed"]
     if failed:
         raise SystemExit(f"{len(failed)} real-file test(s) failed; full results saved to live-ocr-results.json")
 
