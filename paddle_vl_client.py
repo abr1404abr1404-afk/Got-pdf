@@ -22,6 +22,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
     from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+    from docx.shared import Inches
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
 
