@@ -278,7 +278,11 @@ if (dockStart < 0 || dockEnd < 0) {
       Math
     };
     const el = { getBoundingClientRect: () => elementRect };
-    const tb = { offsetWidth: toolbarSize.width, offsetHeight: toolbarSize.height, style: {} };
+    const tb = { style: {} };
+    Object.defineProperties(tb, {
+      offsetWidth: { get() { return Math.min(toolbarSize.width, parseFloat(tb.style.maxWidth) || toolbarSize.width); } },
+      offsetHeight: { get() { return Math.min(toolbarSize.height, parseFloat(tb.style.maxHeight) || toolbarSize.height); } }
+    });
     context.el = el;
     context.tb = tb;
     vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
@@ -290,14 +294,17 @@ if (dockStart < 0 || dockEnd < 0) {
   const cases = [
     { name: "zoomed visible text", rect: { left: 230, right: 290, top: 320, bottom: 346 }, expectedNear: 8 },
     { name: "text near viewport top", rect: { left: 220, right: 280, top: 110, bottom: 136 }, expectedNear: 8 },
-    { name: "text near viewport bottom", rect: { left: 220, right: 280, top: 650, bottom: 676 }, expectedNear: 8 }
+    { name: "text near viewport bottom", rect: { left: 220, right: 280, top: 650, bottom: 676 }, expectedNear: 8 },
+    { name: "narrow zoomed viewport", viewport: { offsetLeft: 300, offsetTop: 200, width: 220, height: 400 }, rect: { left: 350, right: 410, top: 360, bottom: 386 }, size: { width: 330, height: 260 }, expectedNear: 8 }
   ];
   for (const item of cases) {
-    const pos = makeDockCase(zoomViewport, headerRect, item.rect, toolbarSize);
-    const minLeft = zoomViewport.offsetLeft + 8;
-    const maxLeft = zoomViewport.offsetLeft + zoomViewport.width - toolbarSize.width - 8;
-    const minTop = zoomViewport.offsetTop + 8;
-    const maxTop = zoomViewport.offsetTop + zoomViewport.height - toolbarSize.height - 8;
+    const viewport = item.viewport || zoomViewport;
+    const size = item.size || toolbarSize;
+    const pos = makeDockCase(viewport, headerRect, item.rect, size);
+    const minLeft = viewport.offsetLeft + 8;
+    const maxLeft = viewport.offsetLeft + viewport.width - Math.min(size.width, viewport.width - 16) - 8;
+    const minTop = viewport.offsetTop + 8;
+    const maxTop = viewport.offsetTop + viewport.height - Math.min(size.height, viewport.height - 16) - 8;
     if (!Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
         pos.left < minLeft - 0.5 || pos.left > maxLeft + 0.5 ||
         pos.top < minTop - 0.5 || pos.top > maxTop + 0.5) {
