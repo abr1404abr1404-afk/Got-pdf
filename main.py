@@ -73,8 +73,9 @@ OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS",
 CPU_QUEUE_WAIT_SECONDS = min(180, max(1, int(os.getenv("CPU_QUEUE_WAIT_SECONDS", "90"))))
 OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
 TESSERACT_TIMEOUT_SECONDS = min(90, max(10, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "55"))))
-OCR_MAX_IMAGE_EDGE = min(3200, max(1600, int(os.getenv("OCR_MAX_IMAGE_EDGE", "2400"))))
+OCR_MAX_IMAGE_EDGE = min(3200, max(1200, int(os.getenv("OCR_MAX_IMAGE_EDGE", "2400"))))
 PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
+OCR_PREPROCESS_TARGET_EDGE = min(2000, max(1000, int(os.getenv("OCR_PREPROCESS_TARGET_EDGE", "1400"))))
 PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
 OCR_MODE = _resolve_ocr_mode(os.getenv("OCR_MODE", "tesseract"), PADDLE_OCR_OPT_IN)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
@@ -390,7 +391,7 @@ def _preprocess(image: np.ndarray) -> np.ndarray:
     if longest_edge > OCR_MAX_IMAGE_EDGE:
         scale = OCR_MAX_IMAGE_EDGE / float(longest_edge)
     else:
-        scale = min(2.0, max(1.0, 1800.0 / max(1, longest_edge)))
+        scale = min(2.0, max(1.0, OCR_PREPROCESS_TARGET_EDGE / max(1, longest_edge)))
     if abs(scale - 1.0) > 0.01:
         interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
         image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
@@ -827,6 +828,7 @@ def health():
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
             "tesseract_timeout_seconds": TESSERACT_TIMEOUT_SECONDS, "ocr_max_image_edge": OCR_MAX_IMAGE_EDGE,
+            "ocr_preprocess_target_edge": OCR_PREPROCESS_TARGET_EDGE,
             "opencv_threads": OPENCV_THREADS,
             "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
             "pdf_native_text_preferred": True, "pdf_native_text_min_chars": PDF_NATIVE_TEXT_MIN_CHARS,
