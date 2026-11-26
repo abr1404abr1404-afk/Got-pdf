@@ -34,7 +34,12 @@ def list_pdf_images(data: bytes) -> list[dict[str, Any]]:
     try:
         for page_index in range(doc.page_count):
             page = doc.load_page(page_index)
-            infos = page.get_image_info(xrefs=True)
+            # PyMuPDF may raise "is no image" for vector-only pages in some
+            # versions; an empty raster inventory is a valid result, not an error.
+            try:
+                infos = page.get_image_info(xrefs=True)
+            except (ValueError, RuntimeError):
+                infos = []
             seen_xrefs: set[int] = set()
             for info in infos:
                 xref = int(info.get("xref") or 0)
