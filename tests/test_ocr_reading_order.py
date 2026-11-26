@@ -139,12 +139,15 @@ class OcrModeTests(unittest.TestCase):
     def run_mode(self, mode):
         main_tree = ast.parse(SOURCE)
         hybrid = next(node for node in main_tree.body if isinstance(node, ast.FunctionDef) and node.name == "_hybrid")
-        module = ast.Module(body=[hybrid], type_ignores=[])
+        paddle_helper = next(node for node in main_tree.body if isinstance(node, ast.FunctionDef) and node.name == "_paddle_runtime_available")
+        module = ast.Module(body=[paddle_helper, hybrid], type_ignores=[])
         ast.fix_missing_locations(module)
         calls = []
         namespace = {
             "np": type("NumpyStub", (), {"ndarray": object}),
             "OCR_MODE": mode,
+            "PADDLE_OCR_OPT_IN": True,
+            "importlib": type("ImportlibStub", (), {"util": type("UtilStub", (), {"find_spec": staticmethod(lambda name: True)})()})(),
             "_preprocess": lambda image: image,
             "cv2": type("CV2Stub", (), {"COLOR_BGR2GRAY": 1, "COLOR_GRAY2BGR": 2, "ADAPTIVE_THRESH_GAUSSIAN_C": 3, "THRESH_BINARY": 4, "THRESH_OTSU": 5, "THRESH_BINARY_INV": 6, "cvtColor": staticmethod(lambda image, code: image), "adaptiveThreshold": staticmethod(lambda image, *args: image), "threshold": staticmethod(lambda image, *args: (0, image))})(),
             "_paddle": lambda image, language: (calls.append("paddle") or [], None),
