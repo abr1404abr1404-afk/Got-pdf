@@ -415,7 +415,7 @@ def _lang_pair(language: str) -> tuple[str, str]:
     return "ara+eng", "ar"
 
 
-def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6) -> tuple[list[dict], str | None]:
+def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6, timeout_override: int | None = None) -> tuple[list[dict], str | None]:
     tess_lang, _ = _lang_pair(language)
 
     def recognize(source: np.ndarray, psm: int, timeout: int) -> list[dict]:
@@ -424,7 +424,7 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6) -> 
             lang=tess_lang,
             config=f"--oem 1 --psm {psm} -c preserve_interword_spaces=1",
             output_type=pytesseract.Output.DICT,
-            timeout=timeout,
+            timeout=min(timeout, timeout_override) if timeout_override else timeout,
         )
         groups: dict[tuple, list[int]] = {}
         for i, raw_text in enumerate(data.get("text", [])):
@@ -497,6 +497,56 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6) -> 
         return rows, None
     except Exception as retry_error:
         return [], f"{first_error}; reduced-resolution retry failed: {retry_error}"
+
+
+def _tesseract_tiled(image: np.ndarray, language: str, tile_count: int = 3) -> tuple[list[dict], str | None]:
+    """Recover small text in tall screenshots using bounded overlapping OCR regions."""
+    height, width = image.shape[:2]
+    if width < 240 or height / max(1, width) < 1.35 or tile_count < 2:
+        return [], None
+    tile_count = min(3, int(tile_count))
+    step = int(np.ceil(height / tile_count))
+    overlap = max(12, int(step * 0.10))
+    rows: list[dict] = []
+    errors: list[str] = []
+    for index in range(tile_count):
+        y0 = max(0, index * step - (overlap if index else 0))
+        y1 = min(height, (index + 1) * step + (overlap if index < tile_count - 1 else 0))
+        if y1 - y0 < 80:
+            continue
+        tile = image[y0:y1, :]
+        scale = min(2.0, 2200.0 / max(tile.shape[:2]))
+        if scale > 1.05:
+            tile = cv2.resize(tile, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+        else:
+            scale = 1.0
+        recognized, error = _tesseract(tile, language, 11, timeout_override=8)
+        if error:
+            errors.append(error)
+        inverse = 1.0 / scale
+        for row in recognized:
+            mapped = dict(row)
+            box = row.get("bbox", [])
+            if len(box) == 4:
+                mapped["bbox"] = [
+                    int(round(box[0] * inverse)), int(round(box[1] * inverse + y0)),
+                    int(round(box[2] * inverse)), int(round(box[3] * inverse + y0)),
+                ]
+            mapped_words = []
+            for word in row.get("words", []):
+                item = dict(word)
+                word_box = word.get("bbox", [])
+                if len(word_box) == 4:
+                    item["bbox"] = [
+                        int(round(word_box[0] * inverse)), int(round(word_box[1] * inverse + y0)),
+                        int(round(word_box[2] * inverse)), int(round(word_box[3] * inverse + y0)),
+                    ]
+                mapped_words.append(item)
+            if mapped_words:
+                mapped["words"] = mapped_words
+            mapped["recovery_pass"] = "tiled"
+            rows.append(mapped)
+    return _dedupe(rows), "; ".join(errors) if errors else None
 
 def _get_paddle(language: str):
     _, paddle_lang = _lang_pair(language)
@@ -827,6 +877,19 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
             if error:
                 tess_errors.append(error)
         tess_rows = _dedupe(tess_rows)
+        # Full-page confidence can hide small, difficult text behind large headings.
+        height, width = prepared.shape[:2]
+        final_confidence = (
+            sum(float(row.get("confidence", 0)) for row in tess_rows) / len(tess_rows)
+            if tess_rows else 0.0
+        )
+        tiled_error = None
+        if not timed_out and height / max(1, width) >= 1.35 and final_confidence < 82.0:
+            tiled_rows, tiled_error = _tesseract_tiled(prepared, language)
+            if tiled_rows:
+                tess_rows = _dedupe(tess_rows + tiled_rows)
+        if tiled_error:
+            tess_errors.append(tiled_error)
         tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
         tess_rows, tess_error = [], "skipped: confident PaddleOCR result" if paddle_is_usable else "disabled by OCR_MODE"
