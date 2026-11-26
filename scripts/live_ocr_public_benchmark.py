@@ -187,7 +187,7 @@ def main():
                 for engine in benchmark_engines:
                     image_payload = api_post(
                         out, name + "_real_page_image_ocr_" + engine, "/api/ocr/image",
-                        api_image_path, "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
+                        api_image_path, "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=120
                     )
                     if image_payload is not None:
                         extracted = "\n".join(line.get("text", "") for line in image_payload.get("lines", []))
