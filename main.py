@@ -65,6 +65,8 @@ OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
 OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS", "30"))))
 CPU_QUEUE_WAIT_SECONDS = min(180, max(1, int(os.getenv("CPU_QUEUE_WAIT_SECONDS", "90"))))
 OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
+TESSERACT_TIMEOUT_SECONDS = min(90, max(10, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "55"))))
+OCR_MAX_IMAGE_EDGE = min(3200, max(1600, int(os.getenv("OCR_MAX_IMAGE_EDGE", "2400"))))
 PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
 PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
 OCR_MODE = _resolve_ocr_mode(os.getenv("OCR_MODE", "tesseract"), PADDLE_OCR_OPT_IN)
@@ -377,9 +379,14 @@ def _adaptive_threshold_block_size(height: int, width: int) -> int | None:
 def _preprocess(image: np.ndarray) -> np.ndarray:
     h, w = image.shape[:2]
     # Upscale small scans while limiting memory use.
-    scale = min(2.0, max(1.0, 1800.0 / max(h, w)))
-    if scale > 1.01:
-        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+    longest_edge = max(h, w)
+    if longest_edge > OCR_MAX_IMAGE_EDGE:
+        scale = OCR_MAX_IMAGE_EDGE / float(longest_edge)
+    else:
+        scale = min(2.0, max(1.0, 1800.0 / max(1, longest_edge)))
+    if abs(scale - 1.0) > 0.01:
+        interpolation = cv2.INTER_AREA if scale < 1.0 else cv2.INTER_CUBIC
+        image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=interpolation)
     image = _deskew(image)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     # Mild contrast normalization; avoid aggressive binarization that destroys Arabic dots.
@@ -410,6 +417,7 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) ->
             lang=tess_lang,
             config=f"--oem 1 --psm {page_segmentation} -c preserve_interword_spaces=1",
             output_type=pytesseract.Output.DICT,
+            timeout=TESSERACT_TIMEOUT_SECONDS,
         )
         groups: dict[tuple, list[int]] = {}
         for i, raw_text in enumerate(data.get("text", [])):
@@ -650,7 +658,8 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
             sum(float(row.get("confidence", 0)) for row in tess_rows) / len(tess_rows)
             if tess_rows else 0.0
         )
-        if not tess_rows or average_confidence < 48.0:
+        timed_out = bool(first_error and "timeout" in first_error.lower())
+        if not timed_out and (not tess_rows or average_confidence < 48.0):
             gray = cv2.cvtColor(prepared, cv2.COLOR_BGR2GRAY)
             adaptive = cv2.adaptiveThreshold(
                 gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
@@ -716,7 +725,9 @@ def health():
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
-            "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE, "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
+            "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
+            "tesseract_timeout_seconds": TESSERACT_TIMEOUT_SECONDS, "ocr_max_image_edge": OCR_MAX_IMAGE_EDGE,
+            "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
             "pdf_native_text_preferred": True, "pdf_native_text_min_chars": PDF_NATIVE_TEXT_MIN_CHARS,
             "tesseract_languages": languages,
             "arabic_ocr_ready": "ara" in languages,
