@@ -2385,10 +2385,15 @@ function dock(el,tb){
   tb.style.maxHeight=Math.max(64,height-2*margin)+"px";
   const r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
   const minX=left+margin,maxX=Math.max(minX,right-w-margin);
-  const x=clamp(r.left,minX,maxX);
+  const centeredX=r.left+(r.width-w)/2;
+  const x=clamp(centeredX,minX,maxX);
   const minY=top+margin,maxY=Math.max(minY,bottom-h-margin);
   const above=r.top-h-6,below=r.bottom+6;
-  let y=above>=minY?above:below;
+  const roomAbove=r.top-minY,roomBelow=bottom-margin-r.bottom;
+  let y;
+  if(above>=minY)y=above;
+  else if(below+h<=bottom-margin)y=below;
+  else y=roomAbove>=roomBelow?above:below;
   y=clamp(y,minY,maxY);
   tb.style.left=x+"px";tb.style.top=y+"px";
 }
