@@ -381,6 +381,7 @@ label.btn{position:relative}
 <div class="tsec"><h3>تحويل PDF إلى Word مع التنسيق</h3><p class="dshint">تحويل تخطيط الصفحة والنصوص والصور إلى مستند Word قابل للتحرير. قد تختلف النتيجة عن الأصل، خصوصًا في الخطوط العربية والجداول والصفحات المصوّرة. الحد الحالي 20 صفحة.</p><div class="qa"><button id="pdfToDocxLayout" class="p" type="button">تحويل PDF إلى Word بالتنسيق</button></div></div>
 <div class="tsec"><h3>مقارنة ملفين PDF</h3><p class="dshint">قارن الملف المفتوح بملف آخر لاكتشاف النص المضاف والمحذوف والصفحات وأبعادها والفروق البصرية التقريبية. تتم المقارنة على الخادم بعد موافقتك؛ وقد لا تكشف التفاصيل الدقيقة أو تحدد نوع العنصر الذي تغيّر.</p><div class="qa"><button id="comparePdf" type="button">اختيار ملف للمقارنة</button><input id="comparePdfFile" class="native-picker" type="file" accept="application/pdf,.pdf"></div></div>
 <div class="tsec"><h3>تحليل الصور داخل PDF وتعديلها</h3><p class="dshint">يعرض الصور المضمنة ومعايناتها وأبعادها وصفحاتها. يمكنك حذف الصور أو تغيير حجمها أو نقلها أو تدويرها أو تحسينها (رمادي، إضاءة، تباين، حدة) في نسخة جديدة. تُرفض التعديلات المتداخلة مع النصوص أو العناصر الأخرى. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfImageAnalyze" type="button">تحليل صور الملف</button></div></div>\n<div class="tsec"><h3>فهرسة عناصر PDF</h3><p class="dshint">اكتشاف النصوص والصور والرسومات المتجهية والتعليقات وتحديد مواقعها والتداخلات. يمكنك حذف العناصر المعزولة، واستبدال نص لاتيني بسيط، وتغيير لون أو حجم المستطيلات والخطوط المنفردة وتعديل سماكة حدودها وشفافيتها ونقلها إلى موضع آخر. استبدال النص العربي قيد التحقق وموقوف مؤقتًا؛ لا تستخدمه حتى اجتياز اختبارات التشكيل والبحث. تُرسل نسخة PDF إلى الخادم بعد موافقتك.</p><div class="qa"><button id="pdfObjectInspect" type="button">فحص عناصر الملف</button></div></div>
+<div class="tsec"><h3>تحليل المستند المتقدم (PaddleOCR-VL)</h3><p class="dshint">تحليل تخطيط الصفحة والعناوين والجداول والنص العربي، مع خيار إنشاء Word قابل للتحرير. يحتاج ربط خادم النموذج المتقدم؛ لن يُرسل الملف إلا بعد موافقتك.</p><div class="qa"><button id="paddleVlParse" type="button">تحليل التخطيط والجداول</button><button id="paddleVlDocx" type="button">تحليل متقدم وتصدير Word</button></div><div id="paddleVlStatus" role="status" aria-live="polite" class="dshint">الخدمة المتقدمة اختيارية وتظهر حالتها عند بدء التحليل.</div><textarea id="paddleVlMarkdown" rows="8" readonly aria-label="نتيجة تحليل المستند المتقدم" style="display:none;width:100%;margin-top:8px;direction:auto;white-space:pre-wrap"></textarea></div>
 <div class="tsec"><h3>تصدير النص إلى Word وExcel</h3><p class="dshint">ينشئ ملفات قابلة للتحرير مع أرقام الصفحات. يُرسل النص المستخرج فقط إلى خادم الفلقي بعد موافقتك؛ لا يُرسل ملف PDF الأصلي.</p><div class="qa"><button id="exportDocx" type="button">تصدير Word</button><button id="exportXlsx" type="button">تصدير Excel</button></div></div>
 <div class="tsec"><h3>إضافة سريعة</h3><div class="qa"><button id="qdh">تاريخ اليوم (هجري)</button><button id="qdg">تاريخ اليوم (ميلادي)</button></div></div>
 <div class="tsec"><h3>سجل نسخ PDF المحلي</h3><p class="dshint">يمكنك تفعيل الحفظ التلقائي بموافقتك؛ تُحفظ الملفات محليًا في هذا المتصفح فقط (آخر 5 نسخ وبحد أقصى 100 ميجابايت). كما يمكنك حفظ نسخة يدويًا أو استعادة نسخة سابقة.</p><div class="qa"><button id="pdfVersionOpen" type="button">فتح سجل النسخ</button></div></div>
@@ -3307,6 +3308,43 @@ async function pdfToDocxLayout(){
   finally{button.disabled=false}
 }
 $("pdfToDocxLayout").onclick=pdfToDocxLayout;
+async function runPaddleVl(exportDocx=false){
+  if(!pages.length)return toast("افتح ملف PDF أولًا.");
+  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
+  const selected=pages.filter(p=>p.sel),list=selected.length?selected:pages;
+  if(list.length>5)return toast("التحليل المتقدم يدعم حتى 5 صفحات في الطلب الحالي. حدّد صفحات أقل.");
+  const action=exportDocx?"تحليل المستند وإنشاء ملف Word":"تحليل تخطيط المستند وجداوله";
+  if(!confirm("سيتم إرسال الصفحات المحددة إلى خادم تحليل المستندات المتقدم "+action+". تابع فقط إذا كنت توافق على إرسال الملف."))return;
+  const buttons=[$("paddleVlParse"),$("paddleVlDocx")],status=$("paddleVlStatus"),preview=$("paddleVlMarkdown");
+  buttons.forEach(button=>button.disabled=true);status.textContent="جارٍ تجهيز الصفحات وإرسالها إلى محرك التحليل المتقدم…";
+  try{
+    const bytes=await buildPdf(list),form=new FormData();
+    form.append("file",new Blob([bytes],{type:"application/pdf"}),safeName()+".pdf");
+    if(exportDocx)form.append("export_docx","true");
+    const response=await fetch(base+"/api/document/parse",{method:"POST",body:form});
+    if(!response.ok){
+      const result=await response.json().catch(()=>({}));
+      const detail=result.detail;
+      throw new Error(typeof detail==="string"?detail:(detail?.message||"خدمة تحليل المستندات المتقدمة غير مهيأة أو تعذّر الاتصال بها."));
+    }
+    if(exportDocx){
+      const output=new Uint8Array(await response.arrayBuffer());
+      await saveFile(safeName()+"-paddle-vl.docx",output,"application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+      status.textContent="تم إنشاء ملف Word من تحليل المستند المتقدم. راجع النص والجداول والتنسيق قبل الاعتماد.";
+      toast("اكتمل التحليل المتقدم وإنشاء Word.");
+    }else{
+      const result=await response.json();
+      preview.value=String(result.markdown||"");
+      preview.style.display="block";
+      status.textContent="اكتمل تحليل "+(result.page_count||0)+" صفحة باستخدام "+(result.engine||"محرك التحليل المتقدم")+". راجع النتيجة قبل تصديرها.";
+    }
+  }catch(error){
+    console.error(error);status.textContent=error.message||"تعذّر إكمال التحليل المتقدم.";
+    toast(error.message||"تعذّر إكمال التحليل المتقدم.");
+  }finally{buttons.forEach(button=>button.disabled=false)}
+}
+$("paddleVlParse").onclick=()=>runPaddleVl(false);
+$("paddleVlDocx").onclick=()=>runPaddleVl(true);
 
 const comparePicker=$("comparePdfFile");
 $("comparePdf").onclick=()=>comparePicker.click();
