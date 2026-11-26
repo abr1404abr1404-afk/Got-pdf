@@ -1,4 +1,5 @@
 name: Surya Arabic OCR alternative benchmark
+# Manual real-document comparison run.
 on:
   push:
     branches: [main]
