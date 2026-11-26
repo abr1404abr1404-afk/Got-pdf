@@ -15,8 +15,8 @@ NOD_MD5 = "a845e80b66fea3507ad39f3c07684ff6"
 
 def normalize(s):
     s = unicodedata.normalize("NFC", s or "")
-    s = re.sub(r"[\\u064B-\\u065F\\u0670\\u0640]", "", s)
-    return re.sub(r"\\s+", "", s)
+    s = re.sub(r"[\u064B-\u065F\u0670\u0640]", "", s)
+    return re.sub(r"\s+", "", s)
 
 def character_error(reference, candidate):
     a, b = normalize(reference), normalize(candidate)
