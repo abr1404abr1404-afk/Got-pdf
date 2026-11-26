@@ -26,7 +26,7 @@ def _valid_box(item: dict[str, Any], width: int, height: int) -> list[float] | N
 
 
 def _direction(text: str) -> tuple[str, float]:
-    arabic = sum("\\u0600" <= char <= "\\u06ff" for char in text)
+    arabic = sum(0x0600 <= ord(char) <= 0x06ff for char in text)
     latin = sum("a" <= char.lower() <= "z" for char in text)
     total = arabic + latin
     if not total:
