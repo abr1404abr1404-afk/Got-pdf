@@ -50,7 +50,7 @@ class AdaptiveOcrPassTests(unittest.TestCase):
 
     def test_preprocess_uses_cpu_bounded_target_edge(self):
         image = np.full((2200, 1600, 3), 255, dtype=np.uint8)
-        with patch.object(main, "OCR_PREPROCESS_TARGET_EDGE", 1200):
+        with patch.object(main, "OCR_PREPROCESS_TARGET_EDGE", 1200), patch.object(main, "_deskew", side_effect=lambda value: value):
             prepared = main._preprocess(image)
         self.assertEqual(max(prepared.shape[:2]), 1200)
         self.assertEqual(prepared.ndim, 3)
