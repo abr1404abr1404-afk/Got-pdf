@@ -15,15 +15,15 @@ services:
       - key: OCR_DPI
         value: "150"
       - key: TESSERACT_TIMEOUT_SECONDS
-        value: "35"
+        value: "25"
       - key: TESSERACT_RETRY_TIMEOUT_SECONDS
-        value: "15"
+        value: "12"
       - key: TESSERACT_RETRY_MAX_EDGE
-        value: "1000"
+        value: "800"
       - key: OCR_MAX_IMAGE_EDGE
-        value: "1600"
-      - key: OCR_PREPROCESS_TARGET_EDGE
         value: "1400"
+      - key: OCR_PREPROCESS_TARGET_EDGE
+        value: "1000"
       - key: OPENCV_THREADS
         value: "1"
       - key: OMP_THREAD_LIMIT
