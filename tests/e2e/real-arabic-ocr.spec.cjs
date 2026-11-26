@@ -89,6 +89,37 @@ const failures = [];
     await imagePage.locator("#focr").setInputFiles(path.join(fixture, "real-dubai-law-page1.png"));
     await imagePage.getByRole("button", {name: "مراجعة النص"}).first().waitFor({state: "visible", timeout});
     await imagePage.getByRole("button", {name: "مراجعة النص"}).first().click();
+    // Validate the visual replacement layer, not only OCR text extraction.
+    await imagePage.locator(".det").first().waitFor({state:"visible",timeout});
+    await imagePage.locator(".det").first().click();
+    const imageOverlay=imagePage.locator(".ov.ocr-line").first();
+    await imageOverlay.waitFor({state:"visible",timeout});
+    const overlayText=imageOverlay.locator(".t");
+    const beforeBox=await imageOverlay.boundingBox();
+    const beforeFont=await overlayText.evaluate(el=>getComputedStyle(el).fontSize);
+    const shaping=await overlayText.evaluate(el=>({
+      direction:getComputedStyle(el).direction,
+      textAlign:getComputedStyle(el).textAlign,
+      unicodeBidi:getComputedStyle(el).unicodeBidi,
+      ligatures:getComputedStyle(el).fontVariantLigatures
+    }));
+    if(shaping.direction!=="rtl"||shaping.textAlign!=="right"||shaping.unicodeBidi==="normal")
+      throw new Error("Arabic OCR replacement is not explicitly RTL-shaped: "+JSON.stringify(shaping));
+    await overlayText.fill("اختبار استبدال النص العربي مع الحفاظ على اتجاه الكتابة والتنسيق");
+    const after=await imageOverlay.evaluate(el=>({
+      width:el.getBoundingClientRect().width,
+      textWidth:el.querySelector(".t").getBoundingClientRect().width,
+      fontSize:getComputedStyle(el).fontSize,
+      direction:getComputedStyle(el.querySelector(".t")).direction
+    }));
+    if(!beforeBox||!Number.isFinite(after.width)||after.width<8||after.direction!=="rtl")
+      throw new Error("Arabic replacement box or direction is invalid: "+JSON.stringify(after));
+    if(Math.abs(after.width-beforeBox.width)>2)
+      throw new Error("Editing Arabic text unexpectedly changed the original line box width");
+    results.push({case:"arabic_image_text_replacement_shaping_and_width",status:"passed",
+      original_box_width:beforeBox.width,edited_box_width:after.width,
+      original_font_size:beforeFont,edited_font_size:after.fontSize,shaping});
+    await imageOverlay.locator(".t").evaluate(el=>{el.blur();});
     const imageText = imagePage.locator("#ocrReviewText");
     await imageText.waitFor({state: "visible"});
     const originalImageText = await imageText.inputValue();
