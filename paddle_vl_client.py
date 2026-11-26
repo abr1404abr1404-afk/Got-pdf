@@ -221,7 +221,6 @@ async def parse_with_paddle_vl(
         "useOcrForImageBlock": True,
         "formatBlockContent": True,
         "prettifyMarkdown": True,
-        "returnMarkdownImages": bool(export_docx),
         "restructurePages": True,
         "mergeTables": True,
         "relevelTitles": True,
