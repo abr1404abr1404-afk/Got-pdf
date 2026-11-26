@@ -8,6 +8,7 @@ import numpy as np
 import pymupdf
 from PIL import Image, ImageOps
 import easyocr
+import pytesseract
 
 PDF_URL = "https://dlp.dubai.gov.ae/Legislation%20Ar%20Reference/2025/%D9%82%D8%A7%D9%86%D9%88%D9%86%20%D8%B1%D9%82%D9%85%20(7)%20%D9%84%D8%B3%D9%86%D8%A9%202025%20%D8%A8%D8%B4%D8%A3%D9%86%20%D8%AA%D9%86%D8%B8%D9%8A%D9%85%20%D9%85%D8%B2%D8%A7%D9%88%D9%84%D8%A9%20%D8%A3%D9%86%D8%B4%D8%B7%D8%A9%20%D8%A7%D9%84%D9%85%D9%82%D8%A7%D9%88%D9%84%D8%A7%D8%AA.pdf"
 NOD_URL = "https://zenodo.org/api/records/5068735/files/yarmouk_01_col.tar.lzma/content"
@@ -74,6 +75,20 @@ def run_reader(reader, image):
             "seconds":round(time.perf_counter()-started,2),
             "mean_confidence":round(sum(x["confidence"] for x in rows)/len(rows),4) if rows else 0}
 
+
+def run_tesseract(image):
+    reports = []
+    for psm in (11, 6):
+        started = time.perf_counter()
+        text = pytesseract.image_to_string(image, lang="ara+eng", config=f"--oem 1 --psm {psm}")
+        reports.append({
+            "psm": psm,
+            "text": text,
+            "arabic_chars": sum(0x600 <= ord(c) <= 0x6ff for c in text),
+            "seconds": round(time.perf_counter() - started, 2),
+        })
+    return reports
+
 def main():
     report={"engine":"EasyOCR","version":getattr(easyocr,"__version__","unknown"),"tests":[]}
     reader=easyocr.Reader(["ar","en"],gpu=False,verbose=False)
@@ -86,9 +101,12 @@ def main():
             image=Image.frombytes("RGB",[pix.width,pix.height],pix.samples)
             image=prepare(image)
             result=run_reader(reader,image)
+            tess = run_tesseract(image)
+            for baseline in tess:
+                baseline["cer_vs_embedded_pdf_text"] = character_error(page.get_text("text"), baseline["text"])
             result.update({"name":"real_dubai_law_page1","status":"passed",
                            "cer_vs_embedded_pdf_text":character_error(page.get_text("text"),result["text"]),
-                           "reference_chars":len(normalize(page.get_text("text")))})
+                           "reference_chars":len(normalize(page.get_text("text"))), "tesseract_baselines":tess})
             report["tests"].append(result); doc.close()
         except Exception as exc:
             report["tests"].append({"name":"real_dubai_law_page1","status":"failed","error":f"{type(exc).__name__}: {str(exc)[:500]}"})
@@ -102,7 +120,8 @@ def main():
                 if stream is None: raise ValueError("Could not read scan")
                 scan=prepare(Image.open(stream))
             result=run_reader(reader,scan)
-            result.update({"name":"real_nod_scanned_page","status":"passed","source_member":member.name})
+            tess = run_tesseract(scan)
+            result.update({"name":"real_nod_scanned_page","status":"passed","source_member":member.name,"tesseract_baselines":tess})
             report["tests"].append(result)
         except Exception as exc:
             report["tests"].append({"name":"real_nod_scanned_page","status":"failed","error":f"{type(exc).__name__}: {str(exc)[:500]}"})
