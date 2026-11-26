@@ -261,7 +261,54 @@ if (!html.includes("ann-tools-head")) failures.push("Annotation panel must keep 
 if (!html.includes("function setAnnotationPanelOpen") || !html.includes('menu.classList.toggle("on",open)')) failures.push("Menu panels must toggle open and closed from their trigger buttons.");
 if (!html.includes("return true;") || !html.includes("return false;") || !html.includes("restored!==true")) failures.push("Project recovery must verify successful project import before reporting success.");
 
-if (failures.length) {
+
+// Regression tests for edit-toolbar anchoring while the PDF is zoomed or panned.
+const dockStart = html.indexOf("function dock(el,tb){");
+const dockEnd = html.indexOf("\nconst redock=", dockStart);
+if (dockStart < 0 || dockEnd < 0) {
+  failures.push("Text/image edit toolbar docking function is missing.");
+} else {
+  const dockCode = html.slice(dockStart, dockEnd);
+  const makeDockCase = (viewport, headerRect, elementRect, toolbarSize) => {
+    const context = {
+      window: { visualViewport: viewport },
+      innerWidth: viewport.width,
+      innerHeight: viewport.height,
+      document: { querySelector: () => ({ getBoundingClientRect: () => headerRect }) },
+      Math
+    };
+    const el = { getBoundingClientRect: () => elementRect };
+    const tb = { offsetWidth: toolbarSize.width, offsetHeight: toolbarSize.height, style: {} };
+    vm.runInNewContext(dockCode + "\\ndock(el,tb);", context);
+    return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top), width: toolbarSize.width, height: toolbarSize.height };
+  };
+  const zoomViewport = { offsetLeft: 160, offsetTop: 90, width: 360, height: 600 };
+  const headerRect = { top: 0, bottom: 70 };
+  const toolbarSize = { width: 250, height: 118 };
+  const cases = [
+    { name: "zoomed visible text", rect: { left: 230, right: 290, top: 320, bottom: 346 }, expectedNear: 8 },
+    { name: "text near viewport top", rect: { left: 220, right: 280, top: 110, bottom: 136 }, expectedNear: 8 },
+    { name: "text near viewport bottom", rect: { left: 220, right: 280, top: 650, bottom: 676 }, expectedNear: 8 }
+  ];
+  for (const item of cases) {
+    const pos = makeDockCase(zoomViewport, headerRect, item.rect, toolbarSize);
+    const minLeft = zoomViewport.offsetLeft + 8;
+    const maxLeft = zoomViewport.offsetLeft + zoomViewport.width - toolbarSize.width - 8;
+    const minTop = zoomViewport.offsetTop + 8;
+    const maxTop = zoomViewport.offsetTop + zoomViewport.height - toolbarSize.height - 8;
+    if (!Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
+        pos.left < minLeft - 0.5 || pos.left > maxLeft + 0.5 ||
+        pos.top < minTop - 0.5 || pos.top > maxTop + 0.5) {
+      failures.push("Edit toolbar escapes the visible zoomed viewport for " + item.name + ".");
+    }
+    const aboveGap = item.rect.top - (pos.top + toolbarSize.height);
+    const belowGap = pos.top - item.rect.bottom;
+    if (Math.min(Math.abs(aboveGap), Math.abs(belowGap)) > item.expectedNear + 1) {
+      failures.push("Edit toolbar is detached from selected text for " + item.name + ".");
+    }
+  }
+}
+\nif (failures.length) {
   console.error("Frontend checks failed:");
   for (const failure of failures) console.error("- " + failure);
   process.exit(1);
