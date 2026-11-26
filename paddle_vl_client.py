@@ -56,6 +56,29 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
             if not line:
                 i += 1
                 continue
+            image_match = re.match(r"^!\\[([^\\]]*)\\]\\(([^)]+)\\)$", line)
+            if image_match:
+                image_name = image_match.group(2).strip().strip("<>")
+                image_map = page.get("markdown_images") or {}
+                encoded_image = image_map.get(image_name) or image_map.get(image_name.removeprefix("./"))
+                if isinstance(encoded_image, str) and encoded_image:
+                    if len(encoded_image) > 12 * 1024 * 1024:
+                        raise PaddleVLError("إحدى الصور المضمنة تتجاوز الحد المسموح.")
+                    try:
+                        image_bytes = base64.b64decode(encoded_image, validate=True)
+                    except (binascii.Error, ValueError) as exc:
+                        raise PaddleVLError("إحدى الصور المضمنة في المستند غير صالحة.") from exc
+                    if len(image_bytes) > 8 * 1024 * 1024:
+                        raise PaddleVLError("حجم الصورة المضمنة يتجاوز الحد المسموح.")
+                    try:
+                        doc.add_picture(io.BytesIO(image_bytes), width=Inches(5.5))
+                    except Exception as exc:
+                        raise PaddleVLError("تعذّر إدراج صورة من المستند في ملف Word.") from exc
+                else:
+                    paragraph = doc.add_paragraph()
+                    paragraph.add_run(image_match.group(1) or "[صورة]")
+                i += 1
+                continue
             if line.startswith("|") and i + 1 < len(lines) and re.search(r"-{3,}", lines[i + 1]):
                 raw_rows = [line]
                 i += 2
@@ -134,6 +157,7 @@ def normalize_paddle_vl_response(
             "page": index + 1,
             "layout": page.get("prunedResult") if isinstance(page.get("prunedResult"), dict) else {},
             "markdown": str(md_text),
+            "markdown_images": (markdown.get("images") if export_docx and isinstance(markdown, dict) and isinstance(markdown.get("images"), dict) else {}),
         })
         if export_docx:
             exports = page.get("exports") or {}
@@ -193,6 +217,7 @@ async def parse_with_paddle_vl(
         "useOcrForImageBlock": True,
         "formatBlockContent": True,
         "prettifyMarkdown": True,
+        "returnMarkdownImages": bool(export_docx),
         "restructurePages": True,
         "mergeTables": True,
         "relevelTitles": True,
