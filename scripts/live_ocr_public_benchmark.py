@@ -66,16 +66,21 @@ def prepare_image_for_api(source_path, output_dir, stem):
 
 def api_post(out, name, endpoint, path, content_type, data=None, timeout=120):
     try:
-        with path.open("rb") as handle:
-            response = requests.post(
-                BASE + endpoint,
-                files={"file": (path.name, handle, content_type)},
-                data=data or {},
-                timeout=(15, timeout),
-            )
+        response = None
+        for attempt in range(3):
+            with path.open("rb") as handle:
+                response = requests.post(
+                    BASE + endpoint,
+                    files={"file": (path.name, handle, content_type)},
+                    data=data or {},
+                    timeout=(15, timeout),
+                )
+            if response.status_code not in {502, 503, 504} or attempt == 2:
+                break
+            __import__("time").sleep(8 * (attempt + 1))
         if response.status_code >= 400:
             out["tests"].append({"name": name, "status": "failed", "http_status": response.status_code,
-                                 "response_body": response.text[:1200]})
+                                 "attempts": attempt + 1, "response_body": response.text[:1200]})
             return None
         payload = response.json()
         out["tests"].append({"name": name, "status": "passed", "http_status": response.status_code})
