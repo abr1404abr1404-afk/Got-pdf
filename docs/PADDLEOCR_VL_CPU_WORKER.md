@@ -26,7 +26,7 @@ After connecting, `/api/health` reports whether the URL is configured. This is n
 ## API behavior
 
 - `POST /api/document/parse`: returns per-page Markdown and structured layout JSON.
-- Multipart `export_docx=true`: Got-pdf creates an editable DOCX from the returned Markdown, including headings, paragraphs, lists, and Markdown tables.
+- Multipart `export_docx=true`: Got-pdf requests PaddleOCR-VL's documented native DOCX export when the service returns one complete document. If the service returns page-wise fragments, Got-pdf falls back to an editable DOCX reconstructed from all Markdown pages.
 - Complex diagrams, embedded images, equations, and exact page geometry still need visual review.
 
 ## Operations and licensing
