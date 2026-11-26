@@ -158,7 +158,7 @@ def main():
                                         "application/pdf", {"language": "ara+eng", "dpi": "96"}, timeout=150)
                 if pdf_payload is not None:
                     page_results = [pg.get("ocr", {}) for pg in pdf_payload.get("pages", [])]
-                    extracted = "\\n".join(line.get("text", "") for page_result in page_results
+                    extracted = "\n".join(line.get("text", "") for page_result in page_results
                                            for line in page_result.get("lines", []))
                     engines = [str(page_result.get("engine", "unknown")) for page_result in page_results]
                     used_native_text = bool(engines) and all(engine == "native-pdf-text" for engine in engines)
@@ -182,7 +182,7 @@ def main():
                         api_image_path, "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
                     )
                     if image_payload is not None:
-                        extracted = "\\n".join(line.get("text", "") for line in image_payload.get("lines", []))
+                        extracted = "\n".join(line.get("text", "") for line in image_payload.get("lines", []))
                         image_test = out["tests"][-1]
                         image_cer = cer(ground, extracted) if ground.strip() else None
                         image_test.update({
@@ -229,7 +229,7 @@ def main():
                     "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
                 )
                 if payload is not None:
-                    text_out = "\\n".join(line.get("text", "") for line in payload.get("lines", []))
+                    text_out = "\n".join(line.get("text", "") for line in payload.get("lines", []))
                     test = out["tests"][-1]
                     test.update({"source_member": chosen.name, "requested_engine": engine,
                                  "actual_engine": payload.get("engine"), "ocr_chars": len(text_out),
