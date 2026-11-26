@@ -308,7 +308,8 @@ if (dockStart < 0 || dockEnd < 0) {
     }
   }
 }
-\nif (failures.length) {
+
+if (failures.length) {
   console.error("Frontend checks failed:");
   for (const failure of failures) console.error("- " + failure);
   process.exit(1);
