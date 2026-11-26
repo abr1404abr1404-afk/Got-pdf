@@ -279,6 +279,8 @@ if (dockStart < 0 || dockEnd < 0) {
     };
     const el = { getBoundingClientRect: () => elementRect };
     const tb = { offsetWidth: toolbarSize.width, offsetHeight: toolbarSize.height, style: {} };
+    context.el = el;
+    context.tb = tb;
     vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
     return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top), width: toolbarSize.width, height: toolbarSize.height };
   };
