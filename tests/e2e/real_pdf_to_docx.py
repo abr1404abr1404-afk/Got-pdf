@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pymupdf
 from docx import Document
+from fastapi.testclient import TestClient
 
 from document_export import create_docx
 from pdf_to_docx import analyze_pdf_docx_quality
@@ -67,7 +68,15 @@ native_pdf = one_page.tobytes()
 one_page.close()
 
 # Button 1: "تحويل PDF إلى Word بالتنسيق" -> /api/convert/pdf-to-docx
-native_docx, native_engine = main._convert_pdf_to_docx_adaptive(native_pdf)
+with TestClient(main.app) as client:
+    native_response = client.post(
+        "/api/convert/pdf-to-docx",
+        files={"file": ("real-dubai-law-page1.pdf", native_pdf, "application/pdf")},
+    )
+    if native_response.status_code != 200:
+        raise SystemExit(f"Formatted PDF-to-Word API failed: {native_response.status_code} {native_response.text[:1000]}")
+    native_docx = native_response.content
+    native_engine = native_response.headers.get("X-Conversion-Engine", "unknown")
 if not native_docx.startswith(b"PK"):
     raise SystemExit("Formatted PDF-to-Word conversion did not produce a DOCX package.")
 native_text, native_paragraphs, native_images = read_docx(native_docx)
@@ -77,7 +86,14 @@ native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 (OUT / "real-dubai-law-formatted.docx").write_bytes(native_docx)
 
 # Button 2: "تصدير Word" -> /api/export/docx, using extracted PDF text.
-text_export = create_docx([{"page": 1, "text": reference}])
+with TestClient(main.app) as client:
+    export_response = client.post(
+        "/api/export/docx",
+        json={"pages": [{"page": 1, "text": reference}]},
+    )
+    if export_response.status_code != 200:
+        raise SystemExit(f"Text-to-Word API failed: {export_response.status_code} {export_response.text[:1000]}")
+    text_export = export_response.content
 export_text, export_paragraphs, export_images = read_docx(text_export)
 if len(normalize(export_text)) < 30:
     raise SystemExit("Text-to-Word export did not produce editable text.")
@@ -91,7 +107,15 @@ scan_page = scanned.new_page(width=page.rect.width, height=page.rect.height)
 scan_page.insert_image(scan_page.rect, stream=pix.tobytes("png"))
 scanned_pdf = scanned.tobytes()
 scanned.close()
-scanned_docx, scanned_engine = main._convert_pdf_to_docx_adaptive(scanned_pdf)
+with TestClient(main.app) as client:
+    scanned_response = client.post(
+        "/api/convert/pdf-to-docx",
+        files={"file": ("real-dubai-law-scanned.pdf", scanned_pdf, "application/pdf")},
+    )
+    if scanned_response.status_code != 200:
+        raise SystemExit(f"Scanned PDF-to-Word API failed: {scanned_response.status_code} {scanned_response.text[:1000]}")
+    scanned_docx = scanned_response.content
+    scanned_engine = scanned_response.headers.get("X-Conversion-Engine", "unknown")
 if not scanned_docx.startswith(b"PK"):
     raise SystemExit("Scanned-PDF OCR conversion did not produce a DOCX package.")
 scanned_text, scanned_paragraphs, scanned_images = read_docx(scanned_docx)
@@ -113,10 +137,12 @@ report = {
         "paragraphs": native_paragraphs,
         "images": native_images,
         "quality": native_quality,
+        "api_status": native_response.status_code,
         "cer_vs_pdf_text": cer(reference, native_text),
     },
     "text_export_to_docx": {
         "status": "passed",
+        "api_status": export_response.status_code,
         "output_bytes": len(text_export),
         "editable_chars": len(export_text),
         "paragraphs": export_paragraphs,
@@ -125,6 +151,7 @@ report = {
     "scanned_pdf_ocr_to_docx": {
         "status": "passed",
         "engine": scanned_engine,
+        "api_status": scanned_response.status_code,
         "output_bytes": len(scanned_docx),
         "editable_chars": len(scanned_text),
         "arabic_chars": sum("\u0600" <= ch <= "\u06ff" for ch in scanned_text),
