@@ -57,7 +57,7 @@ def prepare_image_for_api(source_path, output_dir, stem):
     output_path = Path(output_dir) / f"{stem}_api.jpg"
     with Image.open(source_path) as source:
         image = ImageOps.exif_transpose(source).convert("RGB")
-        image.thumbnail((2600, 2600), Image.Resampling.LANCZOS)
+        image.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
         for quality in (92, 88, 84, 80, 76):
             image.save(output_path, "JPEG", quality=quality, optimize=True, progressive=True)
             if output_path.stat().st_size <= 9 * 1024 * 1024 and image.width * image.height <= 12_000_000:
