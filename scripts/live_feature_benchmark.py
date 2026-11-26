@@ -265,10 +265,25 @@ def main():
                             if not valid_pdf(edited_image_pdf.content):
                                 add(out,"live_real_embedded_image_edit","failed",error="Image edit output is not a valid PDF")
                             else:
-                                with pymupdf.open(stream=edited_image_pdf.content,filetype="pdf") as edited_doc:
-                                    image_rects=edited_doc[0].get_image_rects(target_image["xref"])
-                                add(out,"live_real_embedded_image_edit","passed",source_image_count=len(embedded),
-                                    output_occurrences=len(image_rects),scale=0.90)
+                                edited_image_path = root / "edited_embedded_image_fixture.pdf"
+                                edited_image_path.write_bytes(edited_image_pdf.content)
+                                verified = request_file(out, "live_real_embedded_image_edit_verify",
+                                    edited_image_path, "/api/pdf/images/list", timeout=90)
+                                if verified is not None:
+                                    verified_images = verified.json().get("images", [])
+                                    if len(verified_images) != 1:
+                                        raise ValueError("Edited PDF did not retain exactly one embedded image")
+                                    before = target_image["rect"]
+                                    after = verified_images[0]["rect"]
+                                    before_w, before_h = before[2] - before[0], before[3] - before[1]
+                                    after_w, after_h = after[2] - after[0], after[3] - after[1]
+                                    width_ratio = after_w / max(before_w, 1e-6)
+                                    height_ratio = after_h / max(before_h, 1e-6)
+                                    if abs(width_ratio - 0.90) > 0.06 or abs(height_ratio - 0.90) > 0.06:
+                                        raise ValueError(f"Image resize ratio mismatch: width={width_ratio:.3f}, height={height_ratio:.3f}")
+                                    add(out,"live_real_embedded_image_edit","passed",source_image_count=len(embedded),
+                                        output_image_count=len(verified_images),width_ratio=round(width_ratio,3),
+                                        height_ratio=round(height_ratio,3),scale=0.90,fixture="embedded RGB JPEG")
                     except Exception as exc:
                         add(out,"live_real_image_pdf_inventory","failed",error=f"{type(exc).__name__}: {str(exc)[:400]}")
                 if spans:
