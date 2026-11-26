@@ -583,10 +583,23 @@ window.imgOcr=async function(pg,lang,auto){
       const c=await prep(pg.src.blob),langs=(lang||"ara").split("+");
       let w;const lg=m=>{if(m&&typeof m.progress==="number"){const pc=Math.round(m.progress*100),st=/load|init|download/i.test(m.status||"")?"تحميل نموذج اللغة":"قراءة النص";toast(st+" "+pc+"٪ …")}};
       try{w=await Tesseract.createWorker(langs,1,{langPath:"https://tessdata.projectnaptha.com/4.0.0_best",logger:lg})}catch(e){w=await Tesseract.createWorker(langs,1,{logger:lg})}
-      try{await w.setParameters({preserve_interword_spaces:"1",user_defined_dpi:"300",tessedit_pageseg_mode:"11",textord_heavy_nr:"1",textord_min_linesize:"2.5"})}catch(e){}
-      const {data}=await w.recognize(c);await w.terminate();
       const mx=dw/c.width,my=dh/c.height;
-      raw=(data.lines||[]).map(l=>({t:l.text.trim().replace(/\s+/g," "),c:l.confidence,x0:ox+l.bbox.x0*mx,x1:ox+l.bbox.x1*mx,y0:oy+l.bbox.y0*my,y1:oy+l.bbox.y1*my}));
+      const addLines=data=>(data.lines||[]).forEach(l=>{
+        const t=(l.text||"").trim().replace(/\\s+/g," ");
+        if(t)raw.push({t,c:Number(l.confidence)||0,x0:ox+l.bbox.x0*mx,x1:ox+l.bbox.x1*mx,y0:oy+l.bbox.y0*my,y1:oy+l.bbox.y1*my});
+      });
+      try{
+        await w.setParameters({preserve_interword_spaces:"1",user_defined_dpi:"300",tessedit_pageseg_mode:"11",textord_heavy_nr:"1",textord_min_linesize:"2.5"});
+        const sparse=await w.recognize(c);
+        addLines(sparse.data);
+        // Posters and infographics often contain isolated headings inside colored cards.
+        // PSM 11 handles sparse text; supplement it with PSM 6 when few lines are found.
+        if(raw.length<18){
+          await w.setParameters({preserve_interword_spaces:"1",user_defined_dpi:"300",tessedit_pageseg_mode:"6",textord_heavy_nr:"1"});
+          const block=await w.recognize(c);
+          addLines(block.data);
+        }
+      }finally{await w.terminate()}
       pg.tables=[];
     }
     const pageHeight=Math.max(1,Number(pg.src&&pg.src.dh)||Math.max(1,...raw.map(o=>o.y1||0)));
