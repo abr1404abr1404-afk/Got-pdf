@@ -42,6 +42,7 @@ class PaddleVLClientTests(unittest.TestCase):
     def test_creates_editable_rtl_docx_with_tables_and_pages(self):
         parsed, output = normalize_paddle_vl_response(self.payload(), export_docx=True)
         self.assertTrue(output.startswith(b"PK"))
+        self.assertEqual(parsed["docx_engine"], "Got-pdf Markdown reconstruction")
         doc = Document(io.BytesIO(output))
         self.assertIn("عنوان", "\n".join(p.text for p in doc.paragraphs))
         self.assertEqual(len(doc.tables), 1)
