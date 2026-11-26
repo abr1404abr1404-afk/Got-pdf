@@ -2345,9 +2345,12 @@ function dock(el,tb){
   const vv=window.visualViewport,left=vv?Number(vv.offsetLeft)||0:0,top=vv?Number(vv.offsetTop)||0:0;
   const width=vv?vv.width:innerWidth,height=vv?vv.height:innerHeight;
   const right=left+width,bottom=top+height,margin=8;
-  const r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
+  const r=el.getBoundingClientRect();
   const header=document.querySelector("header"),hr=header&&header.getBoundingClientRect();
   const safeTop=hr&&hr.bottom>top&&hr.top<bottom?Math.max(top+margin,hr.bottom+margin):top+margin;
+  tb.style.maxWidth=Math.max(48,width-16)+"px";
+  tb.style.maxHeight=Math.max(80,bottom-safeTop-margin)+"px";
+  const w=tb.offsetWidth,h=tb.offsetHeight;
   const minX=left+margin,maxX=Math.max(minX,right-w-margin);
   const minY=safeTop,maxY=Math.max(minY,bottom-h-margin);
   const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
