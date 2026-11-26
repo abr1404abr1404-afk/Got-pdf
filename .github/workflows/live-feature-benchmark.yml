@@ -38,5 +38,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: live-pdf-feature-results
-          path: live-feature-results.json
+          path: |
+            live-feature-results.json
+            benchmark-output/*.docx
           if-no-files-found: ignore
