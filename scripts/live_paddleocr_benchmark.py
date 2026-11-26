@@ -143,6 +143,7 @@ def main():
             try:
                 # Arabic is explicitly mapped to the PP-OCRv5 Arabic recognizer.
                 ocr = PaddleOCR(ocr_version="PP-OCRv5", lang="ar", device="cpu",
+                                enable_mkldnn=False, cpu_threads=2,
                                 use_doc_orientation_classify=False,
                                 use_doc_unwarping=False,
                                 use_textline_orientation=False)
