@@ -45,8 +45,8 @@ services:
       - key: PDF_NATIVE_TEXT_MIN_CHARS
         value: "30"
       - key: OCR_MODE
-        value: tesseract
+        value: hybrid
       - key: ENABLE_PADDLE_OCR
-        value: "false"
+        value: "true"
       - key: CORS_ORIGINS
         value: https://abr1404abr1404-afk.github.io
