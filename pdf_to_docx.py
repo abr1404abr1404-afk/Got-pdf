@@ -88,11 +88,28 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
         lines = [line for line in (page.get("lines") or []) if str(line.get("text", "")).strip()]
         # Layout analysis assigns columns in reading order; within each column,
         # preserve top-to-bottom placement and use OCR boxes to approximate spacing.
-        lines.sort(key=lambda line: (
-            int(line.get("column", 1)),
-            float((line.get("bbox") or [0, 0, 0, 0])[1]),
-            -float((line.get("bbox") or [0, 0, 0, 0])[0]) if direction == "rtl" else float((line.get("bbox") or [0, 0, 0, 0])[0]),
-        ))
+        if any(line.get("reading_order") is not None for line in lines):
+            def reading_key(line):
+                try:
+                    rank = int(line.get("reading_order"))
+                except (TypeError, ValueError):
+                    rank = 0
+                if rank > 0:
+                    return (0, rank, 0.0, 0.0)
+                box = line.get("bbox") or [0, 0, 0, 0]
+                try:
+                    x0, y0 = float(box[0]), float(box[1])
+                except (TypeError, ValueError, IndexError):
+                    x0, y0 = 0.0, 0.0
+                x_key = -x0 if direction == "rtl" else x0
+                return (1, int(line.get("column", 1)), y0, x_key)
+            lines.sort(key=reading_key)
+        else:
+            lines.sort(key=lambda line: (
+                int(line.get("column", 1)),
+                float((line.get("bbox") or [0, 0, 0, 0])[1]),
+                -float((line.get("bbox") or [0, 0, 0, 0])[0]) if direction == "rtl" else float((line.get("bbox") or [0, 0, 0, 0])[0]),
+            ))
         previous_bottom = 0.0
         for line in lines:
             text = str(line.get("text", "")).strip()
