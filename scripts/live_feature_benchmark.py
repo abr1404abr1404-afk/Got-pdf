@@ -24,12 +24,17 @@ def add(out, name, status, **details):
 
 def request_file(out, name, path, endpoint, fields=None, field="file", timeout=100):
     try:
-        with path.open("rb") as f:
-            response = requests.post(BASE + endpoint,
-                files={field: (path.name, f, "application/pdf" if path.suffix.lower()==".pdf" else "image/png")},
-                data=fields or {}, timeout=(15, timeout))
+        response = None
+        for attempt in range(3):
+            with path.open("rb") as f:
+                response = requests.post(BASE + endpoint,
+                    files={field: (path.name, f, "application/pdf" if path.suffix.lower()==".pdf" else "image/png")},
+                    data=fields or {}, timeout=(15, timeout))
+            if response.status_code not in {502, 503, 504} or attempt == 2:
+                break
+            __import__("time").sleep(8 * (attempt + 1))
         if response.status_code >= 400:
-            add(out, name, "failed", http_status=response.status_code, error=response.text[:600])
+            add(out, name, "failed", http_status=response.status_code, error=response.text[:600], attempts=attempt + 1)
             return None
         return response
     except requests.RequestException as exc:
