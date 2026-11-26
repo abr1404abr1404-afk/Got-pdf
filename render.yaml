@@ -14,6 +14,12 @@ services:
         value: "5"
       - key: OCR_DPI
         value: "180"
+      - key: OCR_QUEUE_WAIT_SECONDS
+        value: "30"
+      - key: OCR_DENOISE
+        value: "false"
+      - key: PDF_NATIVE_TEXT_MIN_CHARS
+        value: "30"
       - key: OCR_MODE
         value: tesseract
       - key: ENABLE_PADDLE_OCR
