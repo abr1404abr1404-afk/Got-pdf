@@ -68,7 +68,7 @@ def run_reader(reader, image):
         en=sum(c.isascii() and c.isalpha() for c in combined)
         band.sort(key=lambda r:r["bbox"][0],reverse=ar>=en)
         lines.append(" ".join(x["text"] for x in band))
-    text="\\n".join(lines)
+    text="\n".join(lines)
     return {"text":text,"lines":len(lines),"words":len(rows),
             "arabic_chars":sum(0x600<=ord(c)<=0x6ff for c in text),
             "seconds":round(time.perf_counter()-started,2),
