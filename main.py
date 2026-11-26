@@ -773,9 +773,14 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
         paddle_rows, paddle_error = _paddle(prepared, language)
     else:
         paddle_rows, paddle_error = [], "disabled by OCR_MODE"
-    if mode in {"hybrid", "tesseract"}:
-        # Run one normal pass first. Extra threshold variants are expensive on
-        # small CPU instances, so reserve them for weak/empty first-pass results.
+    # A confident PaddleOCR result can stand alone in hybrid mode. Avoid
+    # running a second full-page engine unnecessarily on low-CPU instances.
+    paddle_confidence = (
+        sum(float(row.get("confidence", 0)) for row in paddle_rows) / len(paddle_rows)
+        if paddle_rows else 0.0
+    )
+    paddle_is_usable = bool(paddle_rows) and paddle_confidence >= 48.0
+    if mode in {"hybrid", "tesseract"} and not (mode == "hybrid" and paddle_is_usable):
         tess_rows, first_error = _tesseract(prepared, language, 11)
         tess_errors: list[str] = [first_error] if first_error else []
         average_confidence = (
@@ -788,8 +793,6 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
             adaptive = cv2.adaptiveThreshold(
                 gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
             )
-            # One alternate segmentation pass is a better CPU/accuracy balance
-            # than running both normal and inverted full-page variants every time.
             rows, error = _tesseract(
                 cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR), language, 6
             )
@@ -799,7 +802,7 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
         tess_rows = _dedupe(tess_rows)
         tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
-        tess_rows, tess_error = [], "disabled by OCR_MODE"
+        tess_rows, tess_error = [], "skipped: confident PaddleOCR result" if paddle_is_usable else "disabled by OCR_MODE"
     if paddle_rows and tess_rows:
         merged = _dedupe(paddle_rows + tess_rows)
         used = "hybrid"
@@ -850,7 +853,10 @@ def health():
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
-            "tesseract_timeout_seconds": TESSERACT_TIMEOUT_SECONDS, "ocr_max_image_edge": OCR_MAX_IMAGE_EDGE,
+            "tesseract_timeout_seconds": TESSERACT_TIMEOUT_SECONDS,
+            "tesseract_retry_timeout_seconds": TESSERACT_RETRY_TIMEOUT_SECONDS,
+            "tesseract_retry_max_edge": TESSERACT_RETRY_MAX_EDGE,
+            "ocr_max_image_edge": OCR_MAX_IMAGE_EDGE,
             "ocr_preprocess_target_edge": OCR_PREPROCESS_TARGET_EDGE,
             "opencv_threads": OPENCV_THREADS,
             "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
