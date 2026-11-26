@@ -766,9 +766,16 @@ def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
     return sorted(found, key=lambda item: (item["bbox"][1], item["bbox"][0]))
 
 
-def _hybrid(image: np.ndarray, language: str) -> dict:
+def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None) -> dict:
     prepared = _preprocess(image)
     mode = OCR_MODE if OCR_MODE in {"hybrid", "paddleocr", "tesseract"} else "hybrid"
+    if engine_override:
+        requested = str(engine_override).strip().lower()
+        if requested not in {"hybrid", "paddleocr", "tesseract"}:
+            raise ValueError("محرك OCR غير مدعوم.")
+        if requested == "paddleocr" and not (PADDLE_OCR_OPT_IN and importlib.util.find_spec("paddleocr") and importlib.util.find_spec("paddle")):
+            raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
+        mode = requested
     if mode in {"hybrid", "paddleocr"}:
         paddle_rows, paddle_error = _paddle(prepared, language)
     else:
@@ -1429,12 +1436,18 @@ async def parse_document_with_advanced_engine(
 
 
 @app.post("/api/ocr/image")
-async def ocr_image(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng")):
+async def ocr_image(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng"), engine: str = Form("")):
     _guard_expensive_request(request, "ocr", client_limit=6, global_limit=24)
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     image = _decode_image(data)
-    result = await _run_ocr(_hybrid, image, language)
+    if engine and engine.strip().lower() not in {"hybrid", "paddleocr", "tesseract"}:
+        raise HTTPException(422, "محرك OCR غير مدعوم.")
+    try:
+        ocr_runner = (lambda source, lang: _hybrid(source, lang, engine)) if engine else _hybrid
+        result = await _run_ocr(ocr_runner, image, language)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from exc
     result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
     result = attach_table_regions(result, result["tables"])
     if not result["lines"]:
