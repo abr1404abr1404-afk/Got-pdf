@@ -590,6 +590,17 @@ window.imgOcr=async function(pg,lang,auto){
     raw=raw.filter(o=>o.t.length>=2&&o.c>=10&&(o.t.match(/[\p{L}\p{N}]/gu)||[]).length>=2&&(o.y1-o.y0)<=maxLineHeight&&(o.x1-o.x0)>5);
     raw.sort((a,b)=>b.c-a.c);const keep=[];
     for(const o of raw){const ov=keep.some(k=>{const w=Math.min(o.x1,k.x1)-Math.max(o.x0,k.x0),h=Math.min(o.y1,k.y1)-Math.max(o.y0,k.y0);if(w<=0||h<=0)return false;const a=Math.min((o.x1-o.x0)*(o.y1-o.y0),(k.x1-k.x0)*(k.y1-k.y0));return w*h>.4*a});if(!ov)keep.push(o)}
+    // Confidence order is only for choosing which overlapping box to keep.
+    // Restore visual reading order before exposing lines to editing/export.
+    const hasArabic=text=>/[\\u0600-\\u06FF]/.test(text||"");
+    keep.sort((a,b)=>{
+      const dy=Number(a.y0||0)-Number(b.y0||0);
+      const tolerance=Math.max(3,Math.min(Number(a.y1-a.y0)||12,Number(b.y1-b.y0)||12)*.45);
+      if(Math.abs(dy)>tolerance)return dy;
+      const arA=hasArabic(a.t),arB=hasArabic(b.t);
+      if(arA!==arB)return arA?-1:1;
+      return arA?(Number(b.x1||0)-Number(a.x1||0)):(Number(a.x0||0)-Number(b.x0||0));
+    });
     pg.ocr=keep;
     render();
     if(keep.length&&!editing)document.getElementById("edt").click();
