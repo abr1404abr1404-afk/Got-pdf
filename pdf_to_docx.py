@@ -30,7 +30,7 @@ def _apply_arabic_direction(docx_bytes: bytes) -> bytes:
 
     for paragraph in paragraphs(document):
         text = paragraph.text or ""
-        if not any("\\u0600" <= char <= "\\u06ff" for char in text):
+        if not any("0x0600" <= char <= "0x06ff" for char in text):
             continue
         p_pr = paragraph._p.get_or_add_pPr()
         bidi = p_pr.find(qn("w:bidi"))
@@ -39,7 +39,7 @@ def _apply_arabic_direction(docx_bytes: bytes) -> bytes:
             p_pr.append(bidi)
         bidi.set(qn("w:val"), "1")
         for run in paragraph.runs:
-            if not any("\\u0600" <= char <= "\\u06ff" for char in run.text):
+            if not any("0x0600" <= char <= "0x06ff" for char in run.text):
                 continue
             r_pr = run._r.get_or_add_rPr()
             rtl = r_pr.find(qn("w:rtl"))
