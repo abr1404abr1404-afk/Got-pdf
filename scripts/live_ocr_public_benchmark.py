@@ -157,15 +157,24 @@ def main():
                 pdf_payload = api_post(out, name + "_real_pdf_ocr", "/api/ocr/pdf", sample_path,
                                         "application/pdf", {"language": "ara+eng", "dpi": "96"}, timeout=150)
                 if pdf_payload is not None:
-                    extracted = "\n".join(line.get("text", "") for pg in pdf_payload.get("pages", [])
-                                           for line in pg.get("ocr", {}).get("lines", []))
+                    page_results = [pg.get("ocr", {}) for pg in pdf_payload.get("pages", [])]
+                    extracted = "\\n".join(line.get("text", "") for page_result in page_results
+                                           for line in page_result.get("lines", []))
+                    engines = [str(page_result.get("engine", "unknown")) for page_result in page_results]
+                    used_native_text = bool(engines) and all(engine == "native-pdf-text" for engine in engines)
                     test = out["tests"][-1]
                     test.update({"pages": pdf_payload.get("page_count"), "ground_truth_chars": len(ground),
                                  "ocr_chars": len(extracted), "arabic_chars": arabic_count(extracted),
-                                 "cer_vs_embedded_pdf_text": cer(ground, extracted)})
+                                 "page_engines": engines,
+                                 "text_source": "native_pdf_text" if used_native_text else "ocr"})
+                    if used_native_text:
+                        test["native_text_exact_match"] = norm(ground) == norm(extracted)
+                        test["ocr_accuracy_metric"] = None
+                    else:
+                        test["cer_vs_embedded_pdf_text"] = cer(ground, extracted)
                     if arabic_count(extracted) == 0:
                         test["status"] = "failed"
-                        test["error"] = "OCR returned no Arabic characters"
+                        test["error"] = "PDF processing returned no Arabic characters"
 
                 image_payload = api_post(out, name + "_real_page_image_ocr", "/api/ocr/image", api_image_path,
                                           "image/jpeg", {"language": "ara+eng"}, timeout=150)
