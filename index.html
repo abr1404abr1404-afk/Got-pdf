@@ -535,7 +535,7 @@ window.imgOcr=async function(pg,lang,auto){
   if(window.ocrBusy)return toast("يوجد تحليل جارٍ، انتظر حتى ينتهي.");
   window.ocrBusy=true;
   try{
-    toast("جارٍ تجهيز الصفحة بدقة عالية وتحليل النص… قد يستغرق ذلك بعض الوقت.");
+    toast("جارٍ تجهيز الصفحة وقراءة النص… تتم المعالجة محليًا على جهازك.");
     // دعم صفحات PDF الممسوحة ضوئيًا: تحويل الصفحة إلى صورة عالية الدقة قبل OCR.
     if(!pg.src){
       const sourcePage=await docs[pg.d].pdf.getPage(pg.i);
@@ -549,7 +549,7 @@ window.imgOcr=async function(pg,lang,auto){
     }
     const {ox=0,oy=0,dw,dh}=pg.src;
     let raw=[], backendUsed=false;
-    const apiBase=(window.ALFALQI_API_BASE||"https://got-pdf.onrender.com").trim().replace(/\/$/,"");
+    // OCR runs on the user device by default: the Render Free API repeatedly times out on real Arabic scans.\n    // A dedicated OCR service can be opted into without changing the API used by other PDF features.\n    const apiBase=(window.ALFALQI_OCR_API_BASE||"").trim().replace(/\/$/,"");
     if(apiBase){
       toast("جارٍ تحليل الصفحة عبر خادم OCR العربي…");
       const fd=new FormData();
