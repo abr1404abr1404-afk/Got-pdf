@@ -15,12 +15,12 @@ Configure these environment variables on the Got-pdf API service:
 - `PADDLEOCR_VL_URL`: base URL of the self-hosted PaddleOCR-VL API, without `/layout-parsing`.
 - `PADDLEOCR_VL_API_KEY`: optional bearer token if the worker is protected by an authentication proxy.
 
-The worker must expose the upstream `POST /layout-parsing` API. The Got-pdf endpoint forwards the uploaded PDF/image as Base64 using the documented PaddleOCR-VL `/layout-parsing` JSON contract and requests structured Markdown/layout output. When Word export is selected, Got-pdf builds an editable DOCX from the returned Markdown, including headings, paragraphs, lists, tables, and Arabic RTL metadata; it does not rely on an undocumented model-side DOCX export field.
+The worker must expose the upstream `POST /layout-parsing` API. The Got-pdf endpoint forwards the uploaded PDF/image as Base64 using the documented PaddleOCR-VL `/layout-parsing` JSON contract and requests structured Markdown/layout output. When Word export is selected, it requests the documented native `outputFormats: ["docx"]` export. A valid native DOCX is used for a single-page response; for multi-page responses, Got-pdf reconstructs one editable document from all page Markdown rather than accidentally returning only the first page's export.
 
 ## API
 
 - `POST /api/document/parse` with multipart `file`: returns per-page layout JSON and Markdown.
-- Add multipart `export_docx=true`: returns an editable DOCX reconstructed by Got-pdf from the model's Markdown response.
+- Add multipart `export_docx=true`: returns a native DOCX when a single-page native export is returned, or a multi-page DOCX reconstructed from all Markdown pages.
 
 The API checks PDF passwords, page limits, upload size, image dimensions, response format, and DOCX ZIP signature. If the worker is not configured, the endpoint returns 503 and does not silently claim that PaddleOCR-VL is active.
 
