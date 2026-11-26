@@ -279,7 +279,7 @@ if (dockStart < 0 || dockEnd < 0) {
     };
     const el = { getBoundingClientRect: () => elementRect };
     const tb = { offsetWidth: toolbarSize.width, offsetHeight: toolbarSize.height, style: {} };
-    vm.runInNewContext(dockCode + "\\ndock(el,tb);", context);
+    vm.runInNewContext(dockCode + "\ndock(el,tb);", context);
     return { left: parseFloat(tb.style.left), top: parseFloat(tb.style.top), width: toolbarSize.width, height: toolbarSize.height };
   };
   const zoomViewport = { offsetLeft: 160, offsetTop: 90, width: 360, height: 600 };
