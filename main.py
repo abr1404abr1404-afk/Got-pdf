@@ -62,6 +62,7 @@ MAX_RENDERED_PIXELS = int(os.getenv("MAX_RENDERED_PIXELS", "18000000"))
 MAX_DOCUMENT_RENDERED_PIXELS = int(os.getenv("MAX_DOCUMENT_RENDERED_PIXELS", "45000000"))
 OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
 OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS", "30"))))
+CPU_QUEUE_WAIT_SECONDS = min(180, max(1, int(os.getenv("CPU_QUEUE_WAIT_SECONDS", "90"))))
 OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
 PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
 PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
@@ -275,10 +276,16 @@ def _native_pdf_page_result(page, scale: float) -> dict | None:
 
 
 async def _run_cpu(function, *args):
+    # Serialize memory-heavy PDF work, but queue ordinary requests rather than
+    # returning 503 almost immediately when another page is being processed.
     try:
-        await asyncio.wait_for(_cpu_semaphore.acquire(), timeout=0.5)
+        await asyncio.wait_for(
+            _cpu_semaphore.acquire(), timeout=CPU_QUEUE_WAIT_SECONDS
+        )
     except asyncio.TimeoutError as exc:
-        raise HTTPException(503, "الخادم مشغول بمعالجة ملف آخر. حاول بعد قليل.") from exc
+        raise HTTPException(
+            503, "الخادم مشغول بمعالجة ملفات أخرى. انتظر قليلًا ثم أعد المحاولة."
+        ) from exc
     try:
         return await run_in_threadpool(function, *args)
     finally:
@@ -706,7 +713,7 @@ def health():
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
-            "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
+            "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE, "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
             "pdf_native_text_preferred": True, "pdf_native_text_min_chars": PDF_NATIVE_TEXT_MIN_CHARS,
             "tesseract_languages": languages,
             "arabic_ocr_ready": "ara" in languages,
