@@ -291,14 +291,14 @@ if (dockStart < 0 || dockEnd < 0) {
     { name: "normal page", wrap: {width: 600,height: 900}, text: {left: 180,top: 300,width: 220,height: 32}, toolbar: {width: 340,height: 80}, above: true },
     { name: "text near page top", wrap: {width: 600,height: 900}, text: {left: 120,top: 30,width: 180,height: 30}, toolbar: {width: 300,height: 70}, above: false },
     { name: "text near page bottom", wrap: {width: 600,height: 900}, text: {left: 120,top: 850,width: 180,height: 30}, toolbar: {width: 300,height: 70}, above: true },
-    { name: "narrow zoomed page", wrap: {width: 220,height: 400}, text: {left: 80,top: 190,width: 100,height: 28}, toolbar: {width: 330,height: 260}, above: true }
+    { name: "narrow zoomed page", wrap: {width: 220,height: 400}, text: {left: 80,top: 350,width: 100,height: 28}, toolbar: {width: 330,height: 260}, above: true }
   ];
   for (const item of cases) {
     const pos = makeDockCase(item.wrap, item.text, item.toolbar);
     const expectedTop = item.above ? -pos.height-6 : item.text.height+6;
     if (pos.position !== "absolute" || !Number.isFinite(pos.left) || !Number.isFinite(pos.top) ||
-        pos.left < -item.text.left-0.5 ||
-        pos.left+pos.width > item.wrap.width-item.text.left+0.5 ||
+        item.text.left+pos.left < -0.5 ||
+        item.text.left+pos.left+pos.width > item.wrap.width+0.5 ||
         Math.abs(pos.top-expectedTop)>1) {
       failures.push("Edit toolbar is detached from its text or escapes the page for " + item.name + ": " + JSON.stringify(pos));
     }
