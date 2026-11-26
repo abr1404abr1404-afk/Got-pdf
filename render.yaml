@@ -18,6 +18,8 @@ services:
         value: "40"
       - key: OCR_MAX_IMAGE_EDGE
         value: "1600"
+      - key: OCR_PREPROCESS_TARGET_EDGE
+        value: "1400"
       - key: OPENCV_THREADS
         value: "1"
       - key: OMP_THREAD_LIMIT
