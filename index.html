@@ -2380,7 +2380,7 @@ function dock(el,tb){
   tb.style.maxWidth=Math.max(48,wrap.clientWidth-8)+"px";
   tb.style.maxHeight=Math.max(80,wrap.clientHeight-8)+"px";
   const w=tb.offsetWidth,h=tb.offsetHeight;
-  const x=clamp(-el.offsetLeft,0,Math.max(0,wrap.clientWidth-w-el.offsetLeft));
+  const centeredX=(el.offsetWidth-w)/2;const x=clamp(centeredX,-el.offsetLeft,Math.max(-el.offsetLeft,wrap.clientWidth-w-el.offsetLeft));
   const above=-h-6,below=el.offsetHeight+6;
   const y=above>=-el.offsetTop?above:below;
   tb.style.left=x+"px";tb.style.top=y+"px";
