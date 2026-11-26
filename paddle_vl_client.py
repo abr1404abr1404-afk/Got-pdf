@@ -26,7 +26,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
     from docx.oxml.ns import qn
 
     def rtl(value):
-        return any("\\u0600" <= ch <= "\\u06ff" for ch in value)
+        return any("\u0600" <= ch <= "\u06ff" for ch in value)
 
     def set_direction(paragraph, is_rtl):
         paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT if is_rtl else WD_ALIGN_PARAGRAPH.LEFT
@@ -79,9 +79,9 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
                                 for run in p.runs:
                                     run.bold = True
                 continue
-            heading = re.match(r"^(#{1,6})\\s+(.+)$", line)
-            bullet = re.match(r"^[-*+]\\s+(.+)$", line)
-            numbered = re.match(r"^\\d+[.)]\\s+(.+)$", line)
+            heading = re.match(r"^(#{1,6})\s+(.+)$", line)
+            bullet = re.match(r"^[-*+]\s+(.+)$", line)
+            numbered = re.match(r"^\\d+[.)]\s+(.+)$", line)
             if heading:
                 p = doc.add_paragraph(style=f"Heading {min(3, len(heading.group(1)))}")
                 value = heading.group(2)
@@ -91,7 +91,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
             else:
                 parts = [line]
                 i += 1
-                while i < len(lines) and lines[i].strip() and not lines[i].strip().startswith("|") and not re.match(r"^(#{1,6})\\s+|^[-*+]\\s+|^\\d+[.)]\\s+", lines[i].strip()):
+                while i < len(lines) and lines[i].strip() and not lines[i].strip().startswith("|") and not re.match(r"^(#{1,6})\s+|^[-*+]\s+|^\\d+[.)]\s+", lines[i].strip()):
                     parts.append(lines[i].strip())
                     i += 1
                 value = " ".join(parts)
@@ -133,7 +133,7 @@ def normalize_paddle_vl_response(payload: dict[str, Any]) -> dict:
     if not pages:
         raise PaddleVLError("لم يتمكن محرك التحليل من استخراج صفحات المستند.")
     return {"engine": "PaddleOCR-VL-1.6", "page_count": len(pages), "pages": pages,
-            "markdown": "\\n\\n".join(markdown_parts),
+            "markdown": "\n\n".join(markdown_parts),
             "log_id": str(payload.get("logId") or "")[:128]}
 
 
