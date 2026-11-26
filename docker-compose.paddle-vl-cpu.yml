@@ -1,0 +1,15 @@
+services:
+  paddleocr-vl-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.paddle-vl-cpu
+    restart: unless-stopped
+    # Local-only by default; do not expose the unauthenticated model API publicly.
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - paddleocr-vl-model-cache:/root/.paddlex
+    shm_size: "2gb"
+
+volumes:
+  paddleocr-vl-model-cache:
