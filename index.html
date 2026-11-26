@@ -2662,7 +2662,7 @@ function mkOv(pg,o,s,wrap){
     r2.append(bl,eye,cbg,auto)}
   tb.append(r1,r2);
   tb.onpointerdown=e=>{if(!/SELECT|INPUT/.test(e.target.tagName))e.preventDefault()};
-  el.append(t,rz,tb);el.startEdit=startEdit;el.select=act;el.focus=startEdit;
+  el.append(t,rz,tb);if(o.ocrBoxW)fitOcrOverlay(el,o,t,wrap,s);el.startEdit=startEdit;el.select=act;el.focus=startEdit;
   requestAnimationFrame(anch);setTimeout(anch,400);if(document.fonts&&document.fonts.ready)document.fonts.ready.then(anch);
   return el;
 }
