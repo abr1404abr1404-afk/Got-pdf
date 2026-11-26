@@ -275,7 +275,7 @@ if (dockStart < 0 || dockEnd < 0) {
       closest: selector => selector === ".wrap" ? wrap : null,
       offsetLeft: elementPos.left, offsetTop: elementPos.top,
       offsetWidth: elementPos.width, offsetHeight: elementPos.height,
-      getBoundingClientRect: () => ({left:elementPos.left,top:elementPos.top,right:elementPos.left+elementPos.width,bottom:elementPos.top+elementPos.height})
+      getBoundingClientRect: () => ({left:elementPos.left,top:elementPos.top,width:elementPos.width,height:elementPos.height,right:elementPos.left+elementPos.width,bottom:elementPos.top+elementPos.height})
     };
     const tb = { style: {} };
     Object.defineProperties(tb, {
