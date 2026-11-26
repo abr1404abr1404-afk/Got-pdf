@@ -479,6 +479,8 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6) -> 
     longest_edge = max(height, width)
     scale = min(1.0, TESSERACT_RETRY_MAX_EDGE / float(max(1, longest_edge)))
     if scale >= 0.999:
+        if "returned no text" in str(first_error):
+            return [], None
         return [], f"{first_error}; reduced-resolution retry unavailable"
     retry_image = cv2.resize(
         image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
