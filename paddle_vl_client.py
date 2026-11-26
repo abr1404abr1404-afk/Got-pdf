@@ -56,9 +56,12 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
             if not line:
                 i += 1
                 continue
-            image_match = re.match(r"^!\[(.*?)\]\((.+?)\)$", line)
+            image_match = None
+            image_marker = line.find("](")
+            if line.startswith("![") and image_marker > 1 and line.endswith(")"):
+                image_match = (line[2:image_marker], line[image_marker + 2:-1])
             if image_match:
-                image_name = image_match.group(2).strip().strip("<>")
+                image_name = image_match[1].strip().strip("<>")
                 image_map = page.get("markdown_images") or {}
                 encoded_image = image_map.get(image_name) or image_map.get(image_name.removeprefix("./"))
                 if isinstance(encoded_image, str) and encoded_image:
@@ -76,7 +79,7 @@ def markdown_pages_to_docx(pages: list[dict]) -> bytes:
                         raise PaddleVLError("تعذّر إدراج صورة من المستند في ملف Word.") from exc
                 else:
                     paragraph = doc.add_paragraph()
-                    paragraph.add_run(image_match.group(1) or "[صورة]")
+                    paragraph.add_run(image_match[0] or "[صورة]")
                 i += 1
                 continue
             if line.startswith("|") and i + 1 < len(lines) and re.search(r"-{3,}", lines[i + 1]):
