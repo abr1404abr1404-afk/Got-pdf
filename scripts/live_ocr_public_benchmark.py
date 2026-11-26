@@ -223,16 +223,20 @@ def main():
                 raw_scan_path = root / ("nod_real_scan" + Path(chosen.name).suffix.lower())
                 raw_scan_path.write_bytes(extracted_file.read())
             scan_path = prepare_image_for_api(raw_scan_path, root, "nod_real_scan")
-            payload = api_post(out, "nod_real_scanned_page_ocr", "/api/ocr/image", scan_path,
-                               "image/jpeg", {"language": "ara+eng"}, timeout=150)
-            if payload is not None:
-                text_out = "\n".join(line.get("text", "") for line in payload.get("lines", []))
-                test = out["tests"][-1]
-                test.update({"source_member": chosen.name, "ocr_chars": len(text_out),
-                             "arabic_chars": arabic_count(text_out), "lines": len(payload.get("lines", []))})
-                if arabic_count(text_out) == 0:
-                    test["status"] = "failed"
-                    test["error"] = "Scanned image OCR returned no Arabic characters"
+            for engine in ("tesseract", "paddleocr", "hybrid"):
+                payload = api_post(
+                    out, "nod_real_scanned_page_ocr_" + engine, "/api/ocr/image", scan_path,
+                    "image/jpeg", {"language": "ara+eng", "engine": engine}, timeout=180
+                )
+                if payload is not None:
+                    text_out = "\\n".join(line.get("text", "") for line in payload.get("lines", []))
+                    test = out["tests"][-1]
+                    test.update({"source_member": chosen.name, "requested_engine": engine,
+                                 "actual_engine": payload.get("engine"), "ocr_chars": len(text_out),
+                                 "arabic_chars": arabic_count(text_out), "lines": len(payload.get("lines", []))})
+                    if arabic_count(text_out) == 0:
+                        test["status"] = "failed"
+                        test["error"] = "Scanned image OCR returned no Arabic characters"
         except Exception as exc:
             out["tests"].append({"name": "nod_real_scanned_page_ocr", "status": "failed",
                                  "error": f"{type(exc).__name__}: {str(exc)[:500]}"})
