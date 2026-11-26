@@ -2635,7 +2635,7 @@ function mkOv(pg,o,s,wrap){
     rz.onpointerup=rz.onpointercancel=()=>{rz.onpointermove=null}};
   const mkB=(txt,label,fn,cls)=>{const b=document.createElement("button");b.textContent=txt;b.setAttribute("aria-label",label);b.title=label;b.onclick=fn;if(cls)b.className=cls;return b};
   const szl=document.createElement("span");szl.className="sz";szl.textContent=o.s;
-  const upd=()=>{Object.assign(def,{f:o.f,c:o.c,s:o.s});styleOv(el,o,s);szl.textContent=o.s;anch();place()};
+  const upd=()=>{Object.assign(def,{f:o.f,c:o.c,s:o.s});if(o.ocrBoxW)o.ocrBaseSize=o.s;styleOv(el,o,s);szl.textContent=o.s;anch();place()};
   const mv=mkB("✥","اسحب لنقل النص",()=>{},"m");mv.onpointerdown=drag(mv,true);
   const bb=mkB("B","خط عريض",()=>{o.b=!o.b;bb.classList.toggle("on",o.b);upd()});bb.style.fontWeight="700";bb.classList.toggle("on",!!o.b);
   const nb=mkB("١٢٣","تحويل الأرقام بين العربية واللاتينية",()=>{const L=/[0-9]/.test(o.t),D="٠١٢٣٤٥٦٧٨٩";o.t=o.t.replace(L?/[0-9]/g:/[٠-٩]/g,c=>L?D[c]:String(D.indexOf(c)));t.textContent=o.t;upd()});
