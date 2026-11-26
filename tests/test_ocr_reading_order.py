@@ -42,7 +42,7 @@ class ReadingOrderTests(unittest.TestCase):
 TABLE_TREE = ast.parse(SOURCE)
 TABLE_FUNCTIONS = [
     node for node in TABLE_TREE.body
-    if isinstance(node, ast.FunctionDef) and node.name in {"_group_positions", "_table_from_grid", "_normalize_line_angle", "_adaptive_threshold_block_size"}
+    if isinstance(node, ast.FunctionDef) and node.name in {"_group_positions", "_table_from_grid", "_normalize_line_angle", "_adaptive_threshold_block_size", "_detect_borderless_tables"}
 ]
 TABLE_MODULE = ast.Module(body=TABLE_FUNCTIONS, type_ignores=[])
 ast.fix_missing_locations(TABLE_MODULE)
@@ -52,6 +52,7 @@ group_positions = TABLE_NAMESPACE["_group_positions"]
 table_from_grid = TABLE_NAMESPACE["_table_from_grid"]
 normalize_line_angle = TABLE_NAMESPACE["_normalize_line_angle"]
 adaptive_threshold_block_size = TABLE_NAMESPACE["_adaptive_threshold_block_size"]
+detect_borderless_tables = TABLE_NAMESPACE["_detect_borderless_tables"]
 
 
 class TableExtractionTests(unittest.TestCase):
@@ -69,6 +70,42 @@ class TableExtractionTests(unittest.TestCase):
         self.assertEqual(table["rows"], [["يمين", "يسار"], ["", "قيمة"]])
         self.assertEqual(table["row_count"], 2)
         self.assertEqual(table["column_count"], 2)
+
+    def test_borderless_arabic_table_detected_from_repeated_word_alignment(self):
+        lines = []
+        for y, left_value, right_value in [
+            (20, "اسم الطالب", "الدرجة"),
+            (55, "أحمد علي", "٩٥"),
+            (90, "سارة محمد", "٩٨"),
+        ]:
+            lines.append({
+                "text": left_value + "     " + right_value,
+                "bbox": [20, y, 220, y + 14],
+                "words": [
+                    {"text": left_value.split()[0], "bbox": [20, y, 58, y + 14]},
+                    {"text": left_value.split()[1], "bbox": [63, y, 102, y + 14]},
+                    {"text": right_value, "bbox": [160, y, 205, y + 14]},
+                ],
+            })
+        tables = detect_borderless_tables(lines, 300, 150)
+        self.assertEqual(len(tables), 1)
+        self.assertEqual(tables[0]["detection"], "text-alignment")
+        self.assertEqual(tables[0]["row_count"], 3)
+        self.assertEqual(tables[0]["column_count"], 2)
+        self.assertEqual(tables[0]["direction"], "rtl")
+
+    def test_borderless_table_requires_repeated_aligned_rows(self):
+        lines = [
+            {"text": "كلام عادي", "words": [
+                {"text": "كلام", "bbox": [10, 10, 40, 24]},
+                {"text": "عادي", "bbox": [48, 10, 80, 24]},
+            ]},
+            {"text": "سطر آخر", "words": [
+                {"text": "سطر", "bbox": [10, 45, 40, 59]},
+                {"text": "آخر", "bbox": [48, 45, 80, 59]},
+            ]},
+        ]
+        self.assertEqual(detect_borderless_tables(lines, 200, 100), [])
 
     def test_english_table_cells_are_left_to_right(self):
         lines = [
