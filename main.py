@@ -72,12 +72,12 @@ OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
 OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS", "30"))))
 CPU_QUEUE_WAIT_SECONDS = min(180, max(1, int(os.getenv("CPU_QUEUE_WAIT_SECONDS", "90"))))
 OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
-TESSERACT_TIMEOUT_SECONDS = min(90, max(10, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "40"))))
-TESSERACT_RETRY_TIMEOUT_SECONDS = min(30, max(5, int(os.getenv("TESSERACT_RETRY_TIMEOUT_SECONDS", "18"))))
-TESSERACT_RETRY_MAX_EDGE = min(1600, max(800, int(os.getenv("TESSERACT_RETRY_MAX_EDGE", "1000"))))
-OCR_MAX_IMAGE_EDGE = min(3200, max(1200, int(os.getenv("OCR_MAX_IMAGE_EDGE", "2400"))))
+TESSERACT_TIMEOUT_SECONDS = min(60, max(8, int(os.getenv("TESSERACT_TIMEOUT_SECONDS", "25"))))
+TESSERACT_RETRY_TIMEOUT_SECONDS = min(20, max(4, int(os.getenv("TESSERACT_RETRY_TIMEOUT_SECONDS", "12"))))
+TESSERACT_RETRY_MAX_EDGE = min(1200, max(700, int(os.getenv("TESSERACT_RETRY_MAX_EDGE", "800"))))
+OCR_MAX_IMAGE_EDGE = min(2400, max(900, int(os.getenv("OCR_MAX_IMAGE_EDGE", "1400"))))
 PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
-OCR_PREPROCESS_TARGET_EDGE = min(2000, max(1000, int(os.getenv("OCR_PREPROCESS_TARGET_EDGE", "1400"))))
+OCR_PREPROCESS_TARGET_EDGE = min(1600, max(800, int(os.getenv("OCR_PREPROCESS_TARGET_EDGE", "1000"))))
 PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
 OCR_MODE = _resolve_ocr_mode(os.getenv("OCR_MODE", "tesseract"), PADDLE_OCR_OPT_IN)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
@@ -415,7 +415,7 @@ def _lang_pair(language: str) -> tuple[str, str]:
     return "ara+eng", "ar"
 
 
-def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) -> tuple[list[dict], str | None]:
+def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 6) -> tuple[list[dict], str | None]:
     tess_lang, _ = _lang_pair(language)
 
     def recognize(source: np.ndarray, psm: int, timeout: int) -> list[dict]:
@@ -465,26 +465,36 @@ def _tesseract(image: np.ndarray, language: str, page_segmentation: int = 11) ->
         return _dedupe(outputs)
 
     try:
-        return recognize(image, page_segmentation, TESSERACT_TIMEOUT_SECONDS), None
-    except Exception as first_error:
-        # On low-CPU hosts, large Arabic+English pages can exceed the primary
-        # budget. Retry once on a smaller raster with a compact-block layout;
-        # this is a bounded recovery path, not an unbounded second full-page run.
-        if "timeout" not in str(first_error).lower():
-            return [], str(first_error)
-        height, width = image.shape[:2]
-        longest_edge = max(height, width)
-        scale = min(1.0, TESSERACT_RETRY_MAX_EDGE / float(max(1, longest_edge)))
-        if scale >= 0.999:
-            return [], f"{first_error}; reduced-resolution retry unavailable"
-        retry_image = cv2.resize(
-            image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
-        )
-        try:
-            rows = recognize(retry_image, 6, TESSERACT_RETRY_TIMEOUT_SECONDS)
-            return rows, None if rows else f"{first_error}; reduced-resolution retry returned no text"
-        except Exception as retry_error:
-            return [], f"{first_error}; reduced-resolution retry failed: {retry_error}"
+        rows = recognize(image, page_segmentation, TESSERACT_TIMEOUT_SECONDS)
+        if rows:
+            return rows, None
+        first_error = RuntimeError("Tesseract primary page segmentation returned no text")
+    except Exception as exc:
+        first_error = exc
+
+    # Bounded recovery for sparse layouts and low-CPU hosts: retry once on a
+    # smaller image using PSM 11. Restore the original image coordinates so
+    # editable OCR overlays remain aligned with the source.
+    height, width = image.shape[:2]
+    longest_edge = max(height, width)
+    scale = min(1.0, TESSERACT_RETRY_MAX_EDGE / float(max(1, longest_edge)))
+    if scale >= 0.999:
+        return [], f"{first_error}; reduced-resolution retry unavailable"
+    retry_image = cv2.resize(
+        image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
+    )
+    try:
+        rows = recognize(retry_image, 11, TESSERACT_RETRY_TIMEOUT_SECONDS)
+        if not rows:
+            return [], f"{first_error}; reduced-resolution sparse-layout retry returned no text"
+        inverse = 1.0 / scale
+        for row in rows:
+            row["bbox"] = [int(round(value * inverse)) for value in row["bbox"]]
+            for word in row.get("words", []):
+                word["bbox"] = [int(round(value * inverse)) for value in word["bbox"]]
+        return rows, None
+    except Exception as retry_error:
+        return [], f"{first_error}; reduced-resolution retry failed: {retry_error}"
 
 def _get_paddle(language: str):
     _, paddle_lang = _lang_pair(language)
