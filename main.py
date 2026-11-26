@@ -40,6 +40,7 @@ from office_conversion import InvalidPdfOutput, OutputTooLarge, read_limited_pdf
 from document_layout import analyze_layout, attach_table_regions
 from text_style import analyze_text_style
 from image_cleanup import preview_text_removal
+from paddle_vl_client import PaddleVLError, parse_with_paddle_vl
 
 def _resolve_ocr_mode(requested: str, paddle_opt_in: bool) -> str:
     """Keep lightweight Tesseract as the safe default; enable Paddle only by explicit opt-in."""
@@ -71,6 +72,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-mini").strip()
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/")
 GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
+PADDLEOCR_VL_URL = os.getenv("PADDLEOCR_VL_URL", "").strip().rstrip("/")
+PADDLEOCR_VL_API_KEY = os.getenv("PADDLEOCR_VL_API_KEY", "").strip()
 MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
@@ -726,6 +729,8 @@ def health():
             "ai_available": bool(OPENAI_API_KEY),
             "ai_model": OPENAI_MODEL if OPENAI_API_KEY else None,
             "office_conversion_available": bool(GOTENBERG_URL),
+            "paddleocr_vl_available": bool(PADDLEOCR_VL_URL),
+            "paddleocr_vl_engine": "PaddleOCR-VL-1.6 self-hosted" if PADDLEOCR_VL_URL else None,
             "searchable_pdf_available": True,
             "secure_redaction_available": True,
             "password_unlock_available": True,
@@ -750,6 +755,11 @@ def health():
                     "arabic_available": "ara" in languages,
                     "engines": {"tesseract": bool(languages), "paddleocr": paddle_enabled},
                     "languages": languages,
+                },
+                "document.parse": {
+                    "available": bool(PADDLEOCR_VL_URL),
+                    "configured": bool(PADDLEOCR_VL_URL),
+                    "engine": "PaddleOCR-VL-1.6 self-hosted",
                 },
                 "pdf.searchable": {"available": True, "engine": "PyMuPDF"},
                 "pdf.unlock": {"available": True, "engine": "PyMuPDF"},
@@ -1214,6 +1224,66 @@ async def image_text_cleanup_preview(request: Request, file: UploadFile = File(.
     if not ok: raise HTTPException(500, "تعذّر إنشاء معاينة إزالة النص.")
     import base64
     return {"preview_image":"data:image/png;base64,"+base64.b64encode(encoded).decode("ascii"),"width":int(preview.shape[1]),"height":int(preview.shape[0]),"details":details,"applied":False,"message":"هذه معاينة فقط؛ لم يتم تعديل الملف الأصلي."}
+
+
+
+@app.post("/api/document/parse")
+async def parse_document_with_advanced_engine(
+    request: Request,
+    file: UploadFile = File(...),
+    export_docx: bool = Form(False),
+):
+    """Parse a PDF/image with the optional self-hosted PaddleOCR-VL 1.6 worker."""
+    if not PADDLEOCR_VL_URL:
+        raise HTTPException(503, "محرك تحليل المستندات المتقدم غير مربوط بخادم الاستدلال بعد.")
+    _guard_expensive_request(request, "document-parse", client_limit=3, global_limit=8)
+    data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    _check_size(data)
+    if data.startswith(b"%PDF-"):
+        try:
+            source = pymupdf.open(stream=data, filetype="pdf")
+            if source.needs_pass:
+                source.close()
+                raise HTTPException(415, "افتح ملف PDF المحمي بكلمة المرور أولًا.")
+            if not 1 <= source.page_count <= MAX_PDF_PAGES:
+                source.close()
+                raise HTTPException(413, f"عدد الصفحات يتجاوز الحد الحالي ({MAX_PDF_PAGES}).")
+            source.close()
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(415, "الملف ليس PDF صالحًا.") from exc
+        file_type = 0
+    else:
+        _decode_image(data)
+        file_type = 1
+    try:
+        parsed, docx_bytes = await parse_with_paddle_vl(
+            data, PADDLEOCR_VL_URL, file_type, PADDLEOCR_VL_API_KEY,
+            export_docx=export_docx,
+        )
+    except httpx.TimeoutException as exc:
+        raise HTTPException(504, "انتهت مهلة تحليل المستند المتقدم. حاول مجددًا.") from exc
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(502, f"تعذّر تحليل المستند عبر المحرك المتقدم (HTTP {exc.response.status_code}).") from exc
+    except httpx.RequestError as exc:
+        raise HTTPException(502, "تعذّر الاتصال بخادم تحليل المستندات المتقدم.") from exc
+    except PaddleVLError as exc:
+        raise HTTPException(502, str(exc)) from exc
+    if export_docx:
+        if not docx_bytes or len(docx_bytes) > MAX_CONVERTED_MB * 1024 * 1024:
+            raise HTTPException(413, "حجم ملف Word الناتج يتجاوز الحد المسموح.")
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={
+                "Content-Disposition": 'attachment; filename="alfalqi-paddle-vl-converted.docx"',
+                "X-Document-Engine": "PaddleOCR-VL-1.6",
+                "X-Document-Pages": str(parsed["page_count"]),
+            },
+        )
+    return parsed
+
 
 @app.post("/api/ocr/image")
 async def ocr_image(request: Request, file: UploadFile = File(...), language: str = Form("ara+eng")):
