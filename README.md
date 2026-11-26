@@ -111,15 +111,20 @@ python tools/ocr_benchmark.py --manifest benchmarks/my-arabic-set/manifest.json
 
 ### متغيرات البيئة
 
-يحدد `render.yaml` القيم الافتراضية التالية:
+القيم الفعلية في `render.yaml` للنشر المجاني الحالي:
 
-- `MAX_UPLOAD_MB=25`
-- `MAX_PDF_PAGES=12`
-- `OCR_DPI=240`
-- `OCR_MODE=hybrid`
-- `CORS_ORIGINS=https://abr1404abr1404-afk.github.io`
-- `OPENAI_API_KEY` — مفتاح سري اختياري يُضاف من لوحة Render فقط، ولا يُحفظ في GitHub.
-- `OPENAI_MODEL=gpt-4.1-mini` — النموذج الافتراضي للمساعد.
+- `MAX_UPLOAD_MB=10`
+- `MAX_PDF_PAGES=5`
+- `OCR_DPI=180`
+- `OCR_MODE=tesseract` مع `ENABLE_PADDLE_OCR=false`؛ لذلك لا تصف النسخة الحالية بأنها Hybrid أو PaddleOCR حتى تتغير صورة النشر وتنجح اختبارات الأداء.
+- `TESSERACT_TIMEOUT_SECONDS=55` و`OCR_MAX_IMAGE_EDGE=2400` للحد من زمن المعالجة وحجم الصورة.
+- `OCR_QUEUE_WAIT_SECONDS=120` و`CPU_QUEUE_WAIT_SECONDS=90` لتنظيم انتظار الطلبات.
+- `CORS_ORIGINS=https://abr1404abr1404-afk.github.io`.
+
+إعدادات اختيارية لا تُفعّل تلقائيًا:
+- `PADDLEOCR_VL_URL` — عنوان عامل PaddleOCR-VL مستقل، ويجب أن يكون محميًا عبر HTTPS وبوابة وصول خاصة.
+- `PADDLEOCR_VL_API_KEY` — رمز اختياري للتحقق من العامل عبر البوابة.
+- `OPENAI_API_KEY` و`OPENAI_MODEL` — للمساعد الذكي فقط، وتُضاف من لوحة Render كمتغيرات سرية/بيئية عند الرغبة. لا تضع أي مفتاح سري في GitHub أو الواجهة.
 
 إذا نشرت الواجهة على نطاق آخر، حدّث `CORS_ORIGINS` في إعدادات خدمة Render ليحتوي على أصل الموقع فقط (scheme + hostname، دون مسار المشروع).
 
