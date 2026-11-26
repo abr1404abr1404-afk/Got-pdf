@@ -53,6 +53,7 @@ class PaddleVLClientTests(unittest.TestCase):
     def test_uses_native_docx_export_when_returned_by_worker(self):
         expected = markdown_pages_to_docx([{"markdown": "ملف Word أصلي"}])
         payload = self.payload()
+        payload["result"]["layoutParsingResults"] = payload["result"]["layoutParsingResults"][:1]
         payload["result"]["layoutParsingResults"][0]["exports"] = {
             "docx": {"content": base64.b64encode(expected).decode("ascii")}
         }
@@ -61,6 +62,7 @@ class PaddleVLClientTests(unittest.TestCase):
 
     def test_rejects_invalid_native_docx_export(self):
         payload = self.payload()
+        payload["result"]["layoutParsingResults"] = payload["result"]["layoutParsingResults"][:1]
         payload["result"]["layoutParsingResults"][0]["exports"] = {
             "docx": {"content": base64.b64encode(b"not-a-docx").decode("ascii")}
         }
