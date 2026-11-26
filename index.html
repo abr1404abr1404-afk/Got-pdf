@@ -74,7 +74,7 @@ main{touch-action:pan-x pan-y}
 .ov{touch-action:none}.ov.edit{touch-action:auto}
 .ov:not(.edit) .t{user-select:none;-webkit-user-select:none;cursor:move}.ov.edit .t{cursor:text}
 .ov .rzt{display:none;position:absolute;right:-14px;bottom:-14px;width:28px;height:28px;border-radius:50%;background:var(--acc);border:3px solid var(--panel);touch-action:none;cursor:nwse-resize}.ov.sel .rzt{display:block}
-.ov .tb{flex-direction:column;align-items:stretch;gap:6px;padding:8px;border-radius:14px;max-width:calc(100vw - 8px);overflow:visible}
+.ov .tb{flex-direction:column;align-items:stretch;gap:6px;padding:8px;border-radius:14px;max-width:calc(100vw - 8px);overflow:visible}.ov .tb,.im .tb{max-height:calc(100dvh - 110px);overflow-y:auto;overscroll-behavior:contain}
 .ov .tb .r1,.ov .tb .r2{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ov .tb button,.ov .tb select,.ov .tb input{height:42px;font-size:15px;border-radius:10px}
 .ov .tb button{min-width:42px;padding:0 8px}.ov .tb .m,.ov .tb .d{width:42px}
@@ -2340,7 +2340,32 @@ thumbsBtn.onclick=()=>{
 };
 $("thumbsClose").onclick=closeThumbs;
 
-function dock(el,tb){const vv=window.visualViewport,vw=vv?vv.width:innerWidth,vh=vv?vv.height:innerHeight,ox=vv?vv.offsetLeft:0,oy=vv?vv.offsetTop:0,r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight,t0=Math.max(oy+4,document.querySelector("header").getBoundingClientRect().bottom+4);let y=r.top-h-8;if(y<t0)y=r.bottom+8;y=Math.max(t0,Math.min(y,oy+vh-h-8));tb.style.left=Math.min(Math.max(ox+4,r.left),Math.max(ox+4,ox+vw-w-4))+"px";tb.style.top=y+"px"}
+function dock(el,tb){
+  if(!el||!tb)return;
+  const vv=window.visualViewport,left=vv?Number(vv.offsetLeft)||0:0,top=vv?Number(vv.offsetTop)||0:0;
+  const width=vv?vv.width:innerWidth,height=vv?vv.height:innerHeight;
+  const right=left+width,bottom=top+height,margin=8;
+  const r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
+  const header=document.querySelector("header"),hr=header&&header.getBoundingClientRect();
+  const safeTop=hr&&hr.bottom>top&&hr.top<bottom?Math.max(top+margin,hr.bottom+margin):top+margin;
+  const minX=left+margin,maxX=Math.max(minX,right-w-margin);
+  const minY=safeTop,maxY=Math.max(minY,bottom-h-margin);
+  const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+  const visibleTop=Math.max(top+margin,r.top),visibleBottom=Math.min(bottom-margin,r.bottom);
+  const visibleLeft=Math.max(left+margin,r.left),visibleRight=Math.min(right-margin,r.right);
+  const anchorX=visibleRight>=visibleLeft?(visibleLeft+visibleRight)/2:clamp((r.left+r.right)/2,left+margin,right-margin);
+  const x=clamp(anchorX-w/2,minX,maxX);
+  const above=r.top-h-margin,below=r.bottom+margin;
+  let y;
+  if(above>=minY&&above<=maxY)y=above;
+  else if(below>=minY&&below<=maxY)y=below;
+  else{
+    const anchorY=visibleBottom>=visibleTop?(visibleTop+visibleBottom)/2:clamp((r.top+r.bottom)/2,top+margin,bottom-margin);
+    y=clamp(anchorY-h/2,minY,maxY);
+  }
+  tb.style.left=x+"px";
+  tb.style.top=y+"px";
+}
 const redock=()=>document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>dock(x,x.querySelector(".tb")));
 addEventListener("scroll",redock,true);addEventListener("resize",redock);if(window.visualViewport){visualViewport.addEventListener("resize",redock);visualViewport.addEventListener("scroll",redock)}
 function pick(el){document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>{if(x!==el)x.classList.remove("sel")});el.classList.add("sel")}
@@ -2567,7 +2592,7 @@ function mkOv(pg,o,s,wrap){
   const place=()=>dock(el,tb);const anch=()=>{const f=o.an==="c"?.5:o.an==="r"?1:0;el.style.marginLeft=f?(-el.offsetWidth*f)+"px":"0px"};
   const rm=()=>{if(o.cover){o.t="";t.textContent="";el.classList.remove("sel","edit")}else{pg.ov=pg.ov.filter(v=>v!==o);el.remove()}};
   const startEdit=()=>{t.contentEditable="true";el.classList.add("edit");pick(el);t.focus();try{const r=document.createRange();r.selectNodeContents(t);r.collapse(false);const sl=getSelection();sl.removeAllRanges();sl.addRange(r)}catch(e){}place()};
-  t.oninput=()=>{o.t=t.innerText;anch()};
+  t.oninput=()=>{o.t=t.innerText;anch();place()};
   const act=()=>{pick(el);cur={o,el,k:s};Object.assign(def,{f:o.f,c:o.c,s:o.s});place()};
   t.onfocus=act;
   const drag=(src,stopTap)=>e=>{
