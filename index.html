@@ -68,7 +68,7 @@ input[type=checkbox]{accent-color:var(--acc);width:16px;height:16px}
 #sg .bx{border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 @media (max-width:860px){.lb,.nm small{display:none}.hb{padding:0 10px}header{padding:8px 10px;gap:8px}}
 #fn{height:40px;width:180px;border:1px solid var(--line);border-radius:10px;padding:0 12px;font:inherit;font-size:.9rem;background:var(--bg);color:var(--ink)}#fn:focus{outline:2px solid var(--acc);outline-offset:1px}@media (max-width:860px){#fn{width:130px}}
-.ov .tb{position:absolute;left:0;top:auto;bottom:100%;margin-bottom:6px;max-width:calc(100% + 260px);overflow-x:auto}.ov .tb{touch-action:pan-x pan-y}.ov .tb .m{touch-action:none}.im .tb{position:absolute;left:0;top:auto;bottom:100%;margin-bottom:6px;max-width:calc(100vw - 8px);overflow-x:auto}.ov.below .tb,.im.below .tb{margin:6px 0 0;bottom:auto;top:100%}
+.ov .tb{position:fixed;left:8px;top:8px;bottom:auto;margin:0;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px);overflow-x:auto;overflow-y:auto;box-sizing:border-box}.ov .tb{touch-action:pan-x pan-y}.ov .tb .m{touch-action:none}.im .tb{position:absolute;left:0;top:auto;bottom:100%;margin-bottom:6px;max-width:calc(100vw - 8px);overflow-x:auto}.ov.below .tb,.im.below .tb{margin:0;bottom:auto}
 .bar select{height:30px;padding:0 6px;font-size:.85rem;border-radius:8px}
 main{touch-action:pan-x pan-y}
 .ov{touch-action:none}.ov.edit{touch-action:auto}
@@ -2374,15 +2374,22 @@ $("thumbsClose").onclick=closeThumbs;
 
 function dock(el,tb){
   if(!el||!tb)return;
-  const wrap=el.closest(".wrap");if(!wrap)return;
+  const vv=window.visualViewport;
+  const left=vv?Number(vv.offsetLeft)||0:0,top=vv?Number(vv.offsetTop)||0:0;
+  const width=vv?vv.width:innerWidth,height=vv?vv.height:innerHeight;
+  const right=left+width,bottom=top+height,margin=8;
   const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
-  tb.style.position="absolute";tb.style.bottom="auto";
-  tb.style.maxWidth=Math.max(48,wrap.clientWidth-8)+"px";
-  tb.style.maxHeight=Math.max(80,wrap.clientHeight-8)+"px";
-  const w=tb.offsetWidth,h=tb.offsetHeight;
-  const centeredX=(el.offsetWidth-w)/2;const x=clamp(centeredX,-el.offsetLeft,Math.max(-el.offsetLeft,wrap.clientWidth-w-el.offsetLeft));
-  const above=-h-6,below=el.offsetHeight+6;
-  const y=above>=-el.offsetTop?above:below;
+  tb.style.position="fixed";tb.style.bottom="auto";
+  tb.style.boxSizing="border-box";
+  tb.style.maxWidth=Math.max(48,width-2*margin)+"px";
+  tb.style.maxHeight=Math.max(64,height-2*margin)+"px";
+  const r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
+  const minX=left+margin,maxX=Math.max(minX,right-w-margin);
+  const x=clamp(r.left,minX,maxX);
+  const minY=top+margin,maxY=Math.max(minY,bottom-h-margin);
+  const above=r.top-h-6,below=r.bottom+6;
+  let y=above>=minY?above:below;
+  y=clamp(y,minY,maxY);
   tb.style.left=x+"px";tb.style.top=y+"px";
 }
 const redock=()=>document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>dock(x,x.querySelector(".tb")));
