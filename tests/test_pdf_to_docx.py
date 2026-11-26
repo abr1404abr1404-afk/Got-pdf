@@ -4,7 +4,7 @@ import unittest
 import pymupdf
 from docx import Document
 
-from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality
+from pdf_to_docx import convert_pdf_to_docx, analyze_pdf_docx_quality, _apply_arabic_direction
 
 
 class PdfToDocxTests(unittest.TestCase):
@@ -60,6 +60,26 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertEqual(report["analysis_status"], "no_extractable_source_text")
         self.assertIsNone(report["text_coverage_percent"])
         self.assertFalse(report["source_extractable"])
+
+
+    def test_arabic_paragraphs_get_word_rtl_metadata(self):
+        from docx.oxml.ns import qn
+
+        source = Document()
+        source.add_paragraph("هذا نص عربي للاختبار")
+        source.add_paragraph("English paragraph")
+        buffer = io.BytesIO()
+        source.save(buffer)
+
+        result = _apply_arabic_direction(buffer.getvalue())
+        converted = Document(io.BytesIO(result))
+        arabic_ppr = converted.paragraphs[0]._p.pPr
+        english_ppr = converted.paragraphs[1]._p.pPr
+
+        self.assertIsNotNone(arabic_ppr.find(qn("w:bidi")))
+        self.assertTrue(
+            english_ppr is None or english_ppr.find(qn("w:bidi")) is None
+        )
 
     def test_rejects_more_than_twenty_pages(self):
         doc = pymupdf.open()
