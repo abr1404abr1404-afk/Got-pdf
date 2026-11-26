@@ -40,7 +40,7 @@ main{padding:16px 10px 60px;overflow-x:auto}
 .wrap.sel{outline:3px solid var(--acc)}
 .wrap canvas{display:block;max-width:100%}
 .wrap.add{cursor:text}
-.ov{position:absolute;color:#000;font-family:"IBM Plex Sans Arabic",Arial,sans-serif;line-height:1.2;display:flex;align-items:flex-start;gap:3px}.ov.sel{outline:1px dashed var(--acc)}.ov:not(.sel) .m,.ov:not(.sel) .d{display:none}.ov .t{white-space:pre;min-width:24px;outline:none;unicode-bidi:plaintext}.ov .d{flex:none;width:20px;height:20px;padding:0;border-radius:50%;background:var(--danger);color:#fff;border:0;font-size:13px;line-height:1;font-family:system-ui,sans-serif}
+.ov{position:absolute;color:#000;font-family:"IBM Plex Sans Arabic",Arial,sans-serif;line-height:1.2;display:flex;align-items:flex-start;gap:3px}.ov.sel{outline:1px dashed var(--acc)}.ov:not(.sel) .m,.ov:not(.sel) .d{display:none}.ov .t{white-space:pre;min-width:24px;outline:none;unicode-bidi:plaintext}.ov.ocr-line{direction:rtl}.ov.ocr-line .t{display:block;flex:1 1 100%;width:100%;min-width:0;white-space:pre;unicode-bidi:isolate;direction:rtl;text-align:right;font-kerning:normal;font-variant-ligatures:normal;font-feature-settings:"kern","liga","calt"}.ov .d{flex:none;width:20px;height:20px;padding:0;border-radius:50%;background:var(--danger);color:#fff;border:0;font-size:13px;line-height:1;font-family:system-ui,sans-serif}
 .ov .m{flex:none;width:20px;height:20px;padding:0;border-radius:50%;background:var(--acc);color:var(--accfg);border:0;font-size:12px;line-height:1;cursor:grab;touch-action:none;font-family:system-ui,sans-serif}select,input[type=color]{font:inherit;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:4px 6px;height:36px}input[type=color]{width:42px;padding:2px}
 .ov .tb{position:fixed;left:0;top:8px;bottom:auto;margin:0;display:none;align-items:center;gap:4px;padding:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,.25);font:13px system-ui,"IBM Plex Sans Arabic",sans-serif;color:var(--ink);line-height:1;white-space:nowrap;z-index:3;direction:rtl}.ov.sel .tb{display:flex}.ov.below .tb{bottom:auto;top:100%;margin:6px 0 0}.ov .tb button,.ov .tb select,.ov .tb input{height:30px;font-size:13px;padding:0 7px;border-radius:7px}.ov .tb .m,.ov .tb .d{width:30px;padding:0;border-radius:7px}.ov .tb select{max-width:96px}.ov .tb input[type=color]{width:34px;padding:2px}.ov .tb .sz{min-width:20px;text-align:center}
 .det{position:absolute;z-index:1;cursor:text;pointer-events:none}body.editing .det{pointer-events:auto;outline:1px dashed var(--acc);background:rgba(15,118,110,.1)}body.editing .det:hover{background:rgba(15,118,110,.25)}.cover{position:absolute;background:#fff;z-index:1}.ov{z-index:2}
@@ -2398,7 +2398,8 @@ addEventListener("pointerdown",e=>{
       return}
     else if(!e.target.closest(".ov,.tb")){window.pickBgFor=null}}
   const t=e.target;if(t.closest&&t.closest(".ov,.im,header,#toast"))return;dropSel()},true);
-function styleOv(el,o,k){el.style.fontFamily=FONTS[eff(o)][1]+",Arial,sans-serif";el.style.fontWeight=o.b?"700":"400";el.style.color=o.c;el.style.fontSize=o.s*k+"px"}
+function styleOv(el,o,k){el.style.fontFamily=FONTS[eff(o)][1]+",Arial,sans-serif";el.style.fontWeight=o.b?"700":"400";el.style.color=o.c;el.style.fontSize=o.s*k+"px";if(o.ocrBoxW){const wrap=el.closest(".wrap"),t=el.querySelector(".t");if(wrap){el.style.width=Math.max(8,o.ocrBoxW*wrap.clientWidth)+"px";if(t){t.style.width="100%";t.dir=o.ocrRTL?"rtl":"auto";t.style.textAlign=o.ocrRTL?"right":"left";fitOcrOverlay(el,o,t,wrap,k)}}}}
+function fitOcrOverlay(el,o,t,wrap,k){try{const family=FONTS[eff(o)][1],base=Number(o.ocrBaseSize)||o.s||14,scale=k||1,canvas=document.createElement("canvas"),ctx=canvas.getContext("2d");ctx.font=(o.b?"700 ":"400 ")+(base*scale)+"px "+family+",Arial,sans-serif";const measured=ctx.measureText(t.textContent||" ").width,target=Math.max(8,(o.ocrBoxW||0)*wrap.clientWidth);if(measured>0&&target>0){const ratio=Math.max(.72,Math.min(1.28,target/measured));el.style.fontSize=(base*ratio*scale)+"px";o.ocrFitScale=ratio}}catch(error){}}
 function sampleBg(wrap,g,W,top,bh){try{const cv=wrap.querySelector("canvas"),k=cv.width/W,x=Math.max(0,Math.floor((g.l-3)*k)),y=Math.max(0,Math.floor(top*k)),w=Math.max(1,Math.min(cv.width-x,Math.ceil((g.r-g.l+6)*k))),h=Math.max(1,Math.min(cv.height-y,Math.ceil(bh*k))),d=cv.getContext("2d").getImageData(x,y,w,h).data,m={};let best=0,bk=null;for(let i=0;i<d.length;i+=4){const q=(d[i]>>4)+","+(d[i+1]>>4)+","+(d[i+2]>>4),e=m[q]||(m[q]={n:0,r:0,g:0,b:0});e.n++;e.r+=d[i];e.g+=d[i+1];e.b+=d[i+2];if(e.n>best){best=e.n;bk=e}}return"#"+[bk.r,bk.g,bk.b].map(v=>Math.round(v/bk.n).toString(16).padStart(2,"0")).join("")}catch(e){return"#ffffff"}}
 async function inpaintHi(page,x0,y0,bw,bh,bg){try{
   const vp0=page.getViewport({scale:1,rotation:0}),PW=vp0.width,PH=vp0.height,m=5;
@@ -2539,7 +2540,7 @@ async function buildDet(wrap,pg,page,s){
         const mm=cx.measureText("Hgع");asc=mm.fontBoundingBoxAscent||asc;dsc=mm.fontBoundingBoxDescent||dsc;
       }catch(e2){}
       const off=(1.2*sz-(asc+dsc))/2+asc;
-      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:(g.style&&g.style.ink_color)||sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,style:g.style||null,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg},cleanupBBox:[g.l-1,top-1,g.r+1,top+bh+1],cleanupPageSize:[W,H]};
+      const bgc=sampleBg(wrap,g,W,top,bh),cimg=(await inpaintHi(page,g.l-1,top-1,g.r-g.l+2,bh+2,bgc))||inpaint(wrap,W,g.l-1,top-1,g.r-g.l+2,bh+2,bgc),o={x:(rtl?g.r:g.l)/W,an:rtl?"r":"l",y:(g.b-off)/H,t:text,f:fi,af:afi,c:(g.style&&g.style.ink_color)||sampleC(wrap,g,W,top,bh,bgc),b:isBold(page,g.fn),s:sz,key,style:g.style||null,cover:{x:(g.l-1)/W,y:(top-1)/H,w:(g.r-g.l+2)/W,h:(bh+2)/H,bg:bgc,img:cimg},cleanupBBox:[g.l-1,top-1,g.r+1,top+bh+1],cleanupPageSize:[W,H],ocrBoxW:(g.r-g.l)/W,ocrRTL:rtl,ocrBaseSize:sz};
       pg.ov.push(o);d.remove();
       const el=mkOv(pg,o,s,wrap);wrap.append(el);el.focus();
     };
@@ -2602,7 +2603,7 @@ function mkOv(pg,o,s,wrap){
   let cvEl=null;
   if(o.cover){const c=document.createElement("div");c.className="cover";Object.assign(c.style,{left:o.cover.x*100+"%",top:o.cover.y*100+"%",width:o.cover.w*100+"%",height:o.cover.h*100+"%",background:o.cover.img?"url("+o.cover.img+") 0 0/100% 100% no-repeat":(o.cover.bg||"#fff")});cvEl=c;wrap.append(c)}
   const el=document.createElement("div"),t=document.createElement("span"),rz=document.createElement("div"),tb=document.createElement("div");
-  el._coverEl=cvEl;el.className="ov";t.className="t";t.contentEditable="false";t.dir="auto";t.textContent=o.t;t.setAttribute("aria-label","نص مضاف");rz.className="rzt";tb.className="tb";
+  el._coverEl=cvEl;el.className="ov"+(o.ocrBoxW?" ocr-line":"");t.className="t";t.contentEditable="false";t.dir=o.ocrRTL?"rtl":"auto";t.textContent=o.t;if(o.ocrBoxW){el.style.width=Math.max(8,o.ocrBoxW*wrap.clientWidth)+"px";t.style.width="100%";t.style.textAlign=o.ocrRTL?"right":"left";}t.setAttribute("aria-label","نص مضاف");rz.className="rzt";tb.className="tb";
   const cleanupHint=o.style&&o.style.recommended_cleanup;
   if(cleanupHint==="manual_review")el.title="تنبيه: خلفية معقدة؛ راجع إزالة النص والنتيجة قبل اعتماد التعديل.";
   else if(cleanupHint==="inpaint_preview")el.title="مراجعة مطلوبة: الخلفية ذات نسيج؛ تحقق من معاينة إزالة النص.";
@@ -2611,7 +2612,7 @@ function mkOv(pg,o,s,wrap){
   const place=()=>dock(el,tb);const anch=()=>{const f=o.an==="c"?.5:o.an==="r"?1:0;el.style.marginLeft=f?(-el.offsetWidth*f)+"px":"0px"};
   const rm=()=>{if(o.cover){o.t="";t.textContent="";el.classList.remove("sel","edit")}else{pg.ov=pg.ov.filter(v=>v!==o);el.remove()}};
   const startEdit=()=>{t.contentEditable="true";el.classList.add("edit");pick(el);t.focus();try{const r=document.createRange();r.selectNodeContents(t);r.collapse(false);const sl=getSelection();sl.removeAllRanges();sl.addRange(r)}catch(e){}place()};
-  t.oninput=()=>{o.t=t.innerText;anch();place()};
+  t.oninput=()=>{o.t=t.innerText;if(o.ocrBoxW)fitOcrOverlay(el,o,t,wrap,s);anch();place()};
   const act=()=>{pick(el);cur={o,el,k:s};Object.assign(def,{f:o.f,c:o.c,s:o.s});place()};
   t.onfocus=act;
   const drag=(src,stopTap)=>e=>{
