@@ -22,6 +22,18 @@ jobs:
         run: python -m py_compile main.py pdf_tools.py searchable_pdf.py redaction.py document_export.py pdf_security.py pdf_to_docx.py pdf_image_tools.py request_limits.py document_layout.py text_style.py paddle_vl_client.py
       - name: Test API and document features
         run: python -m unittest discover -s tests -v
+      - name: Prepare real Arabic PDF and verify both Word export paths
+        run: |
+          python -m pip install 'requests>=2.31,<3'
+          python tests/e2e/prepare_real_fixture.py
+          python tests/e2e/real_pdf_to_docx.py
+      - name: Upload real PDF-to-Word validation artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-arabic-pdf-to-docx-results
+          path: tests/e2e/artifacts/
+          if-no-files-found: ignore
 
   frontend-static:
     runs-on: ubuntu-latest
