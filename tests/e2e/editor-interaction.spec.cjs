@@ -27,15 +27,24 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
     await text.press("End");
     await page.locator("body").click({position:{x:8,y:8},force:true}).catch(()=>{});
     await overlay.click({force:true});
+    const touchBehavior=await overlay.evaluate(el=>getComputedStyle(el).touchAction);
+    if(!touchBehavior.includes("pan-x")) throw new Error("Text layer blocks horizontal touch scrolling: "+touchBehavior);
+    const touchDown=await overlay.evaluate(el=>{
+      let prevented=false;const fn=e=>{prevented=e.defaultPrevented};
+      el.addEventListener("pointerdown",fn,{once:true});
+      const r=el.getBoundingClientRect();
+      el.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,cancelable:true,pointerType:"touch",pointerId:91,clientX:r.left+5,clientY:r.top+5}));
+      return prevented;
+    });
+    if(touchDown) throw new Error("Touching text body cancels native page panning");
     const toolbar=overlay.locator(".tb");
     await toolbar.waitFor({state:"visible"});
     const checkToolbar=async()=>{
       const r=await toolbar.boundingBox();
       const vp=page.viewportSize();
-      if(!r||r.x < -1||r.y < -1||r.x+r.width>vp.width+1||r.y+r.height>vp.height+1)
-        throw new Error("Text toolbar is outside the visible mobile viewport: "+JSON.stringify({r,vp}));
+      if(!r) throw new Error("Text toolbar has no layout box");
       const pos=await toolbar.evaluate(el=>getComputedStyle(el).position);
-      if(pos!=="fixed") throw new Error("Toolbar is not viewport-anchored: "+pos);
+      if(pos!=="absolute") throw new Error("Toolbar must move with the PDF text: "+pos);
     };
     await checkToolbar();
     for(let i=0;i<6;i++) await page.locator("#zi").click();
@@ -44,8 +53,7 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
     const zoomedToolbar=page.locator(".ov.sel .tb").first();
     await zoomedToolbar.waitFor({state:"visible"});
     const r=await zoomedToolbar.boundingBox(),vp=page.viewportSize();
-    if(!r||r.x < -1||r.y < -1||r.x+r.width>vp.width+1||r.y+r.height>vp.height+1)
-      throw new Error("Zoomed toolbar overlaps/leaves viewport: "+JSON.stringify({r,vp}));
+    if(!r) throw new Error("Zoomed toolbar is missing");
     const move=page.locator(".ov.sel .m").first();
     await move.waitFor({state:"visible"});
     const mr=await move.boundingBox();
@@ -61,7 +69,7 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
        moved.y+moved.height>finalWrap.y+finalWrap.height+2)
       throw new Error("Dragged text escaped the PDF page bounds near the bottom: "+JSON.stringify({moved,finalWrap}));
     if(errors.length) throw new Error("Browser errors: "+errors.join(" | "));
-    console.log(JSON.stringify({status:"passed",viewport:page.viewportSize(),toolbar_fixed:true,
-      toolbar_inside_viewport:true,zoom_test:"passed",bottom_drag_clamped:true,errors},null,2));
+    console.log(JSON.stringify({status:"passed",viewport:page.viewportSize(),toolbar_follows_text:true,
+      native_touch_pan_preserved:true,zoom_test:"passed",bottom_drag_clamped:true,errors},null,2));
   } finally { await browser.close(); }
 })().catch(e=>{console.error(e);process.exit(1)});
