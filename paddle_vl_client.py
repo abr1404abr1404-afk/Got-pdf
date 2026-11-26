@@ -153,7 +153,7 @@ def normalize_paddle_vl_response(
         "engine": "PaddleOCR-VL-1.6",
         "page_count": len(pages),
         "pages": pages,
-        "markdown": "\\n\\n".join(markdown_parts),
+        "markdown": "\n\n".join(markdown_parts),
         "log_id": str(payload.get("logId") or "")[:128],
     }
     # A single native export is safe to use as-is. If the service returns one
