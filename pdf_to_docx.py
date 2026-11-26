@@ -1,6 +1,7 @@
 """Bounded PDF-to-DOCX conversion using pdf2docx after password authentication."""
 from __future__ import annotations
 
+import io
 import os
 import tempfile
 from pathlib import Path
@@ -9,6 +10,53 @@ import pymupdf
 
 MAX_CONVERT_PAGES = 20
 MAX_OUTPUT_BYTES = 30 * 1024 * 1024
+
+
+def _apply_arabic_direction(docx_bytes: bytes) -> bytes:
+    """Set Word's complex-script RTL metadata only on paragraphs containing Arabic."""
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    document = Document(io.BytesIO(docx_bytes))
+
+    def paragraphs(container):
+        for paragraph in getattr(container, "paragraphs", []):
+            yield paragraph
+        for table in getattr(container, "tables", []):
+            for row in table.rows:
+                for cell in row.cells:
+                    yield from paragraphs(cell)
+
+    for paragraph in paragraphs(document):
+        text = paragraph.text or ""
+        if not any("\\u0600" <= char <= "\\u06ff" for char in text):
+            continue
+        p_pr = paragraph._p.get_or_add_pPr()
+        bidi = p_pr.find(qn("w:bidi"))
+        if bidi is None:
+            bidi = OxmlElement("w:bidi")
+            p_pr.append(bidi)
+        bidi.set(qn("w:val"), "1")
+        for run in paragraph.runs:
+            if not any("\\u0600" <= char <= "\\u06ff" for char in run.text):
+                continue
+            r_pr = run._r.get_or_add_rPr()
+            rtl = r_pr.find(qn("w:rtl"))
+            if rtl is None:
+                rtl = OxmlElement("w:rtl")
+                r_pr.append(rtl)
+            rtl.set(qn("w:val"), "1")
+            lang = r_pr.find(qn("w:lang"))
+            if lang is None:
+                lang = OxmlElement("w:lang")
+                r_pr.append(lang)
+            lang.set(qn("w:val"), "ar-SA")
+            lang.set(qn("w:bidi"), "ar-SA")
+
+    output = io.BytesIO()
+    document.save(output)
+    return output.getvalue()
 
 
 def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
@@ -41,7 +89,7 @@ def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
                 converter.close()
             if not docx_path.is_file():
                 raise ValueError("لم ينتج محرك التحويل ملف Word.")
-            output = docx_path.read_bytes()
+            output = _apply_arabic_direction(docx_path.read_bytes())
             if not output or len(output) > MAX_OUTPUT_BYTES:
                 raise ValueError("حجم ملف Word الناتج خارج الحد المسموح.")
             if not output.startswith(b"PK"):
