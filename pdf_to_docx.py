@@ -194,6 +194,21 @@ def convert_pdf_to_docx(data: bytes, password: str = "") -> bytes:
             source.close()
 
 
+def _docx_text_parts(document) -> list[str]:
+    """Collect paragraph/table text without counting merged grid cells repeatedly."""
+    parts = [paragraph.text for paragraph in document.paragraphs]
+    seen_cells = set()
+    for table in document.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                cell_xml = cell._tc
+                if cell_xml in seen_cells:
+                    continue
+                seen_cells.add(cell_xml)
+                parts.append(cell.text)
+    return parts
+
+
 def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
     """Return bounded, approximate text and structure indicators for a PDF/DOCX pair."""
     import io
@@ -238,14 +253,10 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
             source.close()
 
         converted = Document(io.BytesIO(docx_bytes))
-        output_parts = [paragraph.text for paragraph in converted.paragraphs]
+        output_parts = _docx_text_parts(converted)
         report["output_paragraph_count"] = len(converted.paragraphs)
         report["output_table_count"] = len(converted.tables)
         report["output_image_count"] = len(converted.inline_shapes)
-        for table in converted.tables:
-            for row in table.rows:
-                for cell in row.cells:
-                    output_parts.append(cell.text)
 
         def tokens(value):
             normalized = unicodedata.normalize("NFKC", value).casefold()
