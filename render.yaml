@@ -15,7 +15,7 @@ services:
       - key: OCR_DPI
         value: "180"
       - key: OCR_QUEUE_WAIT_SECONDS
-        value: "30"
+        value: "120"
       - key: CPU_QUEUE_WAIT_SECONDS
         value: "90"
       - key: OCR_DENOISE
