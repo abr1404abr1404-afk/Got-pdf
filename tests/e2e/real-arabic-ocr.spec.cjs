@@ -42,6 +42,10 @@ const failures = [];
       if (message.type() === "error") failures.push("console: " + message.text().slice(0, 500));
     });
     await page.goto(base, {waitUntil: "domcontentloaded", timeout: 60000});
+    const ocrConfig = await page.evaluate(() => ({
+      ocrBaseType: typeof window.ALFALQI_OCR_API_BASE,
+      ocrBaseValue: String(window.ALFALQI_OCR_API_BASE ?? "")
+    }));
     await page.locator("#ocb").waitFor({state: "visible"});
 
     // Path A: real PDF upload -> render page -> browser OCR -> review/edit/save.
@@ -70,7 +74,8 @@ const failures = [];
     if (!persistedPdfText.includes("[UI-EDIT-VERIFIED]")) throw new Error("PDF OCR review edit did not persist");
     results.push({case: "real_pdf_upload_browser_ocr_review_edit", status: "passed",
       extracted_chars: originalPdfText.length, arabic_chars: (originalPdfText.match(/[\u0600-\u06ff]/g)||[]).length,
-      cer_vs_embedded_pdf_text: pdfCer, edit_persisted: true});
+      cer_vs_embedded_pdf_text: pdfCer, edit_persisted: true,
+      extracted_text: originalPdfText.slice(0, 12000)});
     await pdfPage.close();
 
     // Path B: real page image upload -> image-to-PDF -> browser OCR -> review/edit/save.
@@ -97,12 +102,13 @@ const failures = [];
     if (!persistedImageText.includes("[IMAGE-EDIT-VERIFIED]")) throw new Error("Image OCR review edit did not persist");
     results.push({case: "real_image_upload_browser_ocr_review_edit", status: "passed",
       extracted_chars: originalImageText.length, arabic_chars: (originalImageText.match(/[\u0600-\u06ff]/g)||[]).length,
-      cer_vs_embedded_pdf_text: imageCer, edit_persisted: true});
+      cer_vs_embedded_pdf_text: imageCer, edit_persisted: true,
+      extracted_text: originalImageText.slice(0, 12000)});
 
     fs.writeFileSync("browser-ocr-e2e-results.json", JSON.stringify({
       engine: "Tesseract.js in browser",
       source: "Public Dubai government legal PDF, page 1 and rasterized image",
-      results, failures
+      ocr_config: ocrConfig, results, failures
     }, null, 2));
     console.log(JSON.stringify({results, failures}, null, 2));
     if (failures.length) throw new Error("Browser console/page errors detected: " + failures.join(" | "));
