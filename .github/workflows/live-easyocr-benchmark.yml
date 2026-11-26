@@ -1,4 +1,5 @@
 name: EasyOCR Arabic alternative benchmark
+# Manual validation run requested: compare EasyOCR against Tesseract on public Arabic documents.
 on:
   push:
     branches: [main]
