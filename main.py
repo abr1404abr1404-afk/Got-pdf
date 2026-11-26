@@ -637,6 +637,8 @@ def health():
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
+            "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
+            "pdf_native_text_preferred": True, "pdf_native_text_min_chars": PDF_NATIVE_TEXT_MIN_CHARS,
             "tesseract_languages": languages,
             "arabic_ocr_ready": "ara" in languages,
             "english_ocr_ready": "eng" in languages,
