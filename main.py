@@ -42,6 +42,13 @@ from text_style import analyze_text_style
 from image_cleanup import preview_text_removal
 from paddle_vl_client import PaddleVLError, parse_with_paddle_vl
 
+OPENCV_THREADS = min(4, max(1, int(os.getenv("OPENCV_THREADS", "1"))))
+cv2.setNumThreads(OPENCV_THREADS)
+try:
+    cv2.ocl.setUseOpenCL(False)
+except Exception:
+    pass
+
 def _resolve_ocr_mode(requested: str, paddle_opt_in: bool) -> str:
     """Keep lightweight Tesseract as the safe default; enable Paddle only by explicit opt-in."""
     value = str(requested or "tesseract").strip().lower()
@@ -727,6 +734,7 @@ def health():
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
             "ocr_queue_wait_seconds": OCR_QUEUE_WAIT_SECONDS, "ocr_denoise": OCR_DENOISE,
             "tesseract_timeout_seconds": TESSERACT_TIMEOUT_SECONDS, "ocr_max_image_edge": OCR_MAX_IMAGE_EDGE,
+            "opencv_threads": OPENCV_THREADS,
             "cpu_queue_wait_seconds": CPU_QUEUE_WAIT_SECONDS,
             "pdf_native_text_preferred": True, "pdf_native_text_min_chars": PDF_NATIVE_TEXT_MIN_CHARS,
             "tesseract_languages": languages,
