@@ -36,6 +36,18 @@ class AdaptiveOcrPassTests(unittest.TestCase):
         self.assertEqual(tess.call_count, 2)
         self.assertEqual(result["lines"][0]["text"], "المجلس")
 
+    @patch.object(main, "analyze_text_style", return_value={"style_classification": "uncertain"})
+    @patch.object(main, "analyze_layout")
+    @patch.object(main, "_paddle", return_value=([], "disabled"))
+    @patch.object(main, "_tesseract", return_value=([], "RuntimeError: Tesseract process timeout"))
+    @patch.object(main, "_preprocess", side_effect=lambda image: image)
+    def test_timeout_does_not_trigger_another_expensive_ocr_pass(self, preprocess, tess, paddle, layout, style):
+        layout.return_value = {"lines": [], "direction": "unknown", "column_count": 1, "regions": {}}
+        with patch.object(main, "OCR_MODE", "tesseract"):
+            result = main._hybrid(self.image, "ara")
+        self.assertEqual(tess.call_count, 1)
+        self.assertEqual(result["engine"], "none")
+
 
 if __name__ == "__main__":
     unittest.main()
