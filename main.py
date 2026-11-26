@@ -61,6 +61,9 @@ MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "12000000"))
 MAX_RENDERED_PIXELS = int(os.getenv("MAX_RENDERED_PIXELS", "18000000"))
 MAX_DOCUMENT_RENDERED_PIXELS = int(os.getenv("MAX_DOCUMENT_RENDERED_PIXELS", "45000000"))
 OCR_CONCURRENCY = max(1, int(os.getenv("OCR_CONCURRENCY", "1")))
+OCR_QUEUE_WAIT_SECONDS = min(120, max(1, int(os.getenv("OCR_QUEUE_WAIT_SECONDS", "30"))))
+OCR_DENOISE = os.getenv("OCR_DENOISE", "false").strip().lower() in {"1", "true", "yes", "on"}
+PDF_NATIVE_TEXT_MIN_CHARS = max(10, int(os.getenv("PDF_NATIVE_TEXT_MIN_CHARS", "30")))
 PADDLE_OCR_OPT_IN = os.getenv("ENABLE_PADDLE_OCR", "false").strip().lower() in {"1", "true", "yes", "on"}
 OCR_MODE = _resolve_ocr_mode(os.getenv("OCR_MODE", "tesseract"), PADDLE_OCR_OPT_IN)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "").strip()
@@ -137,14 +140,69 @@ def _guard_expensive_request(
 
 
 async def _run_ocr(function, *args):
+    # Queue OCR work instead of rejecting normal concurrent users after 500 ms.
+    # The wait is bounded so requests cannot occupy the service indefinitely.
     try:
-        await asyncio.wait_for(_ocr_semaphore.acquire(), timeout=0.5)
+        await asyncio.wait_for(
+            _ocr_semaphore.acquire(), timeout=OCR_QUEUE_WAIT_SECONDS
+        )
     except asyncio.TimeoutError as exc:
-        raise HTTPException(503, "محرك OCR مشغول حاليًا. حاول بعد قليل.") from exc
+        raise HTTPException(
+            503, "محرك OCR مشغول حاليًا. انتظر قليلًا ثم أعد المحاولة."
+        ) from exc
     try:
         return await run_in_threadpool(function, *args)
     finally:
         _ocr_semaphore.release()
+
+
+def _native_pdf_page_result(page, scale: float) -> dict | None:
+    """Extract an existing PDF text layer before raster OCR, preserving text boxes."""
+    try:
+        page_data = page.get_text("dict")
+    except Exception:
+        return None
+    rows: list[dict] = []
+    for block in page_data.get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            spans = line.get("spans", [])
+            text = "".join(str(span.get("text", "")) for span in spans).strip()
+            if not text:
+                continue
+            box = line.get("bbox") or block.get("bbox")
+            if not isinstance(box, (list, tuple)) or len(box) != 4:
+                continue
+            x0, y0, x1, y1 = (float(value) * scale for value in box)
+            if x1 <= x0 or y1 <= y0:
+                continue
+            rows.append({
+                "text": text,
+                "confidence": 100.0,
+                "bbox": [round(x0), round(y0), round(x1), round(y1)],
+                "engine": "pdf-text",
+                "source": "native-pdf-text",
+            })
+    total_chars = sum(len(row["text"]) for row in rows)
+    if total_chars < PDF_NATIVE_TEXT_MIN_CHARS:
+        return None
+    width = max(1, math.ceil(page.rect.width * scale))
+    height = max(1, math.ceil(page.rect.height * scale))
+    layout = analyze_layout(rows, width, height)
+    return {
+        "engine": "native-pdf-text",
+        "image_width": width,
+        "image_height": height,
+        "lines": layout["lines"],
+        "layout": {key: value for key, value in layout.items() if key != "lines"},
+        "tables": [],
+        "engines": {
+            "pdf_text": {"available": True, "error": None},
+            "tesseract": {"available": False, "error": "Skipped: searchable PDF text layer used"},
+            "paddleocr": {"available": False, "error": "Skipped: searchable PDF text layer used"},
+        },
+    }
 
 
 async def _run_cpu(function, *args):
@@ -248,8 +306,10 @@ def _preprocess(image: np.ndarray) -> np.ndarray:
     # Mild contrast normalization; avoid aggressive binarization that destroys Arabic dots.
     clahe = cv2.createCLAHE(clipLimit=1.6, tileGridSize=(8, 8))
     gray = clahe.apply(gray)
-    denoised = cv2.fastNlMeansDenoising(gray, None, 7, 7, 21)
-    return cv2.cvtColor(denoised, cv2.COLOR_GRAY2BGR)
+    # Non-local means is expensive on low-CPU hosts. Keep fine Arabic dots by
+    # default; enable stronger denoising only for visibly noisy scans.
+    prepared = cv2.fastNlMeansDenoising(gray, None, 7, 7, 21) if OCR_DENOISE else gray
+    return cv2.cvtColor(prepared, cv2.COLOR_GRAY2BGR)
 
 
 def _lang_pair(language: str) -> tuple[str, str]:
@@ -516,16 +576,14 @@ def _hybrid(image: np.ndarray, language: str) -> dict:
             adaptive = cv2.adaptiveThreshold(
                 gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 31, 11
             )
-            adaptive_inverse = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 31, 11
+            # One alternate segmentation pass is a better CPU/accuracy balance
+            # than running both normal and inverted full-page variants every time.
+            rows, error = _tesseract(
+                cv2.cvtColor(adaptive, cv2.COLOR_GRAY2BGR), language, 6
             )
-            # The inverse view is particularly useful for gold/white lettering
-            # on dark poster backgrounds. Keep coordinates unchanged.
-            for variant in (adaptive, adaptive_inverse):
-                rows, error = _tesseract(cv2.cvtColor(variant, cv2.COLOR_GRAY2BGR), language, 11)
-                tess_rows.extend(rows)
-                if error:
-                    tess_errors.append(error)
+            tess_rows.extend(rows)
+            if error:
+                tess_errors.append(error)
         tess_rows = _dedupe(tess_rows)
         tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
@@ -1125,16 +1183,20 @@ async def ocr_pdf(request: Request, file: UploadFile = File(...), language: str 
             total_rendered_pixels += page_pixels
             if total_rendered_pixels > MAX_DOCUMENT_RENDERED_PIXELS:
                 raise HTTPException(413, "إجمالي دقة صفحات PDF يتجاوز الحد الآمن للمعالجة.")
-            # PyMuPDF is not thread-safe; keep its document operations on this request thread.
-            pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
-            image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-            if pix.n == 4:
-                image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
-            else:
-                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-            result = await _run_ocr(_hybrid, image, language)
-            result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
-            result = attach_table_regions(result, result["tables"])
+            # Prefer the original text layer: it is faster and more accurate than
+            # raster OCR for digitally-created PDFs and retains exact selectable text.
+            result = _native_pdf_page_result(page, scale)
+            if result is None:
+                # PyMuPDF document operations stay on this request thread.
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
+                image = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
+                if pix.n == 4:
+                    image = cv2.cvtColor(image, cv2.COLOR_RGBA2BGR)
+                else:
+                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                result = await _run_ocr(_hybrid, image, language)
+                result["tables"] = await _run_ocr(_detect_tables, image, result["lines"])
+                result = attach_table_regions(result, result["tables"])
             pages.append({"page": index + 1, "width_points": page.rect.width, "height_points": page.rect.height,
                           "ocr": result})
         return {"pages": pages, "page_count": len(pages)}
