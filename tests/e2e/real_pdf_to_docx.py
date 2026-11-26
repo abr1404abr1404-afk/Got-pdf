@@ -76,7 +76,7 @@ native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 # Button 2: "تصدير Word" -> /api/export/docx, using extracted PDF text.
 text_export = create_docx([{"page": 1, "text": reference}])
 export_text, export_paragraphs, export_images = read_docx(text_export)
-if not text_export.startswith(b"") or len(normalize(export_text)) < 30:
+if len(normalize(export_text)) < 30:
     raise SystemExit("Text-to-Word export did not produce editable text.")
 (OUT / "real-dubai-law-text-export.docx").write_bytes(text_export)
 
