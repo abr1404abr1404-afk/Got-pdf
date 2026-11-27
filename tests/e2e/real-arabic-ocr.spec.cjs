@@ -46,6 +46,7 @@ const failures = [];
       ocrBaseType: typeof window.ALFALQI_OCR_API_BASE,
       ocrBaseValue: String(window.ALFALQI_OCR_API_BASE ?? "")
     }));
+    await page.locator("#hybrid-tab-smart").click();
     await page.locator("#ocb").waitFor({state: "visible"});
 
     // Path A: real PDF upload -> render page -> browser OCR -> review/edit/save.
@@ -85,6 +86,7 @@ const failures = [];
     imagePage.on("dialog", dialog => dialog.accept());
     imagePage.on("pageerror", error => failures.push("image pageerror: " + error.message));
     await imagePage.goto(base, {waitUntil: "domcontentloaded", timeout: 60000});
+    await imagePage.locator("#hybrid-tab-smart").click();
     await imagePage.locator("#ocb").click();
     await imagePage.locator("#focr").setInputFiles(path.join(fixture, "real-dubai-law-page1.png"));
     await imagePage.getByRole("button", {name: "مراجعة النص"}).first().waitFor({state: "visible", timeout});
