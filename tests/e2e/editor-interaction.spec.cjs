@@ -17,6 +17,7 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
     await page.locator("#file").setInputFiles(path.join(process.cwd(),"tests/e2e/fixtures/real-dubai-law.pdf"));
     await page.locator(".wrap").first().waitFor({state:"visible",timeout:90000});
     const wrap=page.locator(".wrap").first();
+    await page.locator("#hybrid-tab-edit").click();
     await page.locator("#txt").click();
     const wr=await wrap.boundingBox();
     await wrap.click({position:{x:Math.round(wr.width*.35),y:Math.round(wr.height-70)}});
