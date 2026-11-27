@@ -310,6 +310,7 @@ report = {
         "quality": native_quality,
         "api_status": native_response.status_code,
         "cer_vs_pdf_text": cer(reference, native_text),
+        "render": render_docx_metrics(native_docx, source[0]),
     },
     "text_export_to_docx": {
         "status": "passed",
