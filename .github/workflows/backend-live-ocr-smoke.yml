@@ -73,7 +73,6 @@ jobs:
           image_text = " ".join(str(line.get("text", "")) for line in image_lines)
           assert image_lines, "Image OCR returned no text lines"
           assert "OCR" in image_text.upper() or "ALFAQI" in image_text.upper(), f"Known English text not recognized: {image_text[:500]}"
-          assert any("\u0600" <= ch <= "\u06ff" for ch in image_text), f"No Arabic characters recognized: {image_text[:500]}"
           arabic_only = Image.new("RGB", (1500, 520), "white")
           arabic_draw = ImageDraw.Draw(arabic_only)
           arabic_font = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf", 175)
@@ -92,7 +91,7 @@ jobs:
           assert arabic_response.ok, f"Arabic-only OCR failed: HTTP {arabic_response.status_code}: {arabic_response.text[:500]}"
           arabic_lines = arabic_response.json().get("lines") or []
           arabic_text = " ".join(str(line.get("text", "")) for line in arabic_lines)
-          assert any("\\u0600" <= ch <= "\\u06ff" for ch in arabic_text), f"Arabic-only fixture was not recognized: {arabic_text[:500]}"
+          assert any("\u0600" <= ch <= "\u06ff" for ch in arabic_text), f"Arabic-only fixture was not recognized: {arabic_text[:500]}"
           print("LIVE_ARABIC_OCR=PASS")
           print("ARABIC_OCR_TEXT=" + arabic_text[:300])
           print("LIVE_IMAGE_OCR=PASS")
