@@ -3414,56 +3414,103 @@ async function runPaddleVl(exportDocx=false){
 $("paddleVlParse").onclick=()=>runPaddleVl(false);
 $("paddleVlDocx").onclick=()=>runPaddleVl(true);
 
+async function comparePdfFilesLocally(originalBytes,revisedBytes,originalName,revisedName){
+ let oldPdf,newPdf,layer;
+ const button=$("comparePdf"),baseStatus=toast;
+ try{
+  if(!window.pdfjsLib||!pdfjsLib.getDocument)throw new Error("مكتبة عرض PDF غير متاحة. أعد تحميل البرنامج مع اتصال بالإنترنت.");
+  layer=document.createElement("div");
+  layer.style.cssText="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:12px";
+  const panel=document.createElement("section");
+  panel.style.cssText="width:min(960px,100%);max-height:92vh;overflow:auto;overscroll-behavior:contain;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:18px;padding:16px;direction:rtl";
+  const heading=document.createElement("h2");heading.textContent="مقارنة بصرية ونصية للملفين";
+  const status=document.createElement("p");status.className="dshint";status.setAttribute("role","status");status.setAttribute("aria-live","polite");status.textContent="جارٍ فتح الملفين محليًا…";
+  const overview=document.createElement("div");overview.className="pdf-image-meta";
+  const results=document.createElement("div");results.style.cssText="display:grid;gap:12px";
+  const close=document.createElement("button");close.type="button";close.textContent="إغلاق";close.className="p";close.style.marginTop="12px";close.onclick=()=>layer.remove();
+  panel.append(heading,status,overview,results,close);layer.append(panel);document.body.append(layer);
+  oldPdf=await pdfjsLib.getDocument({data:new Uint8Array(originalBytes).slice()}).promise;
+  newPdf=await pdfjsLib.getDocument({data:new Uint8Array(revisedBytes).slice()}).promise;
+  if(oldPdf.numPages>30||newPdf.numPages>30)throw new Error("المقارنة المرئية محدودة إلى 30 صفحة لكل ملف حاليًا.");
+  const summary={pagesA:oldPdf.numPages,pagesB:newPdf.numPages,changed:0,added:Math.max(0,newPdf.numPages-oldPdf.numPages),removed:Math.max(0,oldPdf.numPages-newPdf.numPages)};
+  const totalPages=Math.max(oldPdf.numPages,newPdf.numPages);
+  for(let n=1;n<=totalPages;n++){
+   status.textContent="جارٍ فحص الصفحة "+n+" من "+totalPages+"…";
+   if(n>oldPdf.numPages||n>newPdf.numPages){
+    const added=n>oldPdf.numPages,doc=added?newPdf:oldPdf;
+    const rendered=await renderPdfComparePage(doc,n,undefined);
+    const box={x:0,y:0,w:rendered.width,h:rendered.height};
+    const card=document.createElement("article");card.className="pdf-image-card";
+    const title=document.createElement("strong");title.textContent="الصفحة "+n+": "+(added?"مضافة في الملف الثاني":"محذوفة من الملف الثاني");
+    const img=document.createElement("img");img.src=pdfCompareThumbnail(rendered,box);img.alt="معاينة الصفحة "+n;img.style.cssText="display:block;max-width:100%;max-height:340px;object-fit:contain;margin-top:8px;border:1px solid var(--line);border-radius:8px";
+    card.append(title,img);results.append(card);continue;
+   }
+   const [pageA,pageB]=await Promise.all([oldPdf.getPage(n),newPdf.getPage(n)]);
+   const baseA=pageA.getViewport({scale:1}),baseB=pageB.getViewport({scale:1});
+   const sharedScale=Math.min(1,Math.sqrt(1500000/Math.max(1,baseA.width*baseA.height,baseB.width*baseB.height)));
+   const [a,b]=await Promise.all([renderPdfComparePage(oldPdf,n,sharedScale),renderPdfComparePage(newPdf,n,sharedScale)]);
+   const width=Math.max(a.width,b.width),height=Math.max(a.height,b.height),total=width*height;
+   let changed=0,minX=width,minY=height,maxX=-1,maxY=-1;
+   for(let y=0;y<height;y++)for(let x=0;x<width;x++){
+    const ia=(y*a.width+x)*4,ib=(y*b.width+x)*4;
+    let different=x>=a.width||y>=a.height||x>=b.width||y>=b.height;
+    if(!different)different=Math.abs(a.pixels[ia]-b.pixels[ib])>32||Math.abs(a.pixels[ia+1]-b.pixels[ib+1])>32||Math.abs(a.pixels[ia+2]-b.pixels[ib+2])>32;
+    if(different){changed++;minX=Math.min(minX,x);minY=Math.min(minY,y);maxX=Math.max(maxX,x);maxY=Math.max(maxY,y)}
+   }
+   const textChanged=normalizePdfCompareText(a.text)!==normalizePdfCompareText(b.text);
+   const removedText=pdfCompareLineDifference(a.lines,b.lines),addedText=pdfCompareLineDifference(b.lines,a.lines);
+   const visualPercent=changed/Math.max(1,total)*100;
+   if(textChanged||visualPercent>0.15||a.width!==b.width||a.height!==b.height){
+    summary.changed++;
+    const box=maxX>=0?{x:minX,y:minY,w:maxX-minX+1,h:maxY-minY+1}:null;
+    const card=document.createElement("article");card.className="pdf-image-card";
+    const title=document.createElement("strong");title.textContent="الصفحة "+n+" — "+(textChanged?"تغيير نصي":"تغيير بصري")+" · نسبة الاختلاف المرئي التقريبية "+visualPercent.toFixed(2)+"%";
+    const meta=document.createElement("p");meta.className="pdf-image-meta";meta.textContent="النسخة الأولى: "+a.width+"×"+a.height+" · النسخة الثانية: "+b.width+"×"+b.height+(box?" · حدود التغيير: x "+box.x+"، y "+box.y+"، العرض "+box.w+"، الارتفاع "+box.h:"");
+    card.append(title,meta);
+    if(box){
+     const previews=document.createElement("div");previews.style.cssText="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px";
+     for(const [source,label] of [[a,"الملف الأول"],[b,"الملف الثاني"]]){
+      const wrap=document.createElement("div");
+      const caption=document.createElement("small");caption.textContent=label;
+      const img=document.createElement("img");img.src=pdfCompareThumbnail(source,box);img.alt=label+"، موضع الاختلاف في الصفحة "+n;img.loading="lazy";img.style.cssText="display:block;width:100%;max-height:220px;object-fit:contain;border:1px solid var(--line);border-radius:8px;background:#fff";
+      wrap.append(caption,img);previews.append(wrap);
+     }
+     card.append(previews);
+    }
+    if(removedText.length){const p=document.createElement("p");p.className="pdf-image-meta";p.textContent="نصوص أُزيلت أو تغيرت: "+removedText.join(" | ");card.append(p)}
+    if(addedText.length){const p=document.createElement("p");p.className="pdf-image-meta";p.textContent="نصوص أُضيفت أو تغيرت: "+addedText.join(" | ");card.append(p)}
+    results.append(card);
+   }
+  }
+  overview.textContent="الملف الأول: "+originalName+" ("+summary.pagesA+" صفحات) · الملف الثاني: "+revisedName+" ("+summary.pagesB+" صفحات) · صفحات بها اختلافات: "+summary.changed+" · صفحات مضافة: "+summary.added+" · صفحات محذوفة: "+summary.removed+".";
+  status.textContent="اكتملت المقارنة داخل المتصفح. لم يتم رفع الملفين إلى الخادم. الفروق البصرية تقريبية وقد تتأثر باختلاف الخطوط أو طريقة العرض.";
+  if(!results.childElementCount){const p=document.createElement("p");p.textContent="لم تُرصد اختلافات نصية أو مرئية ضمن حدود الفحص.";results.append(p)}
+ }catch(error){
+  if(layer&&layer.isConnected){const status=layer.querySelector('[role="status"]');if(status)status.textContent=error.message||"تعذّرت مقارنة الملفين."}
+  else toast(error.message||"تعذّرت مقارنة الملفين.");
+ }finally{
+  if(oldPdf)oldPdf.destroy();
+  if(newPdf)newPdf.destroy();
+  button.disabled=false;
+ }
+}
 const comparePicker=$("comparePdfFile");
 $("comparePdf").onclick=()=>comparePicker.click();
 comparePicker.onchange=async()=>{
-  const file=comparePicker.files&&comparePicker.files[0];
-  comparePicker.value="";
-  if(!file)return;
-  if(!pages.length)return toast("افتح ملف PDF الأصلي أولًا.");
-  const base=apiBase();if(!base)return toast("خادم الفلقي غير متصل.");
-  const selected=pages.filter(p=>p.sel),list=selected.length?selected:pages;
-  if(list.length>30)return toast("المقارنة تدعم حتى 30 صفحة من الملف المفتوح.");
-  if(file.size>25*1024*1024)return toast("حجم الملف المختار يتجاوز 25 ميجابايت.");
-  if(!confirm("ستُرسل نسخة من الملف المفتوح والملف الذي اخترته إلى خادم الفلقي لإجراء المقارنة. لا تتابع إذا احتويا على معلومات لا ترغب بإرسالها."))return;
-  const button=$("comparePdf");button.disabled=true;
-  try{
-    toast("جارٍ تجهيز الملفين للمقارنة…");
-    const current=await buildPdf(list),form=new FormData();
-    form.append("original",new Blob([current],{type:"application/pdf"}),safeName()+"-original.pdf");
-    form.append("revised",file,file.name||"revised.pdf");
-    const response=await fetch(base+"/api/pdf/compare",{method:"POST",body:form});
-    const result=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(result.detail||"تعذّرت مقارنة الملفين.");
-    const lines=[
-      "نتيجة المقارنة",
-      "صفحات الملف الأصلي: "+result.original_page_count,
-      "صفحات الملف المعدّل: "+result.revised_page_count,
-      "الصفحات المتغيرة: "+result.changed_pages,
-      "الصفحات المتطابقة: "+result.same_pages,
-      ""
-    ];
-    for(const page of result.pages||[]){
-      lines.push("الصفحة "+page.page+" — "+(page.status==="same"?"دون تغيير":page.status==="added"?"صفحة مضافة":page.status==="removed"?"صفحة محذوفة":"يوجد تغيير"));
-      const diff=page.text||{};
-      for(const value of (diff.added_lines||[]).slice(0,12))lines.push("  + "+value);
-      for(const value of (diff.removed_lines||[]).slice(0,12))lines.push("  − "+value);
-      if(page.geometry_changed)lines.push("  • تغيرت أبعاد الصفحة");
-      if(page.visual&&page.visual.comparable&&page.visual.changed)lines.push("  • تغير بصري في "+page.visual.changed_percent+"% من مساحة الصفحة تقريبًا");
-      if(page.visual&&!page.visual.comparable)lines.push("  • تعذرت المقارنة البصرية بسبب اختلاف أبعاد العرض");
-    }
-    lines.push("","حدود المقارنة: تشمل النص القابل للاستخراج وأبعاد الصفحات والفروق البصرية التقريبية؛ قد لا تكشف الفروق الدقيقة ولا تحدد العنصر الذي تغيّر.");
-    const layer=document.createElement("div");
-    layer.style.cssText="position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.62);display:flex;align-items:center;justify-content:center;padding:14px";
-    const panel=document.createElement("section");
-    panel.style.cssText="width:min(720px,100%);max-height:85vh;overflow:auto;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;direction:rtl";
-    const heading=document.createElement("h2");heading.textContent="تقرير مقارنة PDF";
-    const pre=document.createElement("pre");pre.textContent=lines.join("\\n");pre.style.cssText="white-space:pre-wrap;overflow-wrap:anywhere;font:14px/1.8 system-ui;max-height:65vh;overflow:auto";
-    const close=document.createElement("button");close.textContent="إغلاق";close.className="p";close.onclick=()=>layer.remove();
-    panel.append(heading,pre,close);layer.append(panel);document.body.append(layer);
-    toast("اكتملت مقارنة الملفين.");
-  }catch(error){console.error(error);toast(error.message||"فشلت مقارنة الملفين.");}
-  finally{button.disabled=false}
+ const file=comparePicker.files&&comparePicker.files[0];comparePicker.value="";
+ if(!file)return;
+ if(!pages.length)return toast("افتح ملف PDF الأصلي أولًا.");
+ const selected=pages.filter(p=>p.sel),list=selected.length?selected:pages;
+ if(list.length>30)return toast("المقارنة تدعم حتى 30 صفحة من الملف المفتوح.");
+ if(file.size>25*1024*1024)return toast("حجم الملف المختار يتجاوز 25 ميجابايت.");
+ const button=$("comparePdf");button.disabled=true;
+ try{
+  if(!window.pdfjsLib||!pdfjsLib.getDocument)throw new Error("مكتبة عرض PDF غير متاحة.");
+  toast("جارٍ تجهيز المقارنة محليًا…");
+  const current=await buildPdf(list),revised=await file.arrayBuffer();
+  await comparePdfFilesLocally(current,revised,safeName()+".pdf",file.name||"الملف الثاني");
+ }catch(error){console.error(error);toast(error.message||"فشلت مقارنة الملفين.");}
+ finally{button.disabled=false}
 };
 
 async function deletePdfVectorObject(item){
