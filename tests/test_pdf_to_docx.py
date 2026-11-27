@@ -162,6 +162,40 @@ class PdfToDocxTests(unittest.TestCase):
             ["يمين أعلى", "يمين أسفل", "يسار أعلى", "يسار أسفل"],
         )
 
+    def test_native_pdf_line_merge_keeps_columns_separate(self):
+        import main
+
+        lines = [
+            {"text": "كلمة", "bbox": [100, 20, 150, 40], "column": 1, "region": "body", "direction": "rtl", "reading_order": 1},
+            {"text": "أولى", "bbox": [40, 20, 90, 40], "column": 1, "region": "body", "direction": "rtl", "reading_order": 2},
+            {"text": "عمود", "bbox": [300, 20, 360, 40], "column": 2, "region": "body", "direction": "rtl", "reading_order": 3},
+        ]
+        merged = main._merge_native_pdf_lines(lines)
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["text"], "كلمة أولى")
+        self.assertEqual(merged[1]["text"], "عمود")
+
+    def test_native_simple_route_rejects_tables_and_multiple_columns(self):
+        from types import SimpleNamespace
+        import main
+
+        page = SimpleNamespace(get_images=lambda full=True: [], find_tables=lambda: SimpleNamespace(tables=[]))
+        simple = {"layout": {"column_count": 1}, "lines": [{"bbox": [1, 1, 20, 10], "text": "نص"}]}
+        self.assertTrue(main._native_pdf_page_is_simple(page, simple))
+
+        table_page = SimpleNamespace(get_images=lambda full=True: [], find_tables=lambda: SimpleNamespace(tables=[object()]))
+        self.assertFalse(main._native_pdf_page_is_simple(table_page, simple))
+        multi_column = {"layout": {"column_count": 2}, "lines": simple["lines"]}
+        self.assertFalse(main._native_pdf_page_is_simple(page, multi_column))
+
+    def test_native_simple_route_rejects_pages_with_images(self):
+        from types import SimpleNamespace
+        import main
+
+        page = SimpleNamespace(get_images=lambda full=True: [(1,)], find_tables=lambda: SimpleNamespace(tables=[]))
+        result = {"layout": {"column_count": 1}, "lines": [{"bbox": [1, 1, 20, 10], "text": "نص"}]}
+        self.assertFalse(main._native_pdf_page_is_simple(page, result))
+
     def test_ocr_docx_preserves_source_pdf_page_dimensions(self):
         from pdf_to_docx import create_ocr_docx
         from docx.shared import Pt
