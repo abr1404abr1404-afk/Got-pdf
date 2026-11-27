@@ -1,0 +1,96 @@
+name: Backend live OCR smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install OCR fixture fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends fonts-noto-core
+          python -m pip install --upgrade pip pillow requests
+      - name: Wait for backend and verify live image/PDF OCR
+        env:
+          BACKEND_URL: https://got-pdf.onrender.com
+        run: |
+          python - <<'PY'
+          import io, json, os, time
+          import requests
+          from PIL import Image, ImageDraw, ImageFont
+
+          base = os.environ["BACKEND_URL"].rstrip("/")
+          session = requests.Session()
+          health = None
+          for attempt in range(30):
+              try:
+                  response = session.get(base + "/api/health", timeout=25)
+                  if response.ok:
+                      health = response.json()
+                      break
+                  print(f"health attempt {attempt + 1}: HTTP {response.status_code}")
+              except requests.RequestException as exc:
+                  print(f"health attempt {attempt + 1}: {exc}")
+              time.sleep(10)
+          assert health and health.get("ok") is True, "Backend health did not become ready"
+          assert health.get("arabic_ocr_ready") is True, "Arabic Tesseract pack missing"
+          assert health.get("english_ocr_ready") is True, "English Tesseract pack missing"
+
+          image = Image.new("RGB", (1900, 620), "white")
+          draw = ImageDraw.Draw(image)
+          latin = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
+          arabic = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf", 105)
+          draw.text((90, 90), "ALFAQI PDF OCR CHECK 2026", font=latin, fill="black")
+          draw.text((1600, 330), "اختبار الفلقي", font=arabic, fill="black", direction="rtl", language="ar")
+          png = io.BytesIO()
+          image.save(png, format="PNG")
+          png_bytes = png.getvalue()
+
+          image_response = session.post(
+              base + "/api/ocr/image",
+              files={"file": ("live-ocr-fixture.png", png_bytes, "image/png")},
+              data={"language": "ara+eng", "engine": "tesseract"},
+              timeout=180,
+          )
+          assert image_response.ok, f"Image OCR failed: HTTP {image_response.status_code}: {image_response.text[:500]}"
+          image_result = image_response.json()
+          image_lines = image_result.get("lines") or []
+          image_text = " ".join(str(line.get("text", "")) for line in image_lines)
+          assert image_lines, "Image OCR returned no text lines"
+          assert "OCR" in image_text.upper() or "ALFAQI" in image_text.upper(), f"Known English text not recognized: {image_text[:500]}"
+          assert any("\u0600" <= ch <= "\u06ff" for ch in image_text), f"No Arabic characters recognized: {image_text[:500]}"
+          print("LIVE_IMAGE_OCR=PASS")
+          print("IMAGE_OCR_TEXT=" + image_text[:500])
+
+          pdf = io.BytesIO()
+          image.save(pdf, format="PDF", resolution=150.0)
+          pdf_response = session.post(
+              base + "/api/ocr/pdf",
+              files={"file": ("live-ocr-fixture.pdf", pdf.getvalue(), "application/pdf")},
+              data={"language": "ara+eng", "dpi": "180"},
+              timeout=240,
+          )
+          assert pdf_response.ok, f"PDF OCR failed: HTTP {pdf_response.status_code}: {pdf_response.text[:500]}"
+          pdf_result = pdf_response.json()
+          pages = pdf_result.get("pages") or []
+          assert pdf_result.get("page_count") == 1 and len(pages) == 1, "PDF OCR page count mismatch"
+          pdf_lines = (pages[0].get("ocr") or {}).get("lines") or []
+          pdf_text = " ".join(str(line.get("text", "")) for line in pdf_lines)
+          assert pdf_lines, "Scanned PDF OCR returned no text lines"
+          assert "OCR" in pdf_text.upper() or "ALFAQI" in pdf_text.upper(), f"Known PDF text not recognized: {pdf_text[:500]}"
+          print("LIVE_SCANNED_PDF_OCR=PASS")
+          print("PDF_OCR_TEXT=" + pdf_text[:500])
+          print("BACKEND_LIVE_OCR_SMOKE=PASS")
+          PY
