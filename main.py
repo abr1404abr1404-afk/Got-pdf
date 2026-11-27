@@ -1249,6 +1249,8 @@ def health():
                 "assistant.extract": {
                     "available": bool(OPENAI_API_KEY),
                     "configured": bool(OPENAI_API_KEY),
+                    "verified": False,
+                    "status": "configured_unverified" if OPENAI_API_KEY else "not_configured",
                     "engine": OPENAI_MODEL if OPENAI_API_KEY else None,
                 },
             }}
