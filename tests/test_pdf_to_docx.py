@@ -162,6 +162,28 @@ class PdfToDocxTests(unittest.TestCase):
             ["يمين أعلى", "يمين أسفل", "يسار أعلى", "يسار أسفل"],
         )
 
+    def test_ocr_docx_preserves_source_pdf_page_dimensions(self):
+        from pdf_to_docx import create_ocr_docx
+        from docx.shared import Pt
+
+        converted = Document(io.BytesIO(create_ocr_docx([{
+            "direction": "rtl",
+            "dpi": 240,
+            "page_width_pt": 420,
+            "page_height_pt": 595,
+            "lines": [{
+                "text": "مستند عربي",
+                "bbox": [100, 100, 500, 150],
+                "column": 1,
+                "reading_order": 1,
+            }],
+        }])))
+        section = converted.sections[0]
+        self.assertAlmostEqual(section.page_width.pt, 420, delta=0.1)
+        self.assertAlmostEqual(section.page_height.pt, 595, delta=0.1)
+        self.assertAlmostEqual(section.top_margin.pt, 0, delta=0.1)
+        self.assertAlmostEqual(section.right_margin.pt, 0, delta=0.1)
+
     def test_rejects_more_than_twenty_pages(self):
         doc = pymupdf.open()
         for _ in range(21):
