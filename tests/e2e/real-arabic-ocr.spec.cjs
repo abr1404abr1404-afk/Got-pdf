@@ -90,8 +90,8 @@ const failures = [];
     await imagePage.locator("#ocb").click();
     await imagePage.locator("#focr").setInputFiles(path.join(fixture, "real-dubai-law-page1.png"));
     await imagePage.getByRole("button", {name: "مراجعة النص"}).first().waitFor({state: "visible", timeout});
-    await imagePage.getByRole("button", {name: "مراجعة النص"}).first().click();
-    // Validate the visual replacement layer, not only OCR text extraction.
+    // Validate the visual replacement layer before opening the review modal,
+    // which intentionally covers the page and intercepts pointer events.
     await imagePage.locator(".det").first().waitFor({state:"visible",timeout});
     await imagePage.locator(".det").first().click();
     const imageOverlay=imagePage.locator(".ov.ocr-line").first();
@@ -122,6 +122,7 @@ const failures = [];
       original_box_width:beforeBox.width,edited_box_width:after.width,
       original_font_size:beforeFont,edited_font_size:after.fontSize,shaping});
     await imageOverlay.locator(".t").evaluate(el=>{el.blur();});
+    await imagePage.getByRole("button", {name: "مراجعة النص"}).first().click();
     const imageText = imagePage.locator("#ocrReviewText");
     await imageText.waitFor({state: "visible"});
     const originalImageText = await imageText.inputValue();
