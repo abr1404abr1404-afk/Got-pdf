@@ -197,6 +197,13 @@ if native_layout_result and native_layout_result.get("lines"):
         "render": render_docx_metrics(merged_bytes, source[0]),
     }
     (OUT / "real-dubai-law-native-merged-candidate.docx").write_bytes(merged_bytes)
+    render_check = native_merged_candidate["render"]
+    if render_check.get("status") != "rendered" or render_check.get("page_count") != 1:
+        raise SystemExit(f"Native merged candidate must render to one page: {render_check}")
+    if render_check.get("width_error_percent", 100) > 0.5 or render_check.get("height_error_percent", 100) > 0.5:
+        raise SystemExit(f"Native merged candidate page size differs from source: {render_check}")
+    if native_merged_candidate["quality"].get("text_coverage_percent") != 100.0:
+        raise SystemExit("Native merged candidate lost source words.")
 native_words_result = main._native_pdf_page_result_words(source[0], main.OCR_DPI / 72.0)
 native_words_candidate = None
 if native_words_result and native_words_result.get("lines"):
