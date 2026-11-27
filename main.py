@@ -634,7 +634,7 @@ def _dedupe_tiled(rows: list[dict]) -> list[dict]:
     """Merge overlapping tile OCR lines without dropping distinct text in the same region."""
     kept: list[dict] = []
     for row in sorted(rows, key=lambda item: float(item.get("confidence", 0)) , reverse=True):
-        text = re.sub(r"[^\\w]", "", str(row.get("text", "")).casefold())
+        text = re.sub(r"[^\w]", "", str(row.get("text", "")).casefold())
         box = row.get("bbox", [])
         duplicate = None
         if len(box) == 4:
@@ -648,7 +648,7 @@ def _dedupe_tiled(rows: list[dict]) -> list[dict]:
                 intersection = max(0, ix1 - ix0) * max(0, iy1 - iy0)
                 other_area = max(1, (other_box[2] - other_box[0]) * (other_box[3] - other_box[1]))
                 overlap = intersection / min(area, other_area)
-                other_text = re.sub(r"[^\\w]", "", str(other.get("text", "")).casefold())
+                other_text = re.sub(r"[^\w]", "", str(other.get("text", "")).casefold())
                 similarity = difflib.SequenceMatcher(None, text, other_text).ratio()
                 if overlap >= 0.55 and similarity >= 0.78:
                     duplicate = other
