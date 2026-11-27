@@ -614,3 +614,22 @@ header .hr2{display:flex;flex-direction:column;align-items:stretch;gap:0;overflo
  .hybrid-panel #info{display:none}
 }
 @media(max-width:380px){.hybrid-tab{padding-inline:10px;font-size:.77rem}.hybrid-panel .lb{font-size:.72rem}}
+
+
+/* Keep the hybrid toolbar panels constrained to the real viewport. */
+header .hr2,
+.hybrid-tabs,
+.hybrid-panels,
+.hybrid-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+.hybrid-tabs,
+.hybrid-panels,
+.hybrid-panel {
+  width: 100%;
+}
+.hybrid-panel {
+  flex-wrap: nowrap;
+}
