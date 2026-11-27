@@ -2375,8 +2375,12 @@ $("thumbsClose").onclick=closeThumbs;
 function dock(el,tb){
   if(!el||!tb)return;
   const vv=window.visualViewport;
-  const left=vv?Number(vv.offsetLeft)||0:0,top=vv?Number(vv.offsetTop)||0:0;
-  const width=vv?vv.width:innerWidth,height=vv?vv.height:innerHeight;
+  // Bound against the layout viewport as well as VisualViewport. Some mobile
+  // emulators report a wider visual viewport than the actual CSS viewport.
+  const width=Math.max(1,Math.min(innerWidth,vv&&vv.width>0?vv.width:innerWidth));
+  const height=Math.max(1,Math.min(innerHeight,vv&&vv.height>0?vv.height:innerHeight));
+  const left=Math.min(Math.max(0,vv?Number(vv.offsetLeft)||0:0),Math.max(0,innerWidth-width));
+  const top=Math.min(Math.max(0,vv?Number(vv.offsetTop)||0:0),Math.max(0,innerHeight-height));
   const right=left+width,bottom=top+height,margin=8;
   const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
   tb.style.position="fixed";tb.style.bottom="auto";
