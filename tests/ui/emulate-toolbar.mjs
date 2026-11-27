@@ -5,7 +5,18 @@ import { setTimeout as delay } from "node:timers/promises";
 const server = spawn("python", ["-m", "http.server", "4173", "--bind", "127.0.0.1"], { stdio: "ignore" });
 const base = "http://127.0.0.1:4173/";
 try {
-  await delay(900);
+  async function waitForServer() {
+  const deadline = Date.now() + 15000;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(base);
+      if (response.ok) return;
+    } catch {}
+    await delay(200);
+  }
+  throw new Error("Local test server did not become ready within 15 seconds.");
+}
+await waitForServer();
   const browser = await chromium.launch({ headless: true });
   const profiles = [
     { name: "mobile-small", viewport: { width: 360, height: 780 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 },
