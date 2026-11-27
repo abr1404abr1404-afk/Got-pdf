@@ -87,6 +87,8 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstr
 GOTENBERG_URL = os.getenv("GOTENBERG_URL", "").strip().rstrip("/")
 PADDLEOCR_VL_URL = os.getenv("PADDLEOCR_VL_URL", "").strip().rstrip("/")
 PADDLEOCR_VL_API_KEY = os.getenv("PADDLEOCR_VL_API_KEY", "").strip()
+PADDLEOCR_REMOTE_URL = os.getenv("PADDLEOCR_REMOTE_URL", "").strip().rstrip("/")
+PADDLEOCR_REMOTE_API_KEY = os.getenv("PADDLEOCR_REMOTE_API_KEY", "").strip()
 MAX_CONVERTED_MB = min(100, max(1, int(os.getenv("MAX_CONVERTED_MB", "40"))))
 
 app = FastAPI(title=APP_NAME, version="0.2.0", description="Hybrid Arabic/English OCR and document assistant service for Alfalqi PDF")
@@ -1040,6 +1042,47 @@ def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
     return sorted(found, key=lambda item: (item["bbox"][1], item["bbox"][0]))
 
 
+def _paddle_remote(image: np.ndarray, language: str) -> tuple[list[dict], str | None]:
+    """Call a separately hosted PaddleOCR worker without exposing its secret to browsers."""
+    if not PADDLEOCR_REMOTE_URL:
+        return [], "remote PaddleOCR URL is not configured"
+    try:
+        ok, encoded = cv2.imencode(".png", image)
+        if not ok:
+            return [], "could not encode image for remote PaddleOCR"
+        headers = {"Authorization": "Bearer " + PADDLEOCR_REMOTE_API_KEY} if PADDLEOCR_REMOTE_API_KEY else {}
+        with httpx.Client(timeout=httpx.Timeout(150.0, connect=15.0)) as client:
+            response = client.post(
+                PADDLEOCR_REMOTE_URL + "/api/ocr/image",
+                files={"file": ("page.png", encoded.tobytes(), "image/png")},
+                data={"language": language},
+                headers=headers,
+            )
+            response.raise_for_status()
+            payload = response.json()
+        raw_lines = payload.get("lines") if isinstance(payload, dict) else None
+        if not isinstance(raw_lines, list):
+            return [], "remote PaddleOCR returned an invalid response"
+        rows = []
+        for line in raw_lines:
+            if not isinstance(line, dict):
+                continue
+            text = str(line.get("text") or "").strip()
+            box = line.get("bbox")
+            if not text or not isinstance(box, (list, tuple)) or len(box) != 4:
+                continue
+            try:
+                bbox = [int(float(value)) for value in box]
+                confidence = float(line.get("confidence", 0))
+            except (TypeError, ValueError):
+                continue
+            rows.append({"text": text, "confidence": confidence, "bbox": bbox,
+                         "engine": "paddleocr-remote"})
+        return rows, None if rows else "remote PaddleOCR returned no text"
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        return [], "remote PaddleOCR unavailable: " + str(exc)[:300]
+
+
 def _paddle_runtime_available() -> bool:
     """PaddleOCR may run only when explicitly enabled and both packages exist."""
     return bool(PADDLE_OCR_OPT_IN and importlib.util.find_spec("paddleocr") and importlib.util.find_spec("paddle"))
@@ -1052,13 +1095,15 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
         requested = str(engine_override).strip().lower()
         if requested not in {"hybrid", "paddleocr", "tesseract"}:
             raise ValueError("محرك OCR غير مدعوم.")
-        if requested == "paddleocr" and not _paddle_runtime_available():
+        if requested == "paddleocr" and not (_paddle_runtime_available() or PADDLEOCR_REMOTE_URL):
             raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
         mode = requested
     paddle_ready = _paddle_runtime_available()
-    if mode == "paddleocr" and not paddle_ready:
+    if mode == "paddleocr" and not (paddle_ready or PADDLEOCR_REMOTE_URL):
         raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
-    if mode in {"hybrid", "paddleocr"} and paddle_ready:
+    if mode in {"hybrid", "paddleocr"} and PADDLEOCR_REMOTE_URL:
+        paddle_rows, paddle_error = _paddle_remote(prepared, language)
+    elif mode in {"hybrid", "paddleocr"} and paddle_ready:
         paddle_rows, paddle_error = _paddle(prepared, language)
     else:
         paddle_rows, paddle_error = [], "PaddleOCR disabled or not installed; using Tesseract fallback"
@@ -1150,7 +1195,7 @@ def health():
     paddleocr_installed = importlib.util.find_spec("paddleocr") is not None
     paddlepaddle_installed = importlib.util.find_spec("paddle") is not None
     pdf2docx_installed = importlib.util.find_spec("pdf2docx") is not None
-    paddle_enabled = _paddle_runtime_available() and OCR_MODE in {"hybrid", "paddleocr"} and paddleocr_installed and paddlepaddle_installed
+    paddle_enabled = (bool(PADDLEOCR_REMOTE_URL) or (_paddle_runtime_available() and paddleocr_installed and paddlepaddle_installed)) and OCR_MODE in {"hybrid", "paddleocr"}
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
@@ -1169,7 +1214,9 @@ def health():
             "paddleocr_installed": paddleocr_installed,
             "paddlepaddle_installed": paddlepaddle_installed,
             "paddleocr_enabled": paddle_enabled,
-            "paddleocr_configured": PADDLE_OCR_OPT_IN,
+            "paddleocr_remote_configured": bool(PADDLEOCR_REMOTE_URL),
+            "paddleocr_remote_status": "configured_unverified" if PADDLEOCR_REMOTE_URL else "not_configured",
+            "paddleocr_configured": PADDLE_OCR_OPT_IN or bool(PADDLEOCR_REMOTE_URL),
             "paddleocr_verified": False,
             "paddleocr_status": "configured_unverified" if paddle_enabled else ("enabled_but_runtime_missing" if PADDLE_OCR_OPT_IN else "disabled"),
             "paddleocr_opt_in": PADDLE_OCR_OPT_IN,
