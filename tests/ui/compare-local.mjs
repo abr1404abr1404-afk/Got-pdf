@@ -28,7 +28,16 @@ function makePdf(text) {
 const server = spawn("python", ["-m", "http.server", "4173", "--bind", "127.0.0.1"], { stdio: "ignore" });
 let browser;
 try {
-  await delay(800);
+  const deadline = Date.now() + 15000;
+  let ready = false;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch("http://127.0.0.1:4173/");
+      if (response.ok) { ready = true; break; }
+    } catch {}
+    await delay(200);
+  }
+  if (!ready) throw new Error("Local test server did not become ready within 15 seconds.");
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
