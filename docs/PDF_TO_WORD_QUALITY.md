@@ -60,3 +60,12 @@ The production route remains unchanged for selectable-text PDFs until a structur
 A conservative native-text reconstruction path is available behind the backend environment variable `PDF_DOCX_NATIVE_SIMPLE_PAGES=true`. It is **disabled by default**. It is considered only when every page has selectable native text, one detected column, no embedded raster images, and table detection succeeds with no tables. If any page fails a check or table detection is unavailable, the request falls back to the existing `pdf2docx` converter. The route merges same-baseline text fragments while keeping detected columns and regions separate, and preserves source page dimensions.
 
 This gate is intentionally conservative. It is not yet approved as the default production route: the real benchmark still contains table-like structures, and the current evidence is not broad enough to establish general visual fidelity. CI unit tests cover the merge and the table/image/multi-column rejection guards; a broader multi-document benchmark and pixel-level visual comparison are still required before enabling the flag in the hosted service.
+
+
+## Multi-layout and visual diagnostics
+
+CI now runs `tests/e2e/layout_matrix.py` in addition to the public Arabic legal-PDF benchmark. The matrix creates controlled one-page PDFs for four distinct structures: simple text, ruled table, two columns, and embedded image with caption. Each case is sent through the real formatted-conversion API, the returned DOCX is inspected for editable paragraphs/tables/images, and LibreOffice round-trips it to PDF.
+
+For one-page round-trips, the test rasterizes source and output at the same nominal scale and records normalized mean absolute pixel error plus the percentage of pixels within 24 grayscale levels. If page counts differ, visual comparison is marked not comparable rather than forcing a misleading score. When raster dimensions differ, the output is resized to source dimensions for diagnostic comparison; this is not SSIM and is not proof of layout equivalence. The matrix is synthetic and isolates layout classes; it complements, rather than replaces, the real Arabic source PDF. Its measurements must not be presented as Microsoft Word rendering fidelity.
+
+The native simple-page route remains opt-in and disabled by default. The matrix currently evaluates the public API's production route; the results are used to identify layout regressions before any route-selection policy is widened.
