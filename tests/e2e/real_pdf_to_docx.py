@@ -5,6 +5,8 @@ from __future__ import annotations
 import io
 import json
 import re
+import subprocess
+import tempfile
 import unicodedata
 from pathlib import Path
 import sys
@@ -90,6 +92,43 @@ def merge_native_same_baseline(lines: list[dict]) -> list[dict]:
     return sorted(merged, key=lambda item: int(item.get("reading_order", 0) or 0))
 
 
+def render_docx_metrics(data: bytes, source_page: pymupdf.Page) -> dict:
+    """Round-trip DOCX through LibreOffice and measure page count and physical size."""
+    with tempfile.TemporaryDirectory(prefix="alfalqi-docx-render-") as temp:
+        root = Path(temp)
+        input_path = root / "candidate.docx"
+        output_dir = root / "out"
+        profile = root / "lo-profile"
+        output_dir.mkdir()
+        input_path.write_bytes(data)
+        result = subprocess.run(
+            ["libreoffice", f"-env:UserInstallation={profile.as_uri()}",
+             "--headless", "--convert-to", "pdf", "--outdir", str(output_dir), str(input_path)],
+            capture_output=True, text=True, timeout=90, check=False,
+        )
+        pdf_path = output_dir / "candidate.pdf"
+        if result.returncode != 0 or not pdf_path.is_file():
+            return {"status": "render_failed", "returncode": result.returncode,
+                    "stderr": (result.stderr or result.stdout)[-1200:]}
+        rendered = pymupdf.open(pdf_path)
+        try:
+            first = rendered[0]
+            width_error = abs(first.rect.width - source_page.rect.width) / source_page.rect.width * 100
+            height_error = abs(first.rect.height - source_page.rect.height) / source_page.rect.height * 100
+            return {
+                "status": "rendered", "page_count": rendered.page_count,
+                "first_page_width_pt": round(first.rect.width, 2),
+                "first_page_height_pt": round(first.rect.height, 2),
+                "source_page_width_pt": round(source_page.rect.width, 2),
+                "source_page_height_pt": round(source_page.rect.height, 2),
+                "width_error_percent": round(width_error, 2),
+                "height_error_percent": round(height_error, 2),
+                "rendered_text_chars": len(first.get_text("text") or ""),
+            }
+        finally:
+            rendered.close()
+
+
 def read_docx(data: bytes) -> tuple[str, int, int]:
     document = Document(io.BytesIO(data))
     paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
@@ -141,6 +180,8 @@ if native_layout_result and native_layout_result.get("lines"):
     merged_bytes = create_ocr_docx([{
         "page": 1,
         "dpi": main.OCR_DPI,
+        "page_width_pt": float(source[0].rect.width),
+        "page_height_pt": float(source[0].rect.height),
         "direction": (native_layout_result.get("layout") or {}).get("direction", "rtl"),
         "lines": merged_lines,
     }])
@@ -153,6 +194,7 @@ if native_layout_result and native_layout_result.get("lines"):
         "images": merged_images,
         "quality": analyze_pdf_docx_quality(native_pdf, merged_bytes),
         "cer_vs_pdf_text": cer(reference, merged_text),
+        "render": render_docx_metrics(merged_bytes, source[0]),
     }
     (OUT / "real-dubai-law-native-merged-candidate.docx").write_bytes(merged_bytes)
 native_words_result = main._native_pdf_page_result_words(source[0], main.OCR_DPI / 72.0)
@@ -161,6 +203,8 @@ if native_words_result and native_words_result.get("lines"):
     native_words_bytes = create_ocr_docx([{
         "page": 1,
         "dpi": main.OCR_DPI,
+        "page_width_pt": float(source[0].rect.width),
+        "page_height_pt": float(source[0].rect.height),
         "direction": (native_words_result.get("layout") or {}).get("direction", "rtl"),
         "lines": native_words_result["lines"],
     }])
