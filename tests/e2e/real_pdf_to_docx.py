@@ -89,6 +89,33 @@ native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 # This is diagnostic only; the production route is not switched unless the candidate wins.
 native_layout_result = main._native_pdf_page_result(source[0], main.OCR_DPI / 72.0)
 native_layout_candidate = None
+native_words_result = main._native_pdf_page_result_words(source[0], main.OCR_DPI / 72.0)
+native_words_candidate = None
+if native_words_result and native_words_result.get("lines"):
+    native_words_bytes = create_ocr_docx([{
+        "page": 1,
+        "dpi": main.OCR_DPI,
+        "direction": (native_words_result.get("layout") or {}).get("direction", "rtl"),
+        "lines": native_words_result["lines"],
+    }])
+    native_words_text, native_words_paragraphs, native_words_images = read_docx(native_words_bytes)
+    native_words_candidate = {
+        "status": "candidate_generated",
+        "output_bytes": len(native_words_bytes),
+        "editable_chars": len(native_words_text),
+        "paragraphs": native_words_paragraphs,
+        "images": native_words_images,
+        "quality": analyze_pdf_docx_quality(native_pdf, native_words_bytes),
+        "cer_vs_pdf_text": cer(reference, native_words_text),
+    }
+    (OUT / "real-dubai-law-native-words-candidate.docx").write_bytes(native_words_bytes)
+    (OUT / "real-dubai-law-native-words-lines.json").write_text(
+        json.dumps({
+            "layout": native_words_result.get("layout") or {},
+            "lines": native_words_result.get("lines") or [],
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 if native_layout_result:
     (OUT / "real-dubai-law-native-layout-lines.json").write_text(
         json.dumps({
@@ -161,6 +188,7 @@ report = {
     "tested_pages": 1,
     "source_reference_chars": len(reference),
     "native_layout_candidate": native_layout_candidate,
+    "native_words_candidate": native_words_candidate,
     "formatted_pdf_to_docx": {
         "status": "passed",
         "engine": native_engine,
