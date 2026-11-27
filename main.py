@@ -291,6 +291,96 @@ def _native_pdf_page_result(page, scale: float) -> dict | None:
     }
 
 
+def _native_pdf_page_result_words(page, scale: float) -> dict | None:
+    """Experimental native-PDF extractor: rebuild RTL lines from positioned word boxes."""
+    try:
+        raw_words = page.get_text("words", sort=False)
+    except Exception:
+        return None
+    tokens = []
+    all_text = []
+    for item in raw_words:
+        if len(item) < 8:
+            continue
+        x0, y0, x1, y1, value = item[:5]
+        value = str(value or "").strip()
+        if not value:
+            continue
+        box = [float(x0) * scale, float(y0) * scale, float(x1) * scale, float(y1) * scale]
+        if box[2] <= box[0] or box[3] <= box[1]:
+            continue
+        tokens.append({"text": value, "bbox": box})
+        all_text.append(value)
+    if sum(len(value) for value in all_text) < PDF_NATIVE_TEXT_MIN_CHARS:
+        return None
+    width = max(1, math.ceil(page.rect.width * scale))
+    height = max(1, math.ceil(page.rect.height * scale))
+    heights = sorted(max(1.0, token["bbox"][3] - token["bbox"][1]) for token in tokens)
+    median_height = heights[len(heights) // 2] if heights else 12.0
+    max_vertical_gap = max(2.0, median_height * 0.42)
+    max_horizontal_gap = max(12.0, width * 0.075)
+    groups: list[dict] = []
+    for token in sorted(tokens, key=lambda item: ((item["bbox"][1] + item["bbox"][3]) / 2, item["bbox"][0])):
+        x0, y0, x1, y1 = token["bbox"]
+        center_y = (y0 + y1) / 2
+        best = None
+        best_distance = None
+        for group in groups:
+            gy0, gy1 = group["y0"], group["y1"]
+            overlap = max(0.0, min(y1, gy1) - max(y0, gy0))
+            min_height = max(1.0, min(y1 - y0, gy1 - gy0))
+            vertical_distance = abs(center_y - group["center_y"])
+            if overlap / min_height < 0.45 and vertical_distance > max_vertical_gap:
+                continue
+            horizontal_gap = max(0.0, max(group["x0"] - x1, x0 - group["x1"]))
+            if horizontal_gap > max_horizontal_gap:
+                continue
+            distance = vertical_distance + horizontal_gap * 0.02
+            if best_distance is None or distance < best_distance:
+                best, best_distance = group, distance
+        if best is None:
+            groups.append({
+                "tokens": [token], "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                "center_y": center_y,
+            })
+        else:
+            best["tokens"].append(token)
+            best["x0"] = min(best["x0"], x0)
+            best["y0"] = min(best["y0"], y0)
+            best["x1"] = max(best["x1"], x1)
+            best["y1"] = max(best["y1"], y1)
+            best["center_y"] = sum((item["bbox"][1] + item["bbox"][3]) / 2 for item in best["tokens"]) / len(best["tokens"])
+    rows = []
+    for group in groups:
+        ordered = sorted(group["tokens"], key=lambda item: item["bbox"][0], reverse=True)
+        text = " ".join(item["text"] for item in ordered).strip()
+        if not text:
+            continue
+        rows.append({
+            "text": text,
+            "confidence": 100.0,
+            "bbox": [round(group["x0"]), round(group["y0"]), round(group["x1"]), round(group["y1"])],
+            "engine": "pdf-text-words",
+            "source": "native-pdf-word-geometry",
+        })
+    if not rows:
+        return None
+    layout = analyze_layout(rows, width, height)
+    return {
+        "engine": "native-pdf-word-geometry",
+        "image_width": width,
+        "image_height": height,
+        "lines": layout["lines"],
+        "layout": {key: value for key, value in layout.items() if key != "lines"},
+        "tables": [],
+        "engines": {
+            "pdf_text": {"available": True, "error": None},
+            "tesseract": {"available": False, "error": "Skipped: searchable PDF text layer used"},
+            "paddleocr": {"available": False, "error": "Skipped: searchable PDF text layer used"},
+        },
+    }
+
+
 async def _run_cpu(function, *args):
     # Serialize memory-heavy PDF work, but queue ordinary requests rather than
     # returning 503 almost immediately when another page is being processed.
