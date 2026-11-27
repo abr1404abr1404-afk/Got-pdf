@@ -6,7 +6,7 @@
     toolbar.dataset.hybridReady = "1";
 
     const groups = [
-      { id: "file", label: "ملف", ids: ["ud","rd","dshare","save","file","fimg","fcam","camfinish","camclear","cammodewrap","ocb","imgfit","info"] },
+      { id: "file", label: "ملف", ids: ["ud","rd","dshare","save","file","fimg","fcam","camfinish","camclear","cammodewrap","imgfit","info"] },
       { id: "edit", label: "تحرير", ids: ["txt","edt","img","sig","bcb","ann"] },
       { id: "pages", label: "الصفحات", ids: ["pn","spl","thumbs","mrg","compress"] },
       { id: "smart", label: "OCR والذكاء", ids: ["ocb","ai","pdfSearchBtn","pdfAutoFill"] },
