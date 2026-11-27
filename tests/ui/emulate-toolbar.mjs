@@ -14,7 +14,16 @@ try {
   ];
   const failures = [];
   for (const profile of profiles) {
-    const context = await browser.newContext({ ...profile, locale: "ar-SA", colorScheme: "light" });
+    const device = profile.isMobile ? devices["iPhone 13"] : {};
+    const context = await browser.newContext({
+      ...device,
+      viewport: profile.viewport,
+      isMobile: profile.isMobile,
+      hasTouch: profile.hasTouch,
+      deviceScaleFactor: profile.deviceScaleFactor,
+      locale: "ar-SA",
+      colorScheme: "light"
+    });
     const page = await context.newPage();
     const pageErrors = [];
     page.on("pageerror", error => pageErrors.push(error.message));
@@ -24,25 +33,51 @@ try {
     const count = await tabs.count();
     if (count !== 6) failures.push(profile.name + ": expected 6 tabs, got " + count);
     for (let i = 0; i < count; i++) {
-      await tabs.nth(i).evaluate(el => el.click());
+      if (profile.hasTouch) await tabs.nth(i).tap();
+      else await tabs.nth(i).click();
       const selected = await tabs.nth(i).getAttribute("aria-selected");
       const panelId = await tabs.nth(i).getAttribute("aria-controls");
       const visible = await page.locator("#" + panelId).isVisible();
       if (selected !== "true" || !visible) failures.push(profile.name + ": tab " + i + " did not activate its panel");
     }
-    await tabs.first().evaluate(el => el.click());
-    const dimensions = await page.evaluate(() => ({
-      viewport: innerWidth,
-      document: document.documentElement.scrollWidth,
-      toolbar: document.querySelector("header .hr2")?.getBoundingClientRect().width,
-      tabs: document.querySelector(".hybrid-tabs")?.getBoundingClientRect().width,
-      panel: document.querySelector(".hybrid-panel:not([hidden])")?.getBoundingClientRect().width,
-      rtl: getComputedStyle(document.documentElement).direction,
-      tabHeight: document.querySelector(".hybrid-tab")?.getBoundingClientRect().height,
-      tabHitTarget: (() => { const el = document.querySelector(".hybrid-tab"); const r = el?.getBoundingClientRect(); const hit = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return hit?.closest(".hybrid-tab")?.id || hit?.id || hit?.className || null; })()
-    }));
-    if (dimensions.document > dimensions.viewport + 2) failures.push(profile.name + ": horizontal page overflow " + JSON.stringify(dimensions));
+    if (profile.hasTouch) await tabs.first().tap();
+    else await tabs.first().click();
+    const dimensions = await page.evaluate(() => {
+      const toolbar = document.querySelector("header .hr2");
+      const tabs = document.querySelector(".hybrid-tabs");
+      const panels = document.querySelector(".hybrid-panels");
+      const panel = document.querySelector(".hybrid-panel:not([hidden])");
+      const tab = document.querySelector(".hybrid-tab");
+      const rect = tab?.getBoundingClientRect();
+      const hit = rect && document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      return {
+        viewport: innerWidth,
+        visualViewport: visualViewport?.width,
+        clientWidth: document.documentElement.clientWidth,
+        screenWidth: screen.width,
+        devicePixelRatio,
+        document: document.documentElement.scrollWidth,
+        toolbar: toolbar?.getBoundingClientRect().width,
+        tabs: tabs?.getBoundingClientRect().width,
+        panels: panels?.getBoundingClientRect().width,
+        panel: panel?.getBoundingClientRect().width,
+        panelScroll: panel?.scrollWidth,
+        panelClient: panel?.clientWidth,
+        rtl: getComputedStyle(document.documentElement).direction,
+        tabHeight: tab?.getBoundingClientRect().height,
+        tabHitTarget: hit?.closest(".hybrid-tab")?.id || hit?.id || hit?.className || null
+      };
+    });
+    const expectedWidth = profile.viewport.width;
+    if (Math.abs(dimensions.viewport - expectedWidth) > 1 || Math.abs(dimensions.clientWidth - expectedWidth) > 1) {
+      failures.push(profile.name + ": emulated viewport mismatch " + JSON.stringify(dimensions));
+    }
+    if (dimensions.document > expectedWidth + 2) failures.push(profile.name + ": horizontal page overflow " + JSON.stringify(dimensions));
+    if (dimensions.toolbar > expectedWidth + 2 || dimensions.panel > dimensions.toolbar + 2) {
+      failures.push(profile.name + ": toolbar/panel escapes viewport " + JSON.stringify(dimensions));
+    }
     if (dimensions.tabHeight < 38) failures.push(profile.name + ": tab touch target is too small " + JSON.stringify(dimensions));
+    if (profile.hasTouch && dimensions.tabHitTarget !== "hybrid-tab-file") failures.push(profile.name + ": tab center is obstructed " + JSON.stringify(dimensions));
     if (pageErrors.length) failures.push(profile.name + ": browser errors " + pageErrors.join(" | "));
     await page.screenshot({ path: "artifacts/ui-" + profile.name + ".png", fullPage: true });
     console.log(profile.name, JSON.stringify(dimensions));
