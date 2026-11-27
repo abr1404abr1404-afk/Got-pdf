@@ -1090,18 +1090,19 @@ def _paddle_runtime_available() -> bool:
 
 def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None) -> dict:
     prepared = _preprocess(image)
+    remote_paddle_url = globals().get("PADDLEOCR_REMOTE_URL", "")
     mode = OCR_MODE if OCR_MODE in {"hybrid", "paddleocr", "tesseract"} else "hybrid"
     if engine_override:
         requested = str(engine_override).strip().lower()
         if requested not in {"hybrid", "paddleocr", "tesseract"}:
             raise ValueError("محرك OCR غير مدعوم.")
-        if requested == "paddleocr" and not (_paddle_runtime_available() or PADDLEOCR_REMOTE_URL):
+        if requested == "paddleocr" and not (_paddle_runtime_available() or remote_paddle_url):
             raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
         mode = requested
     paddle_ready = _paddle_runtime_available()
     if mode == "paddleocr" and not (paddle_ready or PADDLEOCR_REMOTE_URL):
         raise ValueError("PaddleOCR غير مفعّل أو غير مثبت على الخادم.")
-    if mode in {"hybrid", "paddleocr"} and PADDLEOCR_REMOTE_URL:
+    if mode in {"hybrid", "paddleocr"} and remote_paddle_url:
         paddle_rows, paddle_error = _paddle_remote(prepared, language)
     elif mode in {"hybrid", "paddleocr"} and paddle_ready:
         paddle_rows, paddle_error = _paddle(prepared, language)
