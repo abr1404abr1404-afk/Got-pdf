@@ -27,6 +27,7 @@ jobs:
           python -m pip install 'requests>=2.31,<3'
           python tests/e2e/prepare_real_fixture.py
           python tests/e2e/real_pdf_to_docx.py
+          python tests/e2e/layout_matrix.py
       - name: Upload real PDF-to-Word validation artifacts
         if: always()
         uses: actions/upload-artifact@v4
