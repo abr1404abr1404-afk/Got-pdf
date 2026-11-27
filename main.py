@@ -236,6 +236,28 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "") -> tuple[byte
             })
 
         if not needs_ocr:
+            # Experimental and opt-in: only use native reconstruction when every
+            # page is text-only, single-column, and confidently free of tables.
+            native_simple_enabled = os.getenv("PDF_DOCX_NATIVE_SIMPLE_PAGES", "false").strip().lower() in {"1", "true", "yes", "on"}
+            if native_simple_enabled:
+                native_pages = []
+                for index in range(source.page_count):
+                    page = source.load_page(index)
+                    result = _native_pdf_page_result(page, scale)
+                    if result is None or not _native_pdf_page_is_simple(page, result):
+                        native_pages = []
+                        break
+                    native_pages.append({
+                        "page": index + 1,
+                        "dpi": OCR_DPI,
+                        "page_width_pt": float(page.rect.width),
+                        "page_height_pt": float(page.rect.height),
+                        "direction": (result.get("layout") or {}).get("direction", "rtl"),
+                        "lines": _merge_native_pdf_lines(result.get("lines") or []),
+                    })
+                if native_pages:
+                    source.close()
+                    return create_ocr_docx(native_pages), "native-simple-layout"
             source.close()
             return convert_pdf_to_docx(data, password), "pdf2docx"
         return create_ocr_docx(pages_for_docx), "ocr-layout"
@@ -291,6 +313,73 @@ def _native_pdf_page_result(page, scale: float) -> dict | None:
             "paddleocr": {"available": False, "error": "Skipped: searchable PDF text layer used"},
         },
     }
+
+
+def _merge_native_pdf_lines(lines: list[dict]) -> list[dict]:
+    """Merge same-baseline PDF text fragments without crossing detected columns."""
+    groups: list[dict] = []
+    for line in sorted(lines, key=lambda item: (
+        float((item.get("bbox") or [0, 0, 0, 0])[1]),
+        float((item.get("bbox") or [0, 0, 0, 0])[0]),
+    )):
+        box = line.get("bbox") or [0, 0, 0, 0]
+        x0, y0, x1, y1 = (float(value) for value in box)
+        column, region = line.get("column", 1), line.get("region")
+        best = None
+        for group in groups:
+            if group["column"] != column or group["region"] != region:
+                continue
+            overlap = max(0.0, min(y1, group["y1"]) - max(y0, group["y0"]))
+            min_height = max(1.0, min(y1 - y0, group["y1"] - group["y0"]))
+            center_gap = abs((y0 + y1) / 2 - group["center_y"])
+            if overlap / min_height >= 0.55 or center_gap <= max(2.0, min_height * 0.22):
+                best = group
+                break
+        if best is None:
+            groups.append({
+                "items": [line], "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                "center_y": (y0 + y1) / 2, "column": column, "region": region,
+            })
+        else:
+            best["items"].append(line)
+            best["x0"], best["y0"] = min(best["x0"], x0), min(best["y0"], y0)
+            best["x1"], best["y1"] = max(best["x1"], x1), max(best["y1"], y1)
+            best["center_y"] = (best["y0"] + best["y1"]) / 2
+
+    merged = []
+    for group in groups:
+        direction = str(group["items"][0].get("direction", "rtl"))
+        ordered = sorted(
+            group["items"],
+            key=lambda item: float((item.get("bbox") or [0, 0, 0, 0])[0]),
+            reverse=direction == "rtl",
+        )
+        item = dict(ordered[0])
+        item["text"] = " ".join(str(value.get("text", "")).strip() for value in ordered).strip()
+        item["bbox"] = [round(group["x0"]), round(group["y0"]), round(group["x1"]), round(group["y1"])]
+        item["reading_order"] = min(int(value.get("reading_order", 0) or 0) for value in ordered)
+        merged.append(item)
+    return sorted(merged, key=lambda item: int(item.get("reading_order", 0) or 0))
+
+
+def _native_pdf_page_is_simple(page, result: dict) -> bool:
+    """Conservative gate for the opt-in native DOCX route; reject structural pages."""
+    layout = result.get("layout") or {}
+    if int(layout.get("column_count", 1) or 1) > 1:
+        return False
+    try:
+        if page.get_images(full=True):
+            return False
+    except Exception:
+        return False
+    try:
+        if getattr(page.find_tables(), "tables", []):
+            return False
+    except Exception:
+        # If table detection is unavailable or uncertain, prefer pdf2docx.
+        return False
+    lines = result.get("lines") or []
+    return bool(lines) and all(line.get("bbox") and len(line["bbox"]) == 4 for line in lines)
 
 
 def _native_pdf_page_result_words(page, scale: float) -> dict | None:
