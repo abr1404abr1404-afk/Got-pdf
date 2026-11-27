@@ -7,6 +7,19 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const failures = [];
 let inlineScripts = 0;
 
+const hybridToolbarPath = path.join(root, "experience-toolbar.js");
+try {
+  const hybridToolbar = fs.readFileSync(hybridToolbarPath, "utf8");
+  new vm.Script(hybridToolbar, { filename: "experience-toolbar.js" });
+  for (const feature of ['hybrid-tabs', 'hybrid-panel-', 'aria-selected', 'ArrowLeft', 'ArrowRight', '"ملف"', '"تحرير"', '"الصفحات"', '"OCR والذكاء"', '"العرض"', '"المزيد"']) {
+    if (!hybridToolbar.includes(feature)) failures.push("Hybrid toolbar navigation is missing: " + feature);
+  }
+  if (!html.includes('src="./experience-toolbar.js"')) failures.push("Hybrid toolbar script is not loaded by the application.");
+} catch (error) {
+  failures.push("Hybrid toolbar script is missing or invalid: " + error.message);
+}
+
+
 // Confirm that local scripts and stylesheets referenced by the deployed entry point exist.
 const resourcePattern = /<(script|link)\b([^>]*?)>/gi;
 for (const match of html.matchAll(resourcePattern)) {
