@@ -48,6 +48,23 @@ jobs:
           assert health.get("arabic_ocr_ready") is True, "Arabic Tesseract pack missing"
           assert health.get("english_ocr_ready") is True, "English Tesseract pack missing"
 
+          def post_with_retry(url, **kwargs):
+              last_error = None
+              for attempt in range(3):
+                  try:
+                      response = session.post(url, **kwargs)
+                      if response.status_code not in (502, 503, 504):
+                          return response
+                      last_error = RuntimeError(
+                          f"transient upstream HTTP {response.status_code}: {response.text[:160]}"
+                      )
+                  except requests.RequestException as exc:
+                      last_error = exc
+                  if attempt < 2:
+                      print(f"transient OCR request failure (attempt {attempt + 1}/3): {last_error}")
+                      time.sleep(12)
+              raise AssertionError(f"OCR request failed after 3 attempts: {last_error}")
+
           image = Image.new("RGB", (1900, 620), "white")
           draw = ImageDraw.Draw(image)
           latin = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 100)
@@ -61,7 +78,7 @@ jobs:
           image.save(png, format="PNG")
           png_bytes = png.getvalue()
 
-          image_response = session.post(
+          image_response = post_with_retry(
               base + "/api/ocr/image",
               files={"file": ("live-ocr-fixture.png", png_bytes, "image/png")},
               data={"language": "ara+eng", "engine": "tesseract"},
@@ -82,7 +99,7 @@ jobs:
           arabic_draw.text((arabic_left, 130), arabic_phrase, font=arabic_font, fill="black", direction="rtl", language="ar")
           arabic_png = io.BytesIO()
           arabic_only.save(arabic_png, format="PNG")
-          arabic_response = session.post(
+          arabic_response = post_with_retry(
               base + "/api/ocr/image",
               files={"file": ("live-arabic-ocr-fixture.png", arabic_png.getvalue(), "image/png")},
               data={"language": "ara", "engine": "tesseract"},
@@ -99,7 +116,7 @@ jobs:
 
           pdf = io.BytesIO()
           image.save(pdf, format="PDF", resolution=150.0)
-          pdf_response = session.post(
+          pdf_response = post_with_retry(
               base + "/api/ocr/pdf",
               files={"file": ("live-ocr-fixture.pdf", pdf.getvalue(), "application/pdf")},
               data={"language": "ara+eng", "dpi": "180"},
@@ -115,7 +132,7 @@ jobs:
           assert "OCR" in pdf_text.upper() or "ALFAQI" in pdf_text.upper(), f"Known PDF text not recognized: {pdf_text[:500]}"
           arabic_pdf = io.BytesIO()
           arabic_only.save(arabic_pdf, format="PDF", resolution=150.0)
-          arabic_pdf_response = session.post(
+          arabic_pdf_response = post_with_retry(
               base + "/api/ocr/pdf",
               files={"file": ("live-arabic-scanned-fixture.pdf", arabic_pdf.getvalue(), "application/pdf")},
               data={"language": "ara", "dpi": "180"},
