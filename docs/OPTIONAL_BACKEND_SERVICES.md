@@ -31,6 +31,20 @@ Safe activation sequence:
 
 Tesseract remains the fallback in hybrid mode if PaddleOCR fails or returns no usable text.
 
+## 1.1 Remote PaddleOCR worker (recommended for a larger model host)
+
+A separate authenticated worker is now included in `paddle-worker/`. It runs PaddleOCR PP-OCRv5 Arabic on CPU and exposes the same image OCR response contract used by Got-pdf.
+
+1. Deploy the contents of `paddle-worker/` as a separate Docker service with enough RAM and CPU. The first inference downloads model weights and may have a cold-start delay.
+2. Set a long random `PADDLE_WORKER_API_KEY` as a secret on the worker.
+3. On the Render API service, set `PADDLEOCR_REMOTE_URL` to the worker's HTTPS base URL and `PADDLEOCR_REMOTE_API_KEY` to the same secret.
+4. Set `OCR_MODE=hybrid` on the Render API. Do not set the secret in GitHub Pages or `config.js`.
+5. Check `/api/health` for `paddleocr_remote_configured=true` and `paddleocr_remote_status=configured_unverified`, then run image and scanned-PDF OCR tests. The status deliberately remains unverified until real worker inference is confirmed.
+
+The API sends images from Render to the worker server-to-server. If the worker fails or produces no useful text, hybrid mode falls back to Tesseract. Explicit Paddle-only requests do not silently switch engines. The worker requires bearer authentication; do not expose it without HTTPS and a secret.
+
+Hugging Face's published documentation lists 2 vCPU and 16 GB RAM for CPU Basic, but Docker/Gradio compute Spaces require an eligible paid plan and free instances can sleep when idle. This is therefore not a guaranteed free always-on deployment. The worker is packaged for deployment there or on another Docker host, but Got-pdf cannot create the external service or set its hosting secrets without account access and explicit setup by the account owner.
+
 ## 2. AI assistant
 
 Set these in the backend service's private environment settings:
