@@ -591,3 +591,26 @@ body.ann-tools-open #anp{display:flex;}
   #dshare.share-action{color:#93c5fd!important;border-color:#60a5fa!important;background:rgba(37,99,235,.16)!important}
   #dshare.share-action:hover{background:rgba(37,99,235,.25)!important}
 }
+
+header .hr2{display:flex;flex-direction:column;align-items:stretch;gap:0;overflow:visible;padding:0;background:var(--panel)}
+.hybrid-tabs{display:flex;align-items:center;gap:6px;padding:7px 14px 0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;border-bottom:1px solid var(--line);background:var(--surface)}
+.hybrid-tab{flex:none;min-height:40px;padding:0 15px;border:1px solid transparent;border-bottom:0;border-radius:11px 11px 0 0;background:transparent;color:var(--mut);font:inherit;font-weight:600;font-size:.88rem;cursor:pointer}
+.hybrid-tab[aria-selected="true"]{background:var(--panel);color:var(--acc);border-color:var(--line);box-shadow:0 -2px 0 var(--acc) inset}
+.hybrid-tab:focus-visible{outline:2px solid var(--acc);outline-offset:-3px}
+.hybrid-panels{min-width:0}
+.hybrid-panel{display:flex;align-items:center;gap:7px;min-height:58px;padding:8px 14px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.hybrid-panel[hidden]{display:none!important}
+.hybrid-panel>.grp{display:contents}
+.hybrid-panel>.hb,.hybrid-panel>label.btn{flex:none}
+.hybrid-panel #info{margin-inline-start:auto;white-space:normal}
+@media(max-width:640px){
+ header .hr2{overflow:visible!important}
+ .hybrid-tabs{gap:4px;padding:5px 7px 0;scrollbar-width:none}
+ .hybrid-tabs::-webkit-scrollbar{display:none}
+ .hybrid-tab{min-height:42px;padding:0 13px;font-size:.82rem}
+ .hybrid-panel{min-height:56px;padding:7px 8px;gap:6px;overflow-x:auto;overflow-y:hidden}
+ .hybrid-panel>.hb,.hybrid-panel>label.btn{height:42px;min-height:42px;min-width:42px;padding-inline:10px}
+ .hybrid-panel .lb{display:inline!important;font-size:.78rem}
+ .hybrid-panel #info{display:none}
+}
+@media(max-width:380px){.hybrid-tab{padding-inline:10px;font-size:.77rem}.hybrid-panel .lb{font-size:.72rem}}
