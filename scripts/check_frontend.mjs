@@ -290,7 +290,7 @@ if (dockStart < 0 || dockEnd < 0) {
       offsetWidth: elementPos.width, offsetHeight: elementPos.height,
       getBoundingClientRect: () => ({left:elementPos.left,top:elementPos.top,width:elementPos.width,height:elementPos.height,right:elementPos.left+elementPos.width,bottom:elementPos.top+elementPos.height})
     };
-    const tb = { style: {} };
+    const tb = { style: {}, getBoundingClientRect: () => ({left:0,top:0}) };
     Object.defineProperties(tb, {
       offsetWidth: { get() { return Math.min(toolbarSize.width, parseFloat(tb.style.maxWidth) || toolbarSize.width); } },
       offsetHeight: { get() { return Math.min(toolbarSize.height, parseFloat(tb.style.maxHeight) || toolbarSize.height); } }
