@@ -44,6 +44,52 @@ def cer(reference: str, actual: str) -> float | None:
     return round(prev[-1] / len(a), 4)
 
 
+def merge_native_same_baseline(lines: list[dict]) -> list[dict]:
+    """Join PDF text fragments sharing one baseline without merging separate columns."""
+    groups: list[dict] = []
+    for line in sorted(lines, key=lambda item: (
+        float((item.get("bbox") or [0, 0, 0, 0])[1]),
+        float((item.get("bbox") or [0, 0, 0, 0])[0]),
+    )):
+        box = line.get("bbox") or [0, 0, 0, 0]
+        x0, y0, x1, y1 = [float(value) for value in box]
+        best = None
+        for group in groups:
+            if group["column"] != line.get("column", 1) or group["region"] != line.get("region"):
+                continue
+            overlap = max(0.0, min(y1, group["y1"]) - max(y0, group["y0"]))
+            min_height = max(1.0, min(y1 - y0, group["y1"] - group["y0"]))
+            center_gap = abs((y0 + y1) / 2 - group["center_y"])
+            if overlap / min_height >= 0.55 or center_gap <= max(2.0, min_height * 0.22):
+                best = group
+                break
+        if best is None:
+            groups.append({
+                "items": [line], "x0": x0, "y0": y0, "x1": x1, "y1": y1,
+                "center_y": (y0 + y1) / 2,
+                "column": line.get("column", 1), "region": line.get("region"),
+            })
+        else:
+            best["items"].append(line)
+            best["x0"] = min(best["x0"], x0)
+            best["y0"] = min(best["y0"], y0)
+            best["x1"] = max(best["x1"], x1)
+            best["y1"] = max(best["y1"], y1)
+            best["center_y"] = (best["y0"] + best["y1"]) / 2
+    merged = []
+    for group in groups:
+        ordered = sorted(group["items"], key=lambda item: float((item.get("bbox") or [0, 0, 0, 0])[0]), reverse=True)
+        text = " ".join(str(item.get("text", "")).strip() for item in ordered).strip()
+        if not text:
+            continue
+        item = dict(ordered[0])
+        item["text"] = text
+        item["bbox"] = [round(group["x0"]), round(group["y0"]), round(group["x1"]), round(group["y1"])]
+        item["reading_order"] = min(int(value.get("reading_order", 0) or 0) for value in ordered)
+        merged.append(item)
+    return sorted(merged, key=lambda item: int(item.get("reading_order", 0) or 0))
+
+
 def read_docx(data: bytes) -> tuple[str, int, int]:
     document = Document(io.BytesIO(data))
     paragraphs = [p.text for p in document.paragraphs if p.text.strip()]
@@ -89,6 +135,26 @@ native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 # This is diagnostic only; the production route is not switched unless the candidate wins.
 native_layout_result = main._native_pdf_page_result(source[0], main.OCR_DPI / 72.0)
 native_layout_candidate = None
+native_merged_candidate = None
+if native_layout_result and native_layout_result.get("lines"):
+    merged_lines = merge_native_same_baseline(native_layout_result["lines"])
+    merged_bytes = create_ocr_docx([{
+        "page": 1,
+        "dpi": main.OCR_DPI,
+        "direction": (native_layout_result.get("layout") or {}).get("direction", "rtl"),
+        "lines": merged_lines,
+    }])
+    merged_text, merged_paragraphs, merged_images = read_docx(merged_bytes)
+    native_merged_candidate = {
+        "status": "candidate_generated",
+        "output_bytes": len(merged_bytes),
+        "editable_chars": len(merged_text),
+        "paragraphs": merged_paragraphs,
+        "images": merged_images,
+        "quality": analyze_pdf_docx_quality(native_pdf, merged_bytes),
+        "cer_vs_pdf_text": cer(reference, merged_text),
+    }
+    (OUT / "real-dubai-law-native-merged-candidate.docx").write_bytes(merged_bytes)
 native_words_result = main._native_pdf_page_result_words(source[0], main.OCR_DPI / 72.0)
 native_words_candidate = None
 if native_words_result and native_words_result.get("lines"):
@@ -188,6 +254,7 @@ report = {
     "tested_pages": 1,
     "source_reference_chars": len(reference),
     "native_layout_candidate": native_layout_candidate,
+    "native_merged_candidate": native_merged_candidate,
     "native_words_candidate": native_words_candidate,
     "formatted_pdf_to_docx": {
         "status": "passed",
