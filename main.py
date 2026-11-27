@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import difflib
 import io
 import json
 import math
@@ -546,7 +547,7 @@ def _tesseract_tiled(image: np.ndarray, language: str, tile_count: int = 3) -> t
                 mapped["words"] = mapped_words
             mapped["recovery_pass"] = "tiled"
             rows.append(mapped)
-    return _dedupe(rows), "; ".join(errors) if errors else None
+    return _dedupe_tiled(rows), "; ".join(errors) if errors else None
 
 def _get_paddle(language: str):
     _, paddle_lang = _lang_pair(language)
@@ -622,6 +623,36 @@ def _dedupe(rows: list[dict]) -> list[dict]:
     kept: list[dict] = []
     for row in rows:
         duplicate = next((other for other in kept if _iou(row["bbox"], other["bbox"]) > 0.55), None)
+        if duplicate is None:
+            kept.append(row)
+        elif row.get("words") and not duplicate.get("words"):
+            duplicate["words"] = row["words"]
+    return kept
+
+
+def _dedupe_tiled(rows: list[dict]) -> list[dict]:
+    """Merge overlapping tile OCR lines without dropping distinct text in the same region."""
+    kept: list[dict] = []
+    for row in sorted(rows, key=lambda item: float(item.get("confidence", 0)) , reverse=True):
+        text = re.sub(r"[^\\w]", "", str(row.get("text", "")).casefold())
+        box = row.get("bbox", [])
+        duplicate = None
+        if len(box) == 4:
+            area = max(1, (box[2] - box[0]) * (box[3] - box[1]))
+            for other in kept:
+                other_box = other.get("bbox", [])
+                if len(other_box) != 4:
+                    continue
+                ix0, iy0 = max(box[0], other_box[0]), max(box[1], other_box[1])
+                ix1, iy1 = min(box[2], other_box[2]), min(box[3], other_box[3])
+                intersection = max(0, ix1 - ix0) * max(0, iy1 - iy0)
+                other_area = max(1, (other_box[2] - other_box[0]) * (other_box[3] - other_box[1]))
+                overlap = intersection / min(area, other_area)
+                other_text = re.sub(r"[^\\w]", "", str(other.get("text", "")).casefold())
+                similarity = difflib.SequenceMatcher(None, text, other_text).ratio()
+                if overlap >= 0.55 and similarity >= 0.78:
+                    duplicate = other
+                    break
         if duplicate is None:
             kept.append(row)
         elif row.get("words") and not duplicate.get("words"):
@@ -887,7 +918,7 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
         if not timed_out and height / max(1, width) >= 1.35 and final_confidence < 82.0:
             tiled_rows, tiled_error = _tesseract_tiled(prepared, language)
             if tiled_rows:
-                tess_rows = _dedupe(tess_rows + tiled_rows)
+                tess_rows = _dedupe_tiled(tess_rows + tiled_rows)
         if tiled_error:
             tess_errors.append(tiled_error)
         tess_error = "; ".join(tess_errors) if tess_errors else None
