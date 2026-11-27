@@ -53,3 +53,10 @@ A repeatable CI test used page 1 of a 16-page public Dubai Government legal PDF.
 The source page contains table-like structures. The current converter preserved two Word tables, while the experimental native reconstruction currently produces ordinary paragraphs and no tables. The candidate therefore wins on text order and page count for this fixture but loses a structural feature that matters. It must not silently replace the current route for documents containing tables, images, multiple columns, or complex layouts.
 
 The production route remains unchanged for selectable-text PDFs until a structure-aware hybrid is validated across multiple Arabic and bilingual fixtures. LibreOffice is a repeatable layout diagnostic, not a substitute for Microsoft Word or a visual pixel-level fidelity assessment.
+
+
+## Experimental simple-page route (opt-in)
+
+A conservative native-text reconstruction path is available behind the backend environment variable `PDF_DOCX_NATIVE_SIMPLE_PAGES=true`. It is **disabled by default**. It is considered only when every page has selectable native text, one detected column, no embedded raster images, and table detection succeeds with no tables. If any page fails a check or table detection is unavailable, the request falls back to the existing `pdf2docx` converter. The route merges same-baseline text fragments while keeping detected columns and regions separate, and preserves source page dimensions.
+
+This gate is intentionally conservative. It is not yet approved as the default production route: the real benchmark still contains table-like structures, and the current evidence is not broad enough to establish general visual fidelity. CI unit tests cover the merge and the table/image/multi-column rejection guards; a broader multi-document benchmark and pixel-level visual comparison are still required before enabling the flag in the hosted service.
