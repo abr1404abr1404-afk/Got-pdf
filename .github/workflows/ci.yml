@@ -54,6 +54,7 @@ jobs:
         run: |
           mkdir -p artifacts
           node tests/ui/emulate-toolbar.mjs
+          node tests/ui/compare-local.mjs
       - name: Upload emulator screenshots
         if: always()
         uses: actions/upload-artifact@v4
