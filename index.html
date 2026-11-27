@@ -2387,6 +2387,12 @@ function dock(el,tb){
   tb.style.boxSizing="border-box";
   tb.style.maxWidth=Math.max(48,width-2*margin)+"px";
   tb.style.maxHeight=Math.max(64,height-2*margin)+"px";
+  // A transformed/contained ancestor can become the containing block for
+  // fixed descendants. Measure that origin and compensate so the toolbar is
+  // actually clamped to the visual viewport, not the PDF overlay's box.
+  tb.style.left="0px";tb.style.top="0px";
+  const fixedOrigin=tb.getBoundingClientRect();
+  const originX=fixedOrigin.left,originY=fixedOrigin.top;
   const r=el.getBoundingClientRect(),w=tb.offsetWidth,h=tb.offsetHeight;
   const minX=left+margin,maxX=Math.max(minX,right-w-margin);
   const centeredX=r.left+(r.width-w)/2;
@@ -2399,7 +2405,7 @@ function dock(el,tb){
   else if(below+h<=bottom-margin)y=below;
   else y=roomAbove>=roomBelow?above:below;
   y=clamp(y,minY,maxY);
-  tb.style.left=x+"px";tb.style.top=y+"px";
+  tb.style.left=(x-originX)+"px";tb.style.top=(y-originY)+"px";
 }
 const redock=()=>document.querySelectorAll(".ov.sel,.im.sel").forEach(x=>dock(x,x.querySelector(".tb")));
 addEventListener("scroll",redock,true);addEventListener("resize",redock);if(window.visualViewport){visualViewport.addEventListener("resize",redock);visualViewport.addEventListener("scroll",redock)}
