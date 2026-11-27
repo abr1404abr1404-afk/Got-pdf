@@ -229,6 +229,8 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "") -> tuple[byte
             pages_for_docx.append({
                 "page": index + 1,
                 "dpi": OCR_DPI,
+                "page_width_pt": float(page.rect.width),
+                "page_height_pt": float(page.rect.height),
                 "direction": (result.get("layout") or {}).get("direction", "rtl"),
                 "lines": result.get("lines") or [],
             })
