@@ -46,8 +46,12 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
       if(!r) throw new Error("Text toolbar has no layout box");
       const pos=await toolbar.evaluate(el=>getComputedStyle(el).position);
       if(pos!=="fixed") throw new Error("Floating toolbar should be viewport-docked and re-anchored to its text: "+pos);
-      if(r.x < -1 || r.y < -1 || r.x+r.width > vp.width+1 || r.y+r.height > vp.height+1)
-        throw new Error("Floating toolbar escaped the mobile viewport: "+JSON.stringify({r,vp}));
+      if(r.x < -1 || r.y < -1 || r.x+r.width > vp.width+1 || r.y+r.height > vp.height+1) {
+        const viewport=await page.evaluate(()=>({innerWidth,innerHeight,clientWidth:document.documentElement.clientWidth,
+          visualViewport:window.visualViewport?{width:visualViewport.width,height:visualViewport.height,
+            offsetLeft:visualViewport.offsetLeft,offsetTop:visualViewport.offsetTop,scale:visualViewport.scale}:null}));
+        throw new Error("Floating toolbar escaped the mobile viewport: "+JSON.stringify({r,vp,viewport}));
+      }
     };
     await checkToolbar();
     await page.locator("#hybrid-tab-view").click();
