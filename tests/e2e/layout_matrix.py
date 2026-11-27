@@ -10,8 +10,15 @@ from __future__ import annotations
 import io
 import json
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
+
+# Running a script by path puts tests/e2e on sys.path, not the repository root.
+# Resolve the project root explicitly so `import main` works in CI and locally.
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 import numpy as np
 import pymupdf
@@ -21,7 +28,7 @@ from fastapi.testclient import TestClient
 
 import main
 
-OUT = Path("tests/e2e/artifacts")
+OUT = ROOT / "tests" / "e2e" / "artifacts"
 OUT.mkdir(parents=True, exist_ok=True)
 
 
