@@ -28,3 +28,23 @@ The analyzer follows the converter's 20-page limit and stops source text analysi
 - `X-Conversion-Output-Tables`, `X-Conversion-Output-Paragraphs`
 
 These headers are exposed through CORS for the GitHub Pages frontend.
+
+
+## Real Arabic benchmark — 27 November 2026
+
+A repeatable CI test used page 1 of a 16-page public Dubai Government legal PDF. The test converted only the first page, then compared the DOCX text against the PDF's selectable text. These figures describe this one page only; they are not a general accuracy claim.
+
+| Route | Text coverage | Text precision | CER against PDF text | Output structure |
+|---|---:|---:|---:|---|
+| Current formatted route (pdf2docx) | 98.65% | 99.32% | 35.89% | 27 paragraphs, 2 tables, 0 images |
+| Experimental native-text layout candidate | 100.00% | 100.00% | 9.17% | 72 paragraphs, 0 tables, 0 images |
+| Scanned-page OCR reconstruction | Not measurable against native text-token coverage | Not measurable | 24.28% | 35 paragraphs, 0 tables, 0 images |
+
+The experimental native-text candidate is **not the production default**. Although its token coverage and CER were better on this page, its generated Word layout split mixed Arabic/number lines and needed two pages in a LibreOffice round-trip. The current pdf2docx result also rendered poorly in that same LibreOffice check, producing six pages from the one-page source. LibreOffice rendering is a useful diagnostic, not a substitute for Microsoft Word testing.
+
+### Decision
+
+- Do not claim layout fidelity based on text coverage or precision alone.
+- Keep the existing production converter unchanged while the native-text candidate is improved.
+- Next benchmark iteration: merge same-baseline text spans, restore RTL ordering for mixed Arabic/numeric runs, preserve the source page dimensions, and measure page count, table structure, and visual similarity after DOCX rendering.
+- A candidate may replace the production path only after it improves text accuracy **and** passes layout checks on multiple Arabic/English fixtures.
