@@ -136,9 +136,10 @@ def visual_metrics(source_pdf: bytes, output_docx: bytes) -> dict:
 
 def run():
     reports = []
-    with TestClient(main.app) as client:
-        for kind in ("text-only", "table", "two-column", "image"):
-            pdf = make_fixture(kind)
+    for kind in ("text-only", "table", "two-column", "image"):
+        pdf = make_fixture(kind)
+        # Isolate fixtures by synthetic client IP; production limits stay enabled.
+        with TestClient(main.app, client=(f"layout-matrix-{kind}", 50000)) as client:
             response = client.post(
                 "/api/convert/pdf-to-docx",
                 files={"file": (f"{kind}.pdf", pdf, "application/pdf")},
