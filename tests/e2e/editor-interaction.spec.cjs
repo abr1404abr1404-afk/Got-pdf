@@ -45,9 +45,12 @@ const base = process.env.APP_URL || "http://127.0.0.1:4173";
       const vp=page.viewportSize();
       if(!r) throw new Error("Text toolbar has no layout box");
       const pos=await toolbar.evaluate(el=>getComputedStyle(el).position);
-      if(pos!=="absolute") throw new Error("Toolbar must move with the PDF text: "+pos);
+      if(pos!=="fixed") throw new Error("Floating toolbar should be viewport-docked and re-anchored to its text: "+pos);
+      if(r.x < -1 || r.y < -1 || r.x+r.width > vp.width+1 || r.y+r.height > vp.height+1)
+        throw new Error("Floating toolbar escaped the mobile viewport: "+JSON.stringify({r,vp}));
     };
     await checkToolbar();
+    await page.locator("#hybrid-tab-view").click();
     for(let i=0;i<6;i++) await page.locator("#zi").click();
     await page.waitForTimeout(400);
     await page.locator(".ov").last().click({force:true});
