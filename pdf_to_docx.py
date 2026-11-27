@@ -82,6 +82,23 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
     for page_index, page in enumerate(pages):
         if page_index:
             document.add_page_break()
+        # Match the source PDF's physical page size when geometry is available.
+        # This avoids silently rebuilding A4/legal pages on Word's default Letter canvas.
+        section = document.sections[-1]
+        try:
+            page_width_pt = float(page.get("page_width_pt", 0) or 0)
+            page_height_pt = float(page.get("page_height_pt", 0) or 0)
+            if 100 <= page_width_pt <= 2000 and 100 <= page_height_pt <= 3000:
+                section.page_width = Pt(page_width_pt)
+                section.page_height = Pt(page_height_pt)
+                section.top_margin = Pt(0)
+                section.bottom_margin = Pt(0)
+                section.left_margin = Pt(0)
+                section.right_margin = Pt(0)
+                section.header_distance = Pt(0)
+                section.footer_distance = Pt(0)
+        except (TypeError, ValueError, OverflowError):
+            pass
         dpi = max(72, int(page.get("dpi", 180)))
         points_per_pixel = 72.0 / dpi
         direction = page.get("direction", "rtl")
