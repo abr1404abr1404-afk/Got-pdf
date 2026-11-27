@@ -136,6 +136,10 @@ def visual_metrics(source_pdf: bytes, output_docx: bytes) -> dict:
 
 def run():
     reports = []
+    # This is an isolated local integration test, not a public API load test.
+    # Disable only the in-process request guard in this test process so the four
+    # fixtures (plus the preceding real-PDF checks) cannot trip production quotas.
+    main._guard_expensive_request = lambda *args, **kwargs: None
     for kind in ("text-only", "table", "two-column", "image"):
         pdf = make_fixture(kind)
         # Isolate fixtures by synthetic client IP; production limits stay enabled.
