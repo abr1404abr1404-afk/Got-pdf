@@ -16,7 +16,7 @@ from docx import Document
 from fastapi.testclient import TestClient
 
 from document_export import create_docx
-from pdf_to_docx import analyze_pdf_docx_quality
+from pdf_to_docx import analyze_pdf_docx_quality, create_ocr_docx
 import main
 
 ROOT = Path("tests/e2e")
@@ -85,6 +85,29 @@ if len(normalize(native_text)) < 30:
 native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 (OUT / "real-dubai-law-formatted.docx").write_bytes(native_docx)
 
+# Experimental alternative: rebuild a native text PDF from line geometry rather than pdf2docx.
+# This is diagnostic only; the production route is not switched unless the candidate wins.
+native_layout_result = main._native_pdf_page_result(source[0], main.OCR_DPI / 72.0)
+native_layout_candidate = None
+if native_layout_result and native_layout_result.get("lines"):
+    native_layout_bytes = create_ocr_docx([{
+        "page": 1,
+        "dpi": main.OCR_DPI,
+        "direction": (native_layout_result.get("layout") or {}).get("direction", "rtl"),
+        "lines": native_layout_result["lines"],
+    }])
+    native_layout_text, native_layout_paragraphs, native_layout_images = read_docx(native_layout_bytes)
+    native_layout_candidate = {
+        "status": "candidate_generated",
+        "output_bytes": len(native_layout_bytes),
+        "editable_chars": len(native_layout_text),
+        "paragraphs": native_layout_paragraphs,
+        "images": native_layout_images,
+        "quality": analyze_pdf_docx_quality(native_pdf, native_layout_bytes),
+        "cer_vs_pdf_text": cer(reference, native_layout_text),
+    }
+    (OUT / "real-dubai-law-native-layout-candidate.docx").write_bytes(native_layout_bytes)
+
 # Button 2: "تصدير Word" -> /api/export/docx, using extracted PDF text.
 with TestClient(main.app) as client:
     export_response = client.post(
@@ -129,6 +152,7 @@ report = {
     "source_page_count": source.page_count,
     "tested_pages": 1,
     "source_reference_chars": len(reference),
+    "native_layout_candidate": native_layout_candidate,
     "formatted_pdf_to_docx": {
         "status": "passed",
         "engine": native_engine,
