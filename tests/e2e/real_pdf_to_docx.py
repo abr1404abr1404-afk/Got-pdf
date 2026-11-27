@@ -89,6 +89,14 @@ native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
 # This is diagnostic only; the production route is not switched unless the candidate wins.
 native_layout_result = main._native_pdf_page_result(source[0], main.OCR_DPI / 72.0)
 native_layout_candidate = None
+if native_layout_result:
+    (OUT / "real-dubai-law-native-layout-lines.json").write_text(
+        json.dumps({
+            "layout": native_layout_result.get("layout") or {},
+            "lines": native_layout_result.get("lines") or [],
+        }, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 if native_layout_result and native_layout_result.get("lines"):
     native_layout_bytes = create_ocr_docx([{
         "page": 1,
