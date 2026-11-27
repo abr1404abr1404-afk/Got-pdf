@@ -28,6 +28,7 @@ EXPECTED_ROUTES = {
     ("POST", "/api/export/xlsx"),
     ("POST", "/api/assistant/chat"),
     ("POST", "/api/assistant/extract"),
+    ("POST", "/api/document/parse"),
     ("POST", "/api/ocr/image"),
     ("POST", "/api/ocr/pdf"),
     ("POST", "/api/pdf/compare"),
