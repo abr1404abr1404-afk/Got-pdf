@@ -531,6 +531,7 @@ async function prep(blob){
   }catch(e){}
   return c;
 }
+window.addEventListener("pagehide",()=>{const cached=window.__alfalqiTessWorker;window.__alfalqiTessWorker=null;if(cached&&cached.worker){try{cached.worker.terminate()}catch(e){}}},{once:true});
 window.imgOcr=async function(pg,lang,auto){
   if(window.ocrBusy)return toast("يوجد تحليل جارٍ، انتظر حتى ينتهي.");
   window.ocrBusy=true;
@@ -580,10 +581,22 @@ window.imgOcr=async function(pg,lang,auto){
     }
     if(!backendUsed){
       await loadTess();
-      const c=await prep(pg.src.blob),langs=(lang||"ara").split("+");
-      let w;const lg=m=>{if(m&&typeof m.progress==="number"){const pc=Math.round(m.progress*100),st=/load|init|download/i.test(m.status||"")?"تحميل نموذج اللغة":"قراءة النص";toast(st+" "+pc+"٪ …")}};
-      try{w=await Tesseract.createWorker(langs,1,{langPath:"https://tessdata.projectnaptha.com/4.0.0_best",logger:lg})}catch(e){w=await Tesseract.createWorker(langs,1,{logger:lg})}
-      const mx=dw/c.width,my=dh/c.height;
+      const c=await prep(pg.src.blob),langs=(lang||"ara").split("+").map(x=>x.trim()).filter(Boolean);
+      const workerKey=langs.slice().sort().join("+");
+      const lg=m=>{if(m&&typeof m.progress==="number"){const pc=Math.round(m.progress*100),st=/load|init|download/i.test(m.status||"")?"تحميل نموذج اللغة":"قراءة النص";toast(st+" "+pc+"٪ …")}};
+      // Keep one language-specific worker alive between pages. This avoids downloading
+      // and initializing the Arabic model again for every page in the same session.
+      let cached=window.__alfalqiTessWorker;
+      if(!cached||cached.key!==workerKey||!cached.worker){
+        if(cached&&cached.worker){try{await cached.worker.terminate()}catch(e){console.warn("Previous OCR worker cleanup failed",e)}}
+        window.__alfalqiTessWorker=null;
+        let worker;
+        try{worker=await Tesseract.createWorker(langs,1,{langPath:"https://tessdata.projectnaptha.com/4.0.0_best",logger:lg})}
+        catch(e){worker=await Tesseract.createWorker(langs,1,{logger:lg})}
+        cached={key:workerKey,worker};
+        window.__alfalqiTessWorker=cached;
+      }
+      const w=cached.worker,mx=dw/c.width,my=dh/c.height;
       const addLines=data=>(data.lines||[]).forEach(l=>{
         const t=(l.text||"").trim().replace(/\\s+/g," ");
         if(t)raw.push({t,c:Number(l.confidence)||0,x0:ox+l.bbox.x0*mx,x1:ox+l.bbox.x1*mx,y0:oy+l.bbox.y0*my,y1:oy+l.bbox.y1*my});
@@ -599,7 +612,12 @@ window.imgOcr=async function(pg,lang,auto){
           const block=await w.recognize(c);
           addLines(block.data);
         }
-      }finally{await w.terminate()}
+      }catch(recognitionError){
+        // A failed worker must not poison subsequent pages; discard it and retry cleanly next time.
+        if(window.__alfalqiTessWorker===cached)window.__alfalqiTessWorker=null;
+        try{await w.terminate()}catch(cleanupError){console.warn("OCR worker cleanup failed",cleanupError)}
+        throw recognitionError;
+      }
       pg.tables=[];
     }
     const pageHeight=Math.max(1,Number(pg.src&&pg.src.dh)||Math.max(1,...raw.map(o=>o.y1||0)));
