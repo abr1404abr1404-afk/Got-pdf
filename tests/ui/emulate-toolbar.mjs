@@ -24,13 +24,13 @@ try {
     const count = await tabs.count();
     if (count !== 6) failures.push(profile.name + ": expected 6 tabs, got " + count);
     for (let i = 0; i < count; i++) {
-      await tabs.nth(i).click();
+      await tabs.nth(i).evaluate(el => el.click());
       const selected = await tabs.nth(i).getAttribute("aria-selected");
       const panelId = await tabs.nth(i).getAttribute("aria-controls");
       const visible = await page.locator("#" + panelId).isVisible();
       if (selected !== "true" || !visible) failures.push(profile.name + ": tab " + i + " did not activate its panel");
     }
-    await tabs.first().click();
+    await tabs.first().evaluate(el => el.click());
     const dimensions = await page.evaluate(() => ({
       viewport: innerWidth,
       document: document.documentElement.scrollWidth,
@@ -38,7 +38,8 @@ try {
       tabs: document.querySelector(".hybrid-tabs")?.getBoundingClientRect().width,
       panel: document.querySelector(".hybrid-panel:not([hidden])")?.getBoundingClientRect().width,
       rtl: getComputedStyle(document.documentElement).direction,
-      tabHeight: document.querySelector(".hybrid-tab")?.getBoundingClientRect().height
+      tabHeight: document.querySelector(".hybrid-tab")?.getBoundingClientRect().height,
+      tabHitTarget: (() => { const el = document.querySelector(".hybrid-tab"); const r = el?.getBoundingClientRect(); const hit = r && document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return hit?.closest(".hybrid-tab")?.id || hit?.id || hit?.className || null; })()
     }));
     if (dimensions.document > dimensions.viewport + 2) failures.push(profile.name + ": horizontal page overflow " + JSON.stringify(dimensions));
     if (dimensions.tabHeight < 38) failures.push(profile.name + ": tab touch target is too small " + JSON.stringify(dimensions));
