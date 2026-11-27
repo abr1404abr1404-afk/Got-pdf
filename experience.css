@@ -633,3 +633,11 @@ header .hr2,
 .hybrid-panel {
   flex-wrap: nowrap;
 }
+
+
+/* Preserve native horizontal/vertical touch panning on editable PDF text layers.
+   The explicit move/resize handles keep touch-action:none in the base editor CSS. */
+.ov,
+.ov.edit { touch-action: pan-x pan-y; }
+.ov .m,
+.ov .rzt { touch-action: none; }
