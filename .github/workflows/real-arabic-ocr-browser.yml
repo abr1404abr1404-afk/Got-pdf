@@ -11,7 +11,8 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: got-pdf-real-arabic-ocr-browser
+  # Keep duplicate attempts for one commit serialized without blocking newer fixes.
+  group: got-pdf-real-arabic-ocr-browser-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   browser-ocr:
