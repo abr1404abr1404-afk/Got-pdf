@@ -32,19 +32,24 @@ These headers are exposed through CORS for the GitHub Pages frontend.
 
 ## Real Arabic benchmark — 27 November 2026
 
-A repeatable CI test used page 1 of a 16-page public Dubai Government legal PDF. The test converted only the first page, then compared the DOCX text against the PDF's selectable text. These figures describe this one page only; they are not a general accuracy claim.
+A repeatable CI test used page 1 of a 16-page public Dubai Government legal PDF. The tested page is 612 × 792 pt. These measurements describe this page only, not general accuracy across all PDFs.
 
-| Route | Text coverage | Text precision | CER against PDF text | Output structure |
-|---|---:|---:|---:|---|
-| Current formatted route (pdf2docx) | 98.65% | 99.32% | 35.89% | 27 paragraphs, 2 tables, 0 images |
-| Experimental native-text layout candidate | 100.00% | 100.00% | 9.17% | 72 paragraphs, 0 tables, 0 images |
-| Scanned-page OCR reconstruction | Not measurable against native text-token coverage | Not measurable | 24.28% | 35 paragraphs, 0 tables, 0 images |
+| Route | Text coverage | Text precision | CER against PDF text | LibreOffice page count | Structure |
+|---|---:|---:|---:|---:|---|
+| Current formatted route (pdf2docx) | 98.65% | 99.32% | 35.89% | 6 | 45 paragraphs, 2 tables |
+| Native-text, same-baseline merged candidate | 100.00% | 100.00% | 9.17% | 1 | 28 paragraphs, 0 tables |
+| Native word-box grouping candidate | 87.84% | 78.31% | 23.64% | Not selected | 29 paragraphs |
+| Scanned-page OCR reconstruction | Not measurable against native text-token coverage | Not measurable | 24.28% | Not yet round-trip measured | 35 paragraphs |
 
-The experimental native-text candidate is **not the production default**. Although its token coverage and CER were better on this page, its generated Word layout split mixed Arabic/number lines and needed two pages in a LibreOffice round-trip. The current pdf2docx result also rendered poorly in that same LibreOffice check, producing six pages from the one-page source. LibreOffice rendering is a useful diagnostic, not a substitute for Microsoft Word testing.
+### What improved
 
-### Decision
+- Merging same-baseline native PDF text fragments reduced the experimental output from 72 paragraphs to 28 without losing source word tokens on this page.
+- The candidate rendered through LibreOffice to exactly one page, with page width and height matching the source exactly (0.00% size error).
+- The OCR-to-Word generator now accepts original page dimensions and applies them to Word sections. A unit test verifies the page size and zero margins.
+- CI now checks the candidate's one-page round-trip, exact physical page dimensions, and 100% token coverage.
 
-- Do not claim layout fidelity based on text coverage or precision alone.
-- Keep the existing production converter unchanged while the native-text candidate is improved.
-- Next benchmark iteration: merge same-baseline text spans, restore RTL ordering for mixed Arabic/numeric runs, preserve the source page dimensions, and measure page count, table structure, and visual similarity after DOCX rendering.
-- A candidate may replace the production path only after it improves text accuracy **and** passes layout checks on multiple Arabic/English fixtures.
+### Why the candidate is not yet the production default
+
+The source page contains table-like structures. The current converter preserved two Word tables, while the experimental native reconstruction currently produces ordinary paragraphs and no tables. The candidate therefore wins on text order and page count for this fixture but loses a structural feature that matters. It must not silently replace the current route for documents containing tables, images, multiple columns, or complex layouts.
+
+The production route remains unchanged for selectable-text PDFs until a structure-aware hybrid is validated across multiple Arabic and bilingual fixtures. LibreOffice is a repeatable layout diagnostic, not a substitute for Microsoft Word or a visual pixel-level fidelity assessment.
