@@ -180,7 +180,7 @@ def main() -> None:
     ]
 
     candidates = ["tesseract"]
-    if health.get("paddleocr_enabled"):
+    if health.get("paddleocr_enabled") or health.get("paddleocr_remote_configured"):
         candidates.extend(["paddleocr", "hybrid"])
     if health.get("paddleocr_vl_available"):
         candidates.append("paddleocr_vl")
