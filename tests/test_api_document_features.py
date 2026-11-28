@@ -258,6 +258,46 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
             io.BytesIO(response.content)
         ).namelist())
 
+
+    async def test_scanned_pdf_to_docx_reports_ocr_text_retention_basis(self):
+        scanned = pymupdf.open()
+        page = scanned.new_page(width=595, height=842)
+        image = Image.new("RGB", (300, 420), "white")
+        image_buffer = io.BytesIO()
+        image.save(image_buffer, format="PNG")
+        page.insert_image(page.rect, stream=image_buffer.getvalue())
+        source = scanned.tobytes()
+        scanned.close()
+
+        fake_ocr = {
+            "engine": "tesseract",
+            "image_width": 1488,
+            "image_height": 2105,
+            "lines": [{
+                "text": "المجلس نص قابل للتحرير",
+                "confidence": 95.0,
+                "bbox": [120, 180, 720, 230],
+                "engine": "tesseract",
+                "region": "body",
+                "column": 1,
+                "reading_order": 1,
+            }],
+            "layout": {"direction": "rtl"},
+        }
+        with patch.object(main, "_hybrid", return_value=fake_ocr), patch.object(
+            main, "_detect_tables", return_value=[]
+        ):
+            response = await self.client.post(
+                "/api/convert/pdf-to-docx",
+                files=self.upload(payload=source),
+            )
+
+        self.assertEqual(response.status_code, 200, response.text[:500])
+        self.assertEqual(response.headers.get("x-conversion-analysis"), "ocr_reconstructed")
+        self.assertEqual(response.headers.get("x-conversion-text-basis"), "ocr-reconstruction")
+        self.assertEqual(response.headers.get("x-conversion-text-coverage"), "100.0")
+        self.assertTrue(response.content.startswith(b"PK")
+
     async def test_pdf_to_docx_route_returns_docx_and_quality_headers(self):
         response = await self.client.post(
             "/api/convert/pdf-to-docx", files=self.upload()
