@@ -1108,14 +1108,11 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
         paddle_rows, paddle_error = _paddle(prepared, language)
     else:
         paddle_rows, paddle_error = [], "PaddleOCR disabled or not installed; using Tesseract fallback"
-    # A confident PaddleOCR result can stand alone in hybrid mode. Avoid
-    # running a second full-page engine unnecessarily on low-CPU instances.
-    paddle_confidence = (
-        sum(float(row.get("confidence", 0)) for row in paddle_rows) / len(paddle_rows)
-        if paddle_rows else 0.0
-    )
-    paddle_is_usable = bool(paddle_rows) and paddle_confidence >= 48.0
-    if mode in {"hybrid", "tesseract"} and not (mode == "hybrid" and paddle_is_usable):
+    # Page-average confidence is not a completeness score: a strong PaddleOCR
+    # result can still omit a small line or a decorative heading. In hybrid mode,
+    # always run the independent Tesseract pass and merge geometrically-overlapping
+    # results. Explicit Paddle-only mode remains available for constrained setups.
+    if mode in {"hybrid", "tesseract"}:
         tess_rows, first_error = _tesseract(prepared, language, 11)
         tess_errors: list[str] = [first_error] if first_error else []
         average_confidence = (
@@ -1135,8 +1132,27 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
             if error:
                 tess_errors.append(error)
         tess_rows = _dedupe(tess_rows)
-        # Full-page confidence can hide small, difficult text behind large headings.
+        # Bounded enlarged pass: useful when the page contains only a few large
+        # headings or the first pass has weak confidence. Coordinates are mapped
+        # back to the prepared image before merging, so overlays stay aligned.
         height, width = prepared.shape[:2]
+        final_confidence = (
+            sum(float(row.get("confidence", 0)) for row in tess_rows) / len(tess_rows)
+            if tess_rows else 0.0
+        )
+        scale = min(1.5, 2000.0 / max(1, height, width))
+        if not timed_out and scale >= 1.12 and (len(tess_rows) <= 4 or final_confidence < 68.0):
+            enlarged = cv2.resize(prepared, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
+            enlarged_rows, enlarged_error = _tesseract(enlarged, language, 11, timeout_override=10)
+            if enlarged_rows:
+                inverse = 1.0 / scale
+                for row in enlarged_rows:
+                    row["bbox"] = [int(round(value * inverse)) for value in row["bbox"]]
+                    for word in row.get("words", []):
+                        word["bbox"] = [int(round(value * inverse)) for value in word["bbox"]]
+                tess_rows = _dedupe(tess_rows + enlarged_rows)
+            if enlarged_error:
+                tess_errors.append("enlarged pass: " + enlarged_error)
         final_confidence = (
             sum(float(row.get("confidence", 0)) for row in tess_rows) / len(tess_rows)
             if tess_rows else 0.0
@@ -1150,7 +1166,7 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
             tess_errors.append(tiled_error)
         tess_error = "; ".join(tess_errors) if tess_errors else None
     else:
-        tess_rows, tess_error = [], "skipped: confident PaddleOCR result" if paddle_is_usable else "disabled by OCR_MODE"
+        tess_rows, tess_error = [], "disabled by explicit PaddleOCR-only mode"
     if paddle_rows and tess_rows:
         merged = _dedupe(paddle_rows + tess_rows)
         used = "hybrid"
