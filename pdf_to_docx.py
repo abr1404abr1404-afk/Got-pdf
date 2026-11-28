@@ -59,6 +59,59 @@ def _apply_arabic_direction(docx_bytes: bytes) -> bytes:
     return output.getvalue()
 
 
+def _append_ocr_word_table(document, table_data: dict, direction: str):
+    """Append a bounded, editable table reconstructed from OCR cell rows."""
+    from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    rows = table_data.get("rows")
+    if not isinstance(rows, list):
+        return None
+    clean = []
+    columns = 0
+    for row in rows[:60]:
+        if isinstance(row, (list, tuple)):
+            values = [str(value or "").strip()[:4000] for value in row[:20]]
+            if values:
+                clean.append(values)
+                columns = max(columns, len(values))
+    if not clean or not columns:
+        return None
+    table = document.add_table(rows=len(clean), cols=columns)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.autofit = True
+    table_pr = table._tbl.tblPr
+    bidi = table_pr.find(qn("w:bidiVisual"))
+    if bidi is None:
+        bidi = OxmlElement("w:bidiVisual")
+        table_pr.append(bidi)
+    bidi.set(qn("w:val"), "1" if direction == "rtl" else "0")
+    for row_index, values in enumerate(clean):
+        for column_index in range(columns):
+            cell = table.cell(row_index, column_index)
+            cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+            cell.text = values[column_index] if column_index < len(values) else ""
+            for paragraph in cell.paragraphs:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT if direction == "rtl" else WD_ALIGN_PARAGRAPH.LEFT
+                if direction == "rtl":
+                    p_pr = paragraph._p.get_or_add_pPr()
+                    p_bidi = OxmlElement("w:bidi")
+                    p_bidi.set(qn("w:val"), "1")
+                    p_pr.append(p_bidi)
+                paragraph.paragraph_format.space_before = 0
+                paragraph.paragraph_format.space_after = 0
+                for run in paragraph.runs:
+                    run.font.name = "Arial"
+                    if any(0x0600 <= ord(char) <= 0x06ff for char in run.text):
+                        r_pr = run._element.get_or_add_rPr()
+                        rtl = OxmlElement("w:rtl")
+                        rtl.set(qn("w:val"), "1")
+                        r_pr.append(rtl)
+    return table
+
+
 def create_ocr_docx(pages: list[dict]) -> bytes:
     """Rebuild editable Word paragraphs from OCR lines while retaining RTL, size and spacing cues."""
     from docx import Document
@@ -113,7 +166,31 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
         except (TypeError, ValueError, ZeroDivisionError):
             points_per_pixel_x = points_per_pixel_y = 72.0 / dpi
         direction = page.get("direction", "rtl")
-        lines = [line for line in (page.get("lines") or []) if str(line.get("text", "")).strip()]
+        table_regions = []
+        for table_data in (page.get("tables") or []):
+            if not isinstance(table_data, dict):
+                continue
+            box = table_data.get("bbox")
+            if isinstance(box, (list, tuple)) and len(box) == 4 and isinstance(table_data.get("rows"), list):
+                try:
+                    x0, y0, x1, y1 = (float(value) for value in box)
+                    if x1 > x0 and y1 > y0:
+                        table_regions.append((x0, y0, x1, y1, table_data))
+                except (TypeError, ValueError):
+                    pass
+        lines = []
+        for line in (page.get("lines") or []):
+            if not str(line.get("text", "")).strip():
+                continue
+            box = line.get("bbox") or []
+            try:
+                cx, cy = (float(box[0]) + float(box[2])) / 2, (float(box[1]) + float(box[3])) / 2
+            except (TypeError, ValueError, IndexError):
+                cx = cy = -1
+            if any(x0 <= cx <= x1 and y0 <= cy <= y1 for x0, y0, x1, y1, _ in table_regions):
+                continue
+            lines.append(line)
+        paragraph_positions = []
         # Layout analysis assigns columns in reading order; within each column,
         # preserve top-to-bottom placement and use OCR boxes to approximate spacing.
         if any(line.get("reading_order") is not None for line in lines):
@@ -174,6 +251,7 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 bidi = OxmlElement("w:bidi")
                 bidi.set(qn("w:val"), "1")
                 p_pr.append(bidi)
+            paragraph_positions.append((y0, paragraph))
             run = paragraph.add_run(text)
             run.font.name = "Arial"
             run.font.size = Pt(height_pt)
@@ -191,6 +269,16 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 lang.set(qn("w:bidi"), "ar-SA")
                 r_pr.append(lang)
             previous_bottom = max(previous_bottom, y1)
+
+        # Insert detected tables as real Word tables at their vertical reading position.
+        # Process lower tables first so multiple insertions before one paragraph remain ordered.
+        for x0, y0, x1, y1, table_data in sorted(table_regions, key=lambda item: item[1], reverse=True):
+            table = _append_ocr_word_table(document, table_data, table_data.get("direction", direction))
+            if table is None:
+                continue
+            anchor = next((paragraph for line_y, paragraph in paragraph_positions if line_y > y0), None)
+            if anchor is not None:
+                anchor._p.addprevious(table._tbl)
 
     output = io.BytesIO()
     document.save(output)
