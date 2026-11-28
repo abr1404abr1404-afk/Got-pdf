@@ -1302,12 +1302,15 @@ async def health():
         except (httpx.HTTPError, ValueError, TypeError):
             remote_worker = {}
     remote_model_loaded = bool(remote_worker.get("model_loaded"))
+    remote_authenticated = bool(remote_worker.get("authenticated"))
     local_paddle_ready = _paddle_runtime_available() and paddleocr_installed and paddlepaddle_installed
-    paddle_enabled = (local_paddle_ready or remote_model_loaded) and OCR_MODE in {"hybrid", "paddleocr"}
+    paddle_enabled = (local_paddle_ready or (remote_model_loaded and remote_authenticated)) and OCR_MODE in {"hybrid", "paddleocr"}
     if not PADDLEOCR_REMOTE_URL:
         remote_status = "not_configured"
     elif not remote_reachable:
         remote_status = "worker_unreachable"
+    elif not remote_authenticated:
+        remote_status = "worker_secret_missing"
     elif not remote_model_loaded:
         remote_status = "worker_online_model_cold"
     else:
@@ -1334,6 +1337,7 @@ async def health():
             "paddleocr_remote_status": remote_status,
             "paddleocr_remote_reachable": remote_reachable,
             "paddleocr_remote_model_loaded": remote_model_loaded,
+            "paddleocr_remote_authenticated": remote_authenticated,
             "paddleocr_configured": PADDLE_OCR_OPT_IN or bool(PADDLEOCR_REMOTE_URL),
             "paddleocr_verified": False,
             "paddleocr_status": ("ready_model_loaded_unverified" if paddle_enabled else remote_status if PADDLEOCR_REMOTE_URL else ("enabled_but_runtime_missing" if PADDLE_OCR_OPT_IN else "disabled")),
