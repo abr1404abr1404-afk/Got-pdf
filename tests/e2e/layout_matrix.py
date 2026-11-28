@@ -175,7 +175,7 @@ def run():
                     "bbox": [220, 450, 1800, 1050], "direction": "ltr",
                     "rows": [["Name", "Value"], ["Total", "125"]],
                 }]
-                with patch.object(main, "_native_pdf_page_result", return_value=None), \\
+                with patch.object(main, "_native_pdf_page_result", return_value=None), \
                      patch.object(main, "_hybrid", return_value=fake_ocr), \\
                      patch.object(main, "_detect_tables", return_value=fake_table):
                     response = client.post(
