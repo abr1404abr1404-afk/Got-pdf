@@ -140,7 +140,7 @@ def docx_structure_metrics(data: bytes, reference: str) -> dict:
     """Measure editable structure and reading sequence, not only text presence."""
     document = Document(io.BytesIO(data))
     paragraphs = [p for p in document.paragraphs if p.text.strip()]
-    ordered_text = "\\n".join(p.text for p in paragraphs)
+    ordered_text = "\n".join(p.text for p in paragraphs)
     rtl_paragraphs = 0
     rtl_runs = 0
     font_sizes = []
