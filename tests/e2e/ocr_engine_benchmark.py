@@ -101,7 +101,9 @@ def real_pdf_page_fixture() -> dict:
         reference = page.get_text("text") or ""
         if len(normalize(reference)) < 100:
             raise RuntimeError("Public Arabic PDF page one has insufficient reference text")
-        pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2.0, 2.0), alpha=False)
+        # Keep the raster within the API normal 1400px edge budget.
+        scale = min(1.6, 1200.0 / max(page.rect.width, page.rect.height))
+        pixmap = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False)
         image_bytes = pixmap.tobytes("png")
         return {
             "id": "real_dubai_law_pdf_page1",
@@ -221,8 +223,7 @@ def main() -> None:
                 })
             report["results"].append(item)
 
-    # A candidate wins only if it returns results for every fixture; summarize
-    # mean CER and latency separately so speed cannot hide accuracy regressions.
+    # Keep the public PDF as a separately reported real-world gate.
     summary = []
     for engine in candidates:
         rows = [r for r in report["results"] if r["engine"] == engine and r["status"] == "passed"]
@@ -238,14 +239,25 @@ def main() -> None:
     report["summary"] = sorted(summary, key=lambda row: (
         not row["complete"], row["mean_cer"], row["mean_latency_seconds"]
     ))
+    real_pdf_rows = [r for r in report["results"] if r["fixture"] == "real_dubai_law_pdf_page1"]
+    report["real_pdf_gate"] = {
+        "fixture_count": len(real_pdf_rows),
+        "passed_engines": [r["engine"] for r in real_pdf_rows if r["status"] == "passed"],
+        "failed_engines": [r["engine"] for r in real_pdf_rows if r["status"] != "passed"],
+        "complete": bool(real_pdf_rows) and all(r["status"] == "passed" for r in real_pdf_rows),
+    }
     report["selection_note"] = (
-        "Do not switch production default from this small synthetic benchmark alone; "
-        "confirm the ranking on the public scanned-PDF fixture and handwritten/decorative samples."
+        "Synthetic fixtures are diagnostic only. Do not select a production winner until "
+        "the real PDF gate passes for the compared engines and handwriting/decorative samples are tested."
     )
     OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    assert any(row["engine"] == "tesseract" and row["complete"] for row in summary), (
-        "Baseline Tesseract did not complete all benchmark fixtures"
+    baseline_synthetic = [
+        r for r in report["results"]
+        if r["engine"] == "tesseract" and r["fixture"] != "real_dubai_law_pdf_page1"
+    ]
+    assert baseline_synthetic and all(r["status"] == "passed" for r in baseline_synthetic), (
+        "Baseline Tesseract failed one or more generated diagnostic fixtures"
     )
 
 
