@@ -238,6 +238,7 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
                 "image_height": int(result.get("image_height") or 0),
                 "direction": (result.get("layout") or {}).get("direction", "rtl"),
                 "lines": result.get("lines") or [],
+                "tables": result.get("tables") or [],
             })
 
         if not needs_ocr:
