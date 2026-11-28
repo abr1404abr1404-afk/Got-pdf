@@ -25,10 +25,12 @@ jobs:
         with:
           python-version: "3.11"
           cache: "pip"
-      - name: Install CPU PaddlePaddle and PaddleOCR
+      - name: Install identical-image OCR comparison runtimes
         run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ara tesseract-ocr-eng
           python -m pip install --upgrade pip
-          python -m pip install "paddlepaddle==3.2.2" "paddleocr==3.7.0" requests pymupdf pillow
+          python -m pip install "paddlepaddle==3.2.2" "paddleocr==3.7.0" requests pymupdf pillow pytesseract
       - name: Run Arabic PP-OCRv5 on authentic PDF page and scanned TIFF
         run: python scripts/live_paddleocr_benchmark.py
       - name: Upload PaddleOCR benchmark report
