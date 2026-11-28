@@ -17,13 +17,16 @@ class HybridOcrSelectionTests(unittest.TestCase):
 
     @patch.object(main, "analyze_text_style", return_value=None)
     @patch.object(main, "analyze_layout")
-    @patch.object(main, "_tesseract")
+    @patch.object(main, "_tesseract", return_value=([{
+        "text": "المجلس", "confidence": 82.0, "bbox": [10, 20, 150, 55],
+        "engine": "tesseract",
+    }], None))
     @patch.object(main, "_paddle", return_value=([{
         "text": "المجلس", "confidence": 86.0, "bbox": [10, 20, 150, 55],
         "engine": "paddleocr",
     }], None))
     @patch.object(main, "_preprocess", side_effect=lambda image: image)
-    def test_confident_paddle_result_skips_expensive_tesseract(
+    def test_confident_paddle_result_still_cross_checks_tesseract_once(
         self, preprocess, paddle, tesseract, analyze_layout, style
     ):
         analyze_layout.return_value = {
@@ -31,8 +34,8 @@ class HybridOcrSelectionTests(unittest.TestCase):
         }
         with patch.object(main, "_paddle_runtime_available", return_value=True), patch.object(main, "OCR_MODE", "hybrid"):
             result = main._hybrid(self.image, "ara")
-        tesseract.assert_not_called()
-        self.assertEqual(result["engine"], "paddleocr")
+        tesseract.assert_called_once()
+        self.assertEqual(result["engine"], "hybrid")
         self.assertEqual(result["lines"][0]["text"], "المجلس")
 
     @patch.object(main, "analyze_text_style", return_value=None)
