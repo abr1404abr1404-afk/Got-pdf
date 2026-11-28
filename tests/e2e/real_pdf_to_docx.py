@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pymupdf
 from docx import Document
 from docx.oxml.table import CT_Tbl
+from docx.oxml.ns import qn
 from docx.oxml.text.paragraph import CT_P
 from docx.table import Table
 from docx.text.paragraph import Paragraph
@@ -155,8 +156,9 @@ def docx_structure_metrics(data: bytes, reference: str) -> dict:
         elif isinstance(child, CT_Tbl):
             table = Table(child, document)
             for row in table.rows:
-                # Arabic Word tables are visually RTL; inspect rightmost cell first.
-                for cell in reversed(row.cells):
+                bidi_visual = table._tbl.tblPr.find(qn("w:bidiVisual")) is not None
+                cells = reversed(row.cells) if bidi_visual else row.cells
+                for cell in cells:
                     for paragraph in cell.paragraphs:
                         if paragraph.text.strip():
                             ordered_blocks.append(paragraph.text)
