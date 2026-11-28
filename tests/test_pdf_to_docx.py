@@ -240,6 +240,38 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertAlmostEqual(section.top_margin.pt, 0, delta=0.1)
         self.assertAlmostEqual(section.right_margin.pt, 0, delta=0.1)
 
+    def test_ocr_docx_reconstructs_detected_table_as_editable_word_table(self):
+        from pdf_to_docx import create_ocr_docx
+
+        converted = Document(io.BytesIO(create_ocr_docx([{
+            "direction": "rtl",
+            "page_width_pt": 420,
+            "page_height_pt": 595,
+            "image_width": 420,
+            "image_height": 595,
+            "lines": [
+                {"text": "عنوان قبل الجدول", "bbox": [20, 20, 180, 40], "reading_order": 1},
+                {"text": "اسم", "bbox": [250, 100, 300, 120], "reading_order": 2},
+                {"text": "القيمة", "bbox": [100, 100, 180, 120], "reading_order": 3},
+                {"text": "عنوان بعد الجدول", "bbox": [20, 260, 180, 280], "reading_order": 4},
+            ],
+            "tables": [{
+                "bbox": [80, 80, 340, 220],
+                "direction": "rtl",
+                "rows": [["اسم", "القيمة"], ["العمر", "١٥"]],
+            }],
+        }])))
+
+        self.assertEqual(len(converted.tables), 1)
+        self.assertEqual(len(converted.tables[0].rows), 2)
+        self.assertEqual(len(converted.tables[0].columns), 2)
+        table_text = [cell.text for row in converted.tables[0].rows for cell in row.cells]
+        self.assertEqual(table_text, ["اسم", "القيمة", "العمر", "١٥"])
+        all_text = "\n".join(_docx_text_parts(converted))
+        self.assertEqual(all_text.count("اسم"), 1)
+        self.assertIn("عنوان قبل الجدول", all_text)
+        self.assertIn("عنوان بعد الجدول", all_text)
+
     def test_ocr_docx_preserves_horizontal_line_geometry(self):
         from pdf_to_docx import create_ocr_docx
 
