@@ -136,6 +136,45 @@ def read_docx(data: bytes) -> tuple[str, int, int]:
     return text, len(paragraphs), len(document.inline_shapes)
 
 
+def docx_structure_metrics(data: bytes, reference: str) -> dict:
+    """Measure editable structure and reading sequence, not only text presence."""
+    document = Document(io.BytesIO(data))
+    paragraphs = [p for p in document.paragraphs if p.text.strip()]
+    ordered_text = "\\n".join(p.text for p in paragraphs)
+    rtl_paragraphs = 0
+    rtl_runs = 0
+    font_sizes = []
+    for paragraph in paragraphs:
+        p_pr = paragraph._p.pPr
+        bidi = p_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi") if p_pr is not None else None
+        if bidi is not None:
+            rtl_paragraphs += 1
+        for run in paragraph.runs:
+            r_pr = run._r.rPr
+            rtl = r_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}rtl") if r_pr is not None else None
+            if rtl is not None:
+                rtl_runs += 1
+            if run.font.size is not None:
+                font_sizes.append(round(run.font.size.pt, 2))
+    tables = [{
+        "rows": len(table.rows),
+        "columns": len(table.columns),
+    } for table in document.tables]
+    sequence_error = cer(reference, ordered_text)
+    return {
+        "nonempty_paragraphs": len(paragraphs),
+        "tables": tables,
+        "table_count": len(tables),
+        "inline_images": len(document.inline_shapes),
+        "rtl_paragraphs": rtl_paragraphs,
+        "rtl_runs": rtl_runs,
+        "font_size_min_pt": min(font_sizes) if font_sizes else None,
+        "font_size_max_pt": max(font_sizes) if font_sizes else None,
+        "reading_sequence_cer": sequence_error,
+        "reading_sequence_order_preserved": sequence_error is not None and sequence_error <= 0.10,
+    }
+
+
 if not FIXTURE.is_file():
     raise SystemExit(f"Real PDF fixture not found: {FIXTURE}")
 
@@ -165,6 +204,7 @@ with TestClient(main.app) as client:
 if not native_docx.startswith(b"PK"):
     raise SystemExit("Formatted PDF-to-Word conversion did not produce a DOCX package.")
 native_text, native_paragraphs, native_images = read_docx(native_docx)
+native_structure = docx_structure_metrics(native_docx, reference)
 if len(normalize(native_text)) < 30:
     raise SystemExit("Formatted PDF-to-Word output contains too little editable text.")
 native_quality = analyze_pdf_docx_quality(native_pdf, native_docx)
@@ -302,6 +342,8 @@ with TestClient(main.app) as client:
 if not scanned_docx.startswith(b"PK"):
     raise SystemExit("Scanned-PDF OCR conversion did not produce a DOCX package.")
 scanned_text, scanned_paragraphs, scanned_images = read_docx(scanned_docx)
+scanned_structure = docx_structure_metrics(scanned_docx, reference)
+scanned_render = render_docx_metrics(scanned_docx, source[0])
 if len(normalize(scanned_text)) < 10:
     raise SystemExit("Scanned-PDF OCR-to-Word output contains too little editable text.")
 (OUT / "real-dubai-law-scanned-ocr.docx").write_bytes(scanned_docx)
@@ -325,6 +367,7 @@ report = {
         "paragraphs": native_paragraphs,
         "images": native_images,
         "quality": native_quality,
+        "structure": native_structure,
         "api_status": native_response.status_code,
         "cer_vs_pdf_text": cer(reference, native_text),
         "render": render_docx_metrics(native_docx, source[0]),
@@ -345,6 +388,8 @@ report = {
         "editable_chars": len(scanned_text),
         "arabic_chars": sum("\u0600" <= ch <= "\u06ff" for ch in scanned_text),
         "paragraphs": scanned_paragraphs,
+        "structure": scanned_structure,
+        "render": scanned_render,
         "cer_vs_pdf_text_reference": cer(reference, scanned_text),
     },
 }
