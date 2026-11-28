@@ -615,6 +615,48 @@ class PdfImageToolsTests(unittest.TestCase):
                 "rect": item["rect"], "action": "rotate", "rotation": 45,
             }])
 
+    def test_replace_isolated_arabic_text_keeps_exact_logical_word_and_neighbors(self):
+        import hashlib
+        from pathlib import Path
+
+        font_path = next((path for path in (
+            "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        ) if Path(path).is_file()), None)
+        if font_path is None:
+            self.skipTest("No Arabic-capable font is installed in this test environment")
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=600, height=240)
+        page.insert_text((470, 85), "المجلس", fontfile=font_path,
+                         fontname="TestArabic", fontsize=18)
+        page.insert_text((40, 170), "KeepMe", fontsize=12)
+        source = doc.tobytes()
+        doc.close()
+
+        report = inspect_pdf_objects(source)
+        target = next((item for item in report["objects"]
+                       if item["type"] == "text" and "المجلس" in item["text"]), None)
+        if target is None:
+            self.skipTest("PDF engine did not preserve logical Arabic text in the fixture")
+
+        output = replace_isolated_arabic_pdf_text(source, {
+            "action": "replace_ar", "page": 1, "object_id": target["id"],
+            "text_hash": target["text_hash"], "rect": target["rect"],
+            "replacement": "مجلس",
+        })
+        with pymupdf.open(stream=output, filetype="pdf") as result:
+            extracted = result[0].get_text("text")
+            compact = "".join(extracted.split())
+            self.assertIn("مجلس", compact)
+            self.assertNotIn("المجلس", compact)
+            self.assertIn("KeepMe", extracted)
+            self.assertNotIn("املجلس", compact)
+        with pymupdf.open(stream=source, filetype="pdf") as original:
+            self.assertIn("المجلس", original[0].get_text("text"))
+
+
 if __name__ == "__main__":
     unittest.main()
 
