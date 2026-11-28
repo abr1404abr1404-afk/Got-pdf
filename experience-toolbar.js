@@ -57,7 +57,7 @@
 
     const overflow = flat.filter(el => !used.has(el));
     if (overflow.length) {
-      const morePanel = panels.querySelector("#hybrid-panel-more");
+      const morePanel = panels.querySelector("#hybrid-panel-tools");
       overflow.forEach(el => morePanel.append(el));
     }
     toolbar.replaceChildren(nav, panels);
