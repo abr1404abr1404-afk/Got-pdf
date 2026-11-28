@@ -296,7 +296,7 @@ class ApiDocumentFeatureTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.headers.get("x-conversion-analysis"), "ocr_reconstructed")
         self.assertEqual(response.headers.get("x-conversion-text-basis"), "ocr-reconstruction")
         self.assertEqual(response.headers.get("x-conversion-text-coverage"), "100.0")
-        self.assertTrue(response.content.startswith(b"PK")
+        self.assertTrue(response.content.startswith(b"PK"))
 
     async def test_pdf_to_docx_route_returns_docx_and_quality_headers(self):
         response = await self.client.post(
