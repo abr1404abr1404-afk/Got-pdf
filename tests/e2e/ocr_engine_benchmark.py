@@ -103,7 +103,7 @@ def main() -> None:
 
     fixtures = [
         {"id": "naskh_clean", "text": "اختبار التعرف الضوئي العربي", "language": "ara", "bytes": render_fixture("اختبار التعرف الضوئي العربي", 150)},
-        {"id": "mixed_arabic_latin_digits", "text": "الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", "language": "ara+eng", "bytes": render_fixture("الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", 118, mixed=True)},
+        {"id": "mixed_arabic_latin_digits", "text": "ALFAQI PDF 2026 OCR 12345 الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", "language": "ara+eng", "bytes": render_fixture("الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", 118, mixed=True)},
         {"id": "small_arabic", "text": "هذا اختبار لقراءة النص العربي الصغير بدقة", "language": "ara", "bytes": render_fixture("هذا اختبار لقراءة النص العربي الصغير بدقة", 76)},
         {"id": "degraded_arabic", "text": "المجلس العربي للوثائق والتحول الرقمي", "language": "ara", "bytes": render_fixture("المجلس العربي للوثائق والتحول الرقمي", 108, degraded=True)},
     ]
