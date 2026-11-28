@@ -1271,12 +1271,33 @@ def _tesseract_languages() -> list[str]:
 
 
 @app.get("/api/health")
-def health():
+async def health():
     languages = _tesseract_languages()
     paddleocr_installed = importlib.util.find_spec("paddleocr") is not None
     paddlepaddle_installed = importlib.util.find_spec("paddle") is not None
     pdf2docx_installed = importlib.util.find_spec("pdf2docx") is not None
-    paddle_enabled = (bool(PADDLEOCR_REMOTE_URL) or (_paddle_runtime_available() and paddleocr_installed and paddlepaddle_installed)) and OCR_MODE in {"hybrid", "paddleocr"}
+    remote_worker = {}
+    remote_reachable = False
+    if PADDLEOCR_REMOTE_URL:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(5.0, connect=3.0)) as probe:
+                response = await probe.get(PADDLEOCR_REMOTE_URL + "/api/health")
+                response.raise_for_status()
+                remote_worker = response.json()
+                remote_reachable = bool(remote_worker.get("ok"))
+        except (httpx.HTTPError, ValueError, TypeError):
+            remote_worker = {}
+    remote_model_loaded = bool(remote_worker.get("model_loaded"))
+    local_paddle_ready = _paddle_runtime_available() and paddleocr_installed and paddlepaddle_installed
+    paddle_enabled = (local_paddle_ready or remote_model_loaded) and OCR_MODE in {"hybrid", "paddleocr"}
+    if not PADDLEOCR_REMOTE_URL:
+        remote_status = "not_configured"
+    elif not remote_reachable:
+        remote_status = "worker_unreachable"
+    elif not remote_model_loaded:
+        remote_status = "worker_online_model_cold"
+    else:
+        remote_status = "worker_model_loaded_unverified"
     return {"ok": True, "service": APP_NAME, "mode": OCR_MODE, "max_upload_mb": MAX_UPLOAD_MB,
             "max_pdf_pages": MAX_PDF_PAGES, "max_image_pixels": MAX_IMAGE_PIXELS,
             "max_rendered_pixels": MAX_RENDERED_PIXELS, "ocr_concurrency": OCR_CONCURRENCY,
@@ -1296,10 +1317,12 @@ def health():
             "paddlepaddle_installed": paddlepaddle_installed,
             "paddleocr_enabled": paddle_enabled,
             "paddleocr_remote_configured": bool(PADDLEOCR_REMOTE_URL),
-            "paddleocr_remote_status": "configured_unverified" if PADDLEOCR_REMOTE_URL else "not_configured",
+            "paddleocr_remote_status": remote_status,
+            "paddleocr_remote_reachable": remote_reachable,
+            "paddleocr_remote_model_loaded": remote_model_loaded,
             "paddleocr_configured": PADDLE_OCR_OPT_IN or bool(PADDLEOCR_REMOTE_URL),
             "paddleocr_verified": False,
-            "paddleocr_status": "configured_unverified" if paddle_enabled else ("enabled_but_runtime_missing" if PADDLE_OCR_OPT_IN else "disabled"),
+            "paddleocr_status": ("ready_model_loaded_unverified" if paddle_enabled else remote_status if PADDLEOCR_REMOTE_URL else ("enabled_but_runtime_missing" if PADDLE_OCR_OPT_IN else "disabled")),
             "paddleocr_opt_in": PADDLE_OCR_OPT_IN,
             "hybrid_ocr_ready": paddle_enabled and "ara" in languages and "eng" in languages,
             "ai_available": bool(OPENAI_API_KEY),
