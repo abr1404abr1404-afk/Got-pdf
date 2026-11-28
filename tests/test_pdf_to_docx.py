@@ -267,6 +267,10 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertEqual(len(converted.tables[0].columns), 2)
         table_text = [cell.text for row in converted.tables[0].rows for cell in row.cells]
         self.assertEqual(table_text, ["اسم", "القيمة", "العمر", "١٥"])
+        from docx.oxml.ns import qn
+        borders = converted.tables[0]._tbl.tblPr.find(qn("w:tblBorders"))
+        self.assertIsNotNone(borders)
+        self.assertEqual(borders.find(qn("w:insideH")).get(qn("w:val")), "single")
         all_text = "\n".join(_docx_text_parts(converted))
         self.assertEqual(all_text.count("اسم"), 1)
         self.assertIn("عنوان قبل الجدول", all_text)
@@ -296,6 +300,8 @@ class PdfToDocxTests(unittest.TestCase):
         }])))
 
         self.assertEqual(len(converted.inline_shapes), 1)
+        image_paragraph = next(p for p in converted.paragraphs if p._p.xpath(".//w:drawing"))
+        self.assertGreater(image_paragraph.paragraph_format.space_before.pt, 0)
         self.assertIn("نص قبل الصورة", "\n".join(p.text for p in converted.paragraphs))
 
     def test_ocr_docx_preserves_horizontal_line_geometry(self):
