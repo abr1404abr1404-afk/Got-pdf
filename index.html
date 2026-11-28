@@ -2419,9 +2419,12 @@ function dock(el,tb){
   const above=r.top-h-6,below=r.bottom+6;
   const roomAbove=r.top-minY,roomBelow=bottom-margin-r.bottom;
   let y;
-  if(above>=minY)y=above;
-  else if(below+h<=bottom-margin)y=below;
-  else y=roomAbove>=roomBelow?above:below;
+  // Prefer docking directly underneath the selected text/image so the
+  // controls feel attached to the item being edited. Only move above when
+  // there is not enough usable viewport space below it.
+  if(below+h<=bottom-margin)y=below;
+  else if(above>=minY)y=above;
+  else y=roomBelow>=roomAbove?below:above;
   y=clamp(y,minY,maxY);
   tb.style.left=(x-originX)+"px";tb.style.top=(y-originY)+"px";
 }
