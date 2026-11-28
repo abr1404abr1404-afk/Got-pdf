@@ -148,6 +148,26 @@ jobs:
           assert any("\u0600" <= ch <= "\u06ff" for ch in arabic_pdf_text), f"Arabic scanned PDF text was not recognized: {arabic_pdf_text[:500]}"
           print("LIVE_ARABIC_SCANNED_PDF_OCR=PASS")
           print("ARABIC_PDF_OCR_TEXT=" + arabic_pdf_text[:300])
+
+          docx_response = post_with_retry(
+              base + "/api/convert/pdf-to-docx",
+              files={"file": ("live-arabic-scanned-conversion.pdf", arabic_pdf.getvalue(), "application/pdf")},
+              timeout=240,
+          )
+          assert docx_response.ok, f"Scanned Arabic PDF-to-Word failed: HTTP {docx_response.status_code}: {docx_response.text[:500]}"
+          assert docx_response.content.startswith(b"PK"), "PDF-to-Word did not return a DOCX package"
+          assert docx_response.headers.get("x-conversion-analysis") == "ocr_reconstructed", (
+              "Scanned conversion did not report OCR reconstruction"
+          )
+          assert docx_response.headers.get("x-conversion-text-basis") == "ocr-reconstruction", (
+              "Scanned conversion did not expose OCR-based quality basis"
+          )
+          coverage = docx_response.headers.get("x-conversion-text-coverage")
+          assert coverage is not None and float(coverage) >= 90.0, (
+              f"OCR text was not retained in DOCX: coverage={coverage!r}"
+          )
+          print("LIVE_ARABIC_SCANNED_PDF_TO_DOCX=PASS")
+          print("DOCX_OCR_TEXT_COVERAGE=" + coverage)
           print("LIVE_SCANNED_PDF_OCR=PASS")
           print("PDF_OCR_TEXT=" + pdf_text[:500])
           print("BACKEND_LIVE_OCR_SMOKE=PASS")
