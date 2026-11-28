@@ -6,6 +6,7 @@ from pathlib import Path
 import requests
 import pymupdf
 from PIL import Image, ImageOps
+import pytesseract
 from paddleocr import PaddleOCR
 
 PDF_URL = "https://dlp.dubai.gov.ae/Legislation%20Ar%20Reference/2025/%D9%82%D8%A7%D9%86%D9%88%D9%86%20%D8%B1%D9%82%D9%85%20(7)%20%D9%84%D8%B3%D9%86%D8%A9%202025%20%D8%A8%D8%B4%D8%A3%D9%86%20%D8%AA%D9%86%D8%B8%D9%8A%D9%85%20%D9%85%D8%B2%D8%A7%D9%88%D9%84%D8%A9%20%D8%A3%D9%86%D8%B4%D8%B7%D8%A9%20%D8%A7%D9%84%D9%85%D9%82%D8%A7%D9%88%D9%84%D8%A7%D8%AA.pdf"
@@ -39,7 +40,7 @@ def fetch(url, path):
 
 def prepare(image):
     image = ImageOps.exif_transpose(image).convert("RGB")
-    image.thumbnail((1800, 1800), Image.Resampling.LANCZOS)
+    image.thumbnail((1400, 1400), Image.Resampling.LANCZOS)
     return image
 
 def unpack_result(result):
@@ -95,7 +96,9 @@ def main():
     try:
         import paddle, paddleocr
         report["environment"] = {"paddle_version": paddle.__version__,
-                                 "paddleocr_version": getattr(paddleocr, "__version__", "unknown")}
+                                 "paddleocr_version": getattr(paddleocr, "__version__", "unknown"),
+                                 "tesseract_version": str(pytesseract.get_tesseract_version()),
+                                 "tesseract_languages": pytesseract.get_languages(config="")}
     except Exception:
         pass
     with tempfile.TemporaryDirectory() as temp:
@@ -149,7 +152,8 @@ def main():
                                 use_textline_orientation=False)
                 init_seconds = time.perf_counter() - started
                 for name, meta in cases.items():
-                    sample_started = time.perf_counter()
+                    # Both engines process the same resized input image.
+                    paddle_started = time.perf_counter()
                     predictions = ocr.predict(str(meta["path"]))
                     texts, line_count, confidence = [], 0, None
                     for prediction in predictions:
@@ -159,18 +163,35 @@ def main():
                             line_count += count
                         if score is not None:
                             confidence = score if confidence is None else (confidence + score) / 2
-                    extracted = "\n".join(texts)
-                    item = {"name": name, "status": "passed" if extracted else "failed",
-                            "lines": line_count, "chars": len(extracted),
-                            "arabic_chars": sum(0x600 <= ord(c) <= 0x6ff for c in extracted),
-                            "seconds": round(time.perf_counter() - sample_started, 2),
-                            "mean_recognition_confidence": round(confidence, 4) if confidence is not None else None,
-                            "text": extracted[:12000]}
+                    paddle_text = "\n".join(texts)
+                    paddle_item = {"name": name, "engine": "paddleocr_ppocrv5_ar",
+                                   "status": "passed" if paddle_text else "failed",
+                                   "lines": line_count, "chars": len(paddle_text),
+                                   "arabic_chars": sum(0x600 <= ord(c) <= 0x6ff for c in paddle_text),
+                                   "seconds": round(time.perf_counter() - paddle_started, 2),
+                                   "mean_recognition_confidence": round(confidence, 4) if confidence is not None else None,
+                                   "text": paddle_text[:12000]}
                     if "reference" in meta:
-                        item["cer_vs_embedded_pdf_text"] = cer(meta["reference"], extracted)
+                        paddle_item["cer_vs_embedded_pdf_text"] = cer(meta["reference"], paddle_text)
                     if "source_member" in meta:
-                        item["source_member"] = meta["source_member"]
-                    report["tests"].append(item)
+                        paddle_item["source_member"] = meta["source_member"]
+                    report["tests"].append(paddle_item)
+
+                    tess_started = time.perf_counter()
+                    with Image.open(meta["path"]) as sample:
+                        tess_text = pytesseract.image_to_string(sample, lang="ara+eng", config="--psm 6")
+                    tess_item = {"name": name, "engine": "tesseract_ara_eng",
+                                 "status": "passed" if tess_text.strip() else "failed",
+                                 "lines": len([line for line in tess_text.splitlines() if line.strip()]),
+                                 "chars": len(tess_text),
+                                 "arabic_chars": sum(0x600 <= ord(ch) <= 0x6ff for ch in tess_text),
+                                 "seconds": round(time.perf_counter() - tess_started, 2),
+                                 "text": tess_text[:12000]}
+                    if "reference" in meta:
+                        tess_item["cer_vs_embedded_pdf_text"] = cer(meta["reference"], tess_text)
+                    if "source_member" in meta:
+                        tess_item["source_member"] = meta["source_member"]
+                    report["tests"].append(tess_item)
                 report["model_initialization_seconds"] = round(init_seconds, 2)
                 report["runtime_seconds"] = round(time.perf_counter() - started, 2)
             except Exception as exc:
@@ -181,8 +202,19 @@ def main():
     Path("paddle-live-results.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(report, ensure_ascii=False, indent=2))
+    comparable = [item for item in report["tests"] if item.get("cer_vs_embedded_pdf_text") is not None]
+    report["comparison_summary"] = {}
+    for engine in sorted({item["engine"] for item in comparable}):
+        rows = [item for item in comparable if item["engine"] == engine]
+        report["comparison_summary"][engine] = {
+            "samples": len(rows),
+            "mean_cer": round(sum(item["cer_vs_embedded_pdf_text"] for item in rows) / len(rows), 4),
+            "mean_seconds": round(sum(item["seconds"] for item in rows) / len(rows), 2),
+        }
+    Path("paddle-live-results.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     if not report["tests"] or any(item.get("status") != "passed" for item in report["tests"]):
-        raise SystemExit("One or more PaddleOCR real-file tests failed; report saved")
+        raise SystemExit("One or more real-file OCR engine tests failed; report saved")
 
 if __name__ == "__main__":
     main()
