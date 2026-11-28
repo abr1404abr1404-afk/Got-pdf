@@ -616,30 +616,32 @@ class PdfImageToolsTests(unittest.TestCase):
             }])
 
     def test_replace_isolated_arabic_text_keeps_exact_logical_word_and_neighbors(self):
-        import hashlib
         from pathlib import Path
+        from searchable_pdf import add_searchable_text_layer
 
         font_path = next((path for path in (
             "/usr/share/fonts/truetype/noto/NotoNaskhArabic-Regular.ttf",
             "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         ) if Path(path).is_file()), None)
         if font_path is None:
-            self.skipTest("No Arabic-capable font is installed in this test environment")
+            self.skipTest("Noto Arabic font is not installed in this test environment")
 
         doc = pymupdf.open()
         page = doc.new_page(width=600, height=240)
-        page.insert_text((470, 85), "المجلس", fontfile=font_path,
-                         fontname="TestArabic", fontsize=18)
         page.insert_text((40, 170), "KeepMe", fontsize=12)
         source = doc.tobytes()
         doc.close()
+        source = add_searchable_text_layer(source, {
+            "pages": [{
+                "page": 1,
+                "lines": [{"text": "المجلس", "bbox": [350, 55, 520, 90]}],
+            }],
+        })
 
         report = inspect_pdf_objects(source)
         target = next((item for item in report["objects"]
                        if item["type"] == "text" and "المجلس" in item["text"]), None)
-        if target is None:
-            self.skipTest("PDF engine did not preserve logical Arabic text in the fixture")
+        self.assertIsNotNone(target, "Arabic source text should be discoverable in the PDF")
 
         output = replace_isolated_arabic_pdf_text(source, {
             "action": "replace_ar", "page": 1, "object_id": target["id"],
