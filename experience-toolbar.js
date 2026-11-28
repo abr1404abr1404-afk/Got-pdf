@@ -6,12 +6,10 @@
     toolbar.dataset.hybridReady = "1";
 
     const groups = [
-      { id: "file", label: "ملف", ids: ["ud","rd","dshare","save","file","fimg","fcam","camfinish","camclear","cammodewrap","imgfit","info"] },
-      { id: "edit", label: "تحرير", ids: ["txt","edt","img","sig","bcb","ann"] },
-      { id: "pages", label: "الصفحات", ids: ["pn","spl","thumbs","mrg","compress"] },
-      { id: "smart", label: "OCR والذكاء", ids: ["ocb","ai","pdfSearchBtn","pdfAutoFill"] },
-      { id: "view", label: "العرض", ids: ["zo","zv","zi"] },
-      { id: "more", label: "المزيد", ids: ["tls","hlpb"] }
+      { id: "file", label: "ملف", ids: ["dshare","save","file","fimg","fcam","camfinish","camclear","cammodewrap","imgfit","mrg"] },
+      { id: "edit", label: "التحرير", ids: ["ud","rd","zo","zv","zi","txt","edt","img","sig","bcb","ann","hlpb"] },
+      { id: "pages", label: "الصفحات", ids: ["pn","spl","thumbs"] },
+      { id: "tools", label: "الأدوات", ids: ["ocb","ai","compress","pdfSearchBtn","pdfAutoFill","tls","info"] }
     ];
     const idOf = el => el.id || el.querySelector?.("input[id],select[id]")?.id || "";
     const flat = [];
