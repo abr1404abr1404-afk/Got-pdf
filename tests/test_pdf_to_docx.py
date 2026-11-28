@@ -240,6 +240,25 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertAlmostEqual(section.top_margin.pt, 0, delta=0.1)
         self.assertAlmostEqual(section.right_margin.pt, 0, delta=0.1)
 
+    def test_ocr_docx_preserves_horizontal_line_geometry(self):
+        from pdf_to_docx import create_ocr_docx
+
+        converted = Document(io.BytesIO(create_ocr_docx([{
+            "direction": "rtl",
+            "page_width_pt": 420,
+            "page_height_pt": 595,
+            "image_width": 420,
+            "image_height": 595,
+            "lines": [{
+                "text": "سطر عربي",
+                "bbox": [30, 100, 350, 130],
+                "reading_order": 1,
+            }],
+        }])))
+        paragraph = converted.paragraphs[0]
+        self.assertAlmostEqual(paragraph.paragraph_format.left_indent.pt, 30, delta=0.1)
+        self.assertAlmostEqual(paragraph.paragraph_format.right_indent.pt, 70, delta=0.1)
+
     def test_rejects_more_than_twenty_pages(self):
         doc = pymupdf.open()
         for _ in range(21):
