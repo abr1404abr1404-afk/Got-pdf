@@ -641,3 +641,48 @@ header .hr2,
 .ov.edit { touch-action: pan-x pan-y; }
 .ov .m,
 .ov .rzt { touch-action: none; }
+
+
+/* Mobile toolbar accessibility: wrap actions instead of hiding them off-screen.
+   Keep every primary tool visible and make the toolbar itself vertically scrollable
+   on short screens; labels remain visible so icon-only controls are not ambiguous. */
+@media (max-width: 640px) {
+  header { position: sticky; top: env(safe-area-inset-top, 0px); }
+  .hr2 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: min(38dvh, 300px);
+    padding: 6px 8px;
+    touch-action: pan-y;
+    scrollbar-width: thin;
+  }
+  .hr2 > .grp {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    padding: 2px;
+  }
+  .hr2 .hb,
+  .hr2 label.btn {
+    min-height: 38px;
+    height: auto;
+    padding: 5px 7px;
+    gap: 5px;
+    font-size: .76rem;
+    line-height: 1.2;
+  }
+  .hr2 .lb { display: inline !important; }
+  .hr2 .ic { width: 16px; height: 16px; }
+  .hr2 #info { flex: 1 1 100%; white-space: normal; }
+}
+@media (max-width: 380px) {
+  .hr2 .hb,
+  .hr2 label.btn { padding: 5px 6px; font-size: .72rem; }
+}
