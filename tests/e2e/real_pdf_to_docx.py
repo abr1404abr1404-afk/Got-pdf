@@ -250,6 +250,8 @@ if native_layout_result and native_layout_result.get("lines"):
     native_layout_bytes = create_ocr_docx([{
         "page": 1,
         "dpi": main.OCR_DPI,
+        "page_width_pt": float(source[0].rect.width),
+        "page_height_pt": float(source[0].rect.height),
         "direction": (native_layout_result.get("layout") or {}).get("direction", "rtl"),
         "lines": native_layout_result["lines"],
     }])
@@ -262,6 +264,7 @@ if native_layout_result and native_layout_result.get("lines"):
         "images": native_layout_images,
         "quality": analyze_pdf_docx_quality(native_pdf, native_layout_bytes),
         "cer_vs_pdf_text": cer(reference, native_layout_text),
+        "render": render_docx_metrics(native_layout_bytes, source[0]),
     }
     (OUT / "real-dubai-law-native-layout-candidate.docx").write_bytes(native_layout_bytes)
 
@@ -303,6 +306,8 @@ if len(normalize(scanned_text)) < 10:
     raise SystemExit("Scanned-PDF OCR-to-Word output contains too little editable text.")
 (OUT / "real-dubai-law-scanned-ocr.docx").write_bytes(scanned_docx)
 
+native_docx_render = render_docx_metrics(native_docx, source[0])
+
 report = {
     "source": "Dubai government public legal PDF, first page",
     "source_url": "https://dlp.dubai.gov.ae/",
@@ -313,7 +318,7 @@ report = {
     "native_merged_candidate": native_merged_candidate,
     "native_words_candidate": native_words_candidate,
     "formatted_pdf_to_docx": {
-        "status": "passed",
+        "status": "passed" if native_quality.get("text_coverage_percent", 0) >= 95 and native_docx_render.get("page_count") == source.page_count else "quality_warning",
         "engine": native_engine,
         "output_bytes": len(native_docx),
         "editable_chars": len(native_text),
