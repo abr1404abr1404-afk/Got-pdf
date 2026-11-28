@@ -190,6 +190,19 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
             if any(x0 <= cx <= x1 and y0 <= cy <= y1 for x0, y0, x1, y1, _ in table_regions):
                 continue
             lines.append(line)
+        image_regions = []
+        for image_data in (page.get("images") or []):
+            if not isinstance(image_data, dict) or not isinstance(image_data.get("data"), bytes):
+                continue
+            box = image_data.get("bbox")
+            if not isinstance(box, (list, tuple)) or len(box) != 4:
+                continue
+            try:
+                ix0, iy0, ix1, iy1 = (float(value) for value in box)
+                if ix1 > ix0 and iy1 > iy0:
+                    image_regions.append((ix0, iy0, ix1, iy1, image_data["data"]))
+            except (TypeError, ValueError):
+                continue
         paragraph_positions = []
         # Layout analysis assigns columns in reading order; within each column,
         # preserve top-to-bottom placement and use OCR boxes to approximate spacing.
@@ -285,6 +298,33 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 else:
                     prior.addnext(table._tbl)
                 inserted_before[anchor._p] = table._tbl
+
+        # Keep non-background illustrations and logos as editable Word picture objects.
+        # Their vertical anchor and width are approximated from the source PDF geometry.
+        for ix0, iy0, ix1, iy1, image_bytes in sorted(image_regions, key=lambda item: item[1]):
+            try:
+                width_pt = max(8.0, min(float(section.page_width.pt) * 0.90,
+                                        (ix1 - ix0) * points_per_pixel_x))
+                image_paragraph = document.add_paragraph()
+                image_paragraph.paragraph_format.space_before = Pt(0)
+                image_paragraph.paragraph_format.space_after = Pt(2)
+                image_paragraph.add_run().add_picture(io.BytesIO(image_bytes), width=Pt(width_pt))
+                left_pt = max(0.0, min(float(section.page_width.pt) - width_pt,
+                                       ix0 * points_per_pixel_x))
+                right_pt = max(0.0, float(section.page_width.pt) - left_pt - width_pt)
+                image_paragraph.paragraph_format.left_indent = Pt(left_pt)
+                image_paragraph.paragraph_format.right_indent = Pt(right_pt)
+                anchor = next((paragraph for line_y, paragraph in paragraph_positions if line_y > iy0), None)
+                if anchor is not None:
+                    prior = inserted_before.get(anchor._p)
+                    if prior is None:
+                        anchor._p.addprevious(image_paragraph._p)
+                    else:
+                        prior.addnext(image_paragraph._p)
+                    inserted_before[anchor._p] = image_paragraph._p
+            except Exception:
+                # A single unsupported image must not invalidate otherwise useful text.
+                continue
 
     output = io.BytesIO()
     document.save(output)
