@@ -155,7 +155,8 @@ def docx_structure_metrics(data: bytes, reference: str) -> dict:
         elif isinstance(child, CT_Tbl):
             table = Table(child, document)
             for row in table.rows:
-                for cell in row.cells:
+                # Arabic Word tables are visually RTL; inspect rightmost cell first.
+                for cell in reversed(row.cells):
                     for paragraph in cell.paragraphs:
                         if paragraph.text.strip():
                             ordered_blocks.append(paragraph.text)
