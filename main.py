@@ -128,6 +128,7 @@ app.add_middleware(
         "X-Conversion-Matched-Words",
         "X-Conversion-Text-Coverage",
         "X-Conversion-Text-Precision",
+        "X-Conversion-Text-Basis",
         "X-Conversion-Source-Images",
         "X-Conversion-Output-Images",
         "X-Conversion-Output-Tables",
@@ -175,7 +176,7 @@ async def _run_ocr(function, *args):
         _ocr_semaphore.release()
 
 
-def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "") -> tuple[bytes, str]:
+def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quality_text: bool = False):
     """Use layout-preserving PDF conversion for text PDFs and OCR reconstruction for scans."""
     try:
         source = pymupdf.open(stream=data, filetype="pdf")
@@ -259,10 +260,19 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "") -> tuple[byte
                     })
                 if native_pages:
                     source.close()
-                    return create_ocr_docx(native_pages), "native-simple-layout"
+                    output = create_ocr_docx(native_pages)
+                    return (output, "native-simple-layout", "") if include_quality_text else (output, "native-simple-layout")
             source.close()
-            return convert_pdf_to_docx(data, password), "pdf2docx"
-        return create_ocr_docx(pages_for_docx), "ocr-layout"
+            output = convert_pdf_to_docx(data, password)
+            return (output, "pdf2docx", "") if include_quality_text else (output, "pdf2docx")
+        output = create_ocr_docx(pages_for_docx)
+        source_text = "\\n".join(
+            str(line.get("text", "")).strip()
+            for page_data in pages_for_docx
+            for line in (page_data.get("lines") or [])
+            if str(line.get("text", "")).strip()
+        )
+        return (output, "ocr-layout", source_text) if include_quality_text else (output, "ocr-layout")
     finally:
         if not source.is_closed:
             source.close()
@@ -1424,17 +1434,18 @@ async def pdf_to_docx(request: Request, file: UploadFile = File(...), password: 
     data = await file.read(MAX_UPLOAD_MB * 1024 * 1024 + 1)
     _check_size(data)
     try:
-        output, conversion_engine = await _run_cpu(_convert_pdf_to_docx_adaptive, data, password)
+        output, conversion_engine, quality_source_text = await _run_cpu(_convert_pdf_to_docx_adaptive, data, password, True)
     except PermissionError as exc:
         raise HTTPException(403, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    quality = await _run_cpu(analyze_pdf_docx_quality, data, output)
+    quality = await _run_cpu(analyze_pdf_docx_quality, data, output, quality_source_text or None)
     if conversion_engine == "ocr-layout":
         quality["analysis_status"] = "ocr_reconstructed"
     quality_headers = {
         "X-Conversion-Engine": conversion_engine,
         "X-Conversion-Analysis": str(quality.get("analysis_status", "analysis_unavailable")),
+        "X-Conversion-Text-Basis": str(quality.get("source_text_basis", "native-pdf")),
         "X-Conversion-Source-Words": str(quality.get("source_word_count", 0)),
         "X-Conversion-Output-Words": str(quality.get("output_word_count", 0)),
         "X-Conversion-Matched-Words": str(quality.get("matched_word_count", 0)),
