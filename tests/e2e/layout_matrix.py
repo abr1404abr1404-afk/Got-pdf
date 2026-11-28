@@ -122,9 +122,10 @@ def visual_metrics(source_pdf: bytes, output_docx: bytes) -> dict:
         original = pymupdf.open(stream=source_pdf, filetype="pdf")
         rendered = pymupdf.open(rendered_path)
         try:
-            if original.page_count != 1 or rendered.page_count != 1:
+            if original.page_count != 1 or rendered.page_count < 1:
                 return {"status": "not_comparable", "source_pages": original.page_count,
                         "output_pages": rendered.page_count}
+            page_count_match = rendered.page_count == original.page_count
             scale = 1.25
             a = Image.open(io.BytesIO(original[0].get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False).tobytes("png"))).convert("L")
             b = Image.open(io.BytesIO(rendered[0].get_pixmap(matrix=pymupdf.Matrix(scale, scale), alpha=False).tobytes("png"))).convert("L")
@@ -136,7 +137,11 @@ def visual_metrics(source_pdf: bytes, output_docx: bytes) -> dict:
             mae = float(np.mean(np.abs(aa - bb)) / 255.0)
             agreement = float(np.mean(np.abs(aa - bb) <= 24))
             return {
-                "status": "compared",
+                "status": "compared" if page_count_match else "compared_with_page_count_mismatch",
+                "source_pages": original.page_count,
+                "output_pages": rendered.page_count,
+                "page_count_match": page_count_match,
+                "comparison_scope": "first page only",
                 "source_pixels": list(source_size),
                 "output_pixels_before_alignment": list(output_size),
                 "normalized_mean_absolute_error": round(mae, 5),
