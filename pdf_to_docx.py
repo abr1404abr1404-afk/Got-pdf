@@ -270,15 +270,21 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 r_pr.append(lang)
             previous_bottom = max(previous_bottom, y1)
 
-        # Insert detected tables as real Word tables at their vertical reading position.
-        # Process lower tables first so multiple insertions before one paragraph remain ordered.
-        for x0, y0, x1, y1, table_data in sorted(table_regions, key=lambda item: item[1], reverse=True):
+        # Insert editable tables at their approximate vertical reading position.
+        # Keep insertion order stable when several tables share the same following paragraph.
+        inserted_before = {}
+        for x0, y0, x1, y1, table_data in sorted(table_regions, key=lambda item: item[1]):
             table = _append_ocr_word_table(document, table_data, table_data.get("direction", direction))
             if table is None:
                 continue
             anchor = next((paragraph for line_y, paragraph in paragraph_positions if line_y > y0), None)
             if anchor is not None:
-                anchor._p.addprevious(table._tbl)
+                prior = inserted_before.get(anchor._p)
+                if prior is None:
+                    anchor._p.addprevious(table._tbl)
+                else:
+                    prior.addnext(table._tbl)
+                inserted_before[anchor._p] = table._tbl
 
     output = io.BytesIO()
     document.save(output)
