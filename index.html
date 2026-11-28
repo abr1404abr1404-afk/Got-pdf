@@ -329,47 +329,6 @@ label.btn{position:relative}
 #ocrReview{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.62);display:none;align-items:center;justify-content:center;padding:12px}#ocrReview.on{display:flex}#ocrReview .ocrbox{background:var(--panel);color:var(--ink);width:min(100%,760px);max-height:92vh;overflow:auto;border-radius:18px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35)}#ocrReview h2{margin:0 0 6px;font-size:1.1rem}#ocrReview p{margin:0 0 10px;color:var(--mut);font-size:.9rem;line-height:1.7}#ocrReview textarea{display:block;width:100%;min-height:48vh;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--bg);color:var(--ink);font:16px/1.9 "IBM Plex Sans Arabic",sans-serif;direction:auto;unicode-bidi:plaintext} #ocrReview .ocr-multipage{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}#ocrReview .ocr-multipage strong{font-size:.9rem}#ocrReview .ocr-multipage .sp{flex:1}#ocrReview .ocr-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}#ocrReview .ocr-note{font-size:.82rem;color:var(--mut);margin-top:8px}#ocrReviewConfidence.low{color:#b7791f;font-weight:700}
 
 .pdf-fill-overlay{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.58);display:none;align-items:center;justify-content:center;padding:14px}.pdf-fill-overlay.on{display:flex}.pdf-fill-card{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:16px;padding:16px;width:min(100%,560px);max-height:88vh;overflow:auto;box-shadow:0 12px 40px rgba(0,0,0,.35)}.pdf-fill-card header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:12px}.pdf-fill-card h2{font-size:1.1rem;margin:0}.pdf-fill-card p{color:var(--mut);line-height:1.7;font-size:.9rem}.pdf-fill-fields{display:grid;grid-template-columns:1fr;gap:10px}.pdf-fill-row{display:grid;gap:5px;padding:9px;border:1px solid var(--line);border-radius:10px}.pdf-fill-row label{font-size:.9rem;font-weight:600}.pdf-fill-row input,.pdf-fill-row select{width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}.pdf-fill-row .pdf-check{width:22px;min-height:22px}.pdf-fill-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}.pdf-fill-actions span{flex:1;color:var(--mut);font-size:.82rem}
-
-/* Four clear toolbar sections: show the selected section directly below its tab,
-   with compact wrapped controls and no long vertical toolbar to scroll through. */
-@media (max-width: 640px) {
-  header .hr2 {
-    display:flex!important; flex-direction:column!important; align-items:stretch!important;
-    max-height:none!important; overflow:visible!important; padding:0!important;
-  }
-  .hybrid-tabs {
-    display:grid!important; grid-template-columns:repeat(4,minmax(0,1fr))!important;
-    flex-wrap:nowrap!important; gap:4px!important; padding:6px 7px 0!important;
-    overflow:visible!important; white-space:nowrap!important;
-  }
-  .hybrid-tab {
-    min-width:0!important; min-height:42px!important; padding:0 5px!important;
-    font-size:clamp(.68rem,2.8vw,.82rem)!important; white-space:nowrap!important;
-    justify-content:center!important;
-  }
-  .hybrid-panels {width:100%!important; min-width:0!important;}
-  .hybrid-panel {
-    display:grid!important; grid-template-columns:repeat(auto-fit,minmax(88px,1fr))!important;
-    align-items:stretch!important; gap:6px!important; min-height:0!important;
-    max-height:none!important; overflow:visible!important; padding:8px!important;
-  }
-  .hybrid-panel>.hb,.hybrid-panel>label.btn,.hybrid-panel>select {
-    display:flex!important; align-items:center!important; justify-content:center!important;
-    width:100%!important; min-width:0!important; max-width:none!important;
-    min-height:42px!important; height:auto!important; padding:6px 7px!important;
-    white-space:normal!important; text-align:center!important; font-size:.76rem!important;
-  }
-  .hybrid-panel #info {display:none!important;}
-}
-@media (max-width: 380px) {
-  .hybrid-tab {font-size:.7rem!important;padding-inline:3px!important;}
-  .hybrid-panel {grid-template-columns:repeat(2,minmax(0,1fr))!important;}
-}
-@media (min-width: 641px) {
-  .hybrid-tabs {display:flex;flex-wrap:nowrap;}
-  .hybrid-panel {display:flex;flex-wrap:wrap;overflow:visible;}
-}
-
 </style>
   <link rel="stylesheet" href="./experience.css">
 </head>
