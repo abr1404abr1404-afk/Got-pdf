@@ -3383,6 +3383,7 @@ async function pdfToDocxLayout(){
     if(!response.ok){const result=await response.json().catch(()=>({}));throw new Error(result.detail||"تعذّر تحويل PDF إلى Word.");}
     const quality={
       status:response.headers.get("X-Conversion-Analysis")||"analysis_unavailable",
+      basis:response.headers.get("X-Conversion-Text-Basis")||"native-pdf",
       coverage:response.headers.get("X-Conversion-Text-Coverage"),
       precision:response.headers.get("X-Conversion-Text-Precision"),
       sourceWords:response.headers.get("X-Conversion-Source-Words")||"0",
@@ -3399,7 +3400,8 @@ async function pdfToDocxLayout(){
       const coverage=Number(quality.coverage),precision=quality.precision===null?null:Number(quality.precision);
       const qualityText="تغطية النص "+coverage+"%"+(precision===null?"":"، دقة المطابقة "+precision+"%")+
         "، جداول "+quality.tables+"، صور Word "+quality.images+" (صور PDF "+quality.sourceImages+").";
-      toast("تم إنشاء Word. "+qualityText+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
+      const basisNote=quality.basis==="ocr-reconstruction"?" المقارنة تقيس نقل النص الذي استخرجه OCR إلى Word، ولا تثبت صحة قراءة الصورة الأصلية.":"";
+      toast("تم إنشاء Word. "+qualityText+basisNote+" المؤشرات تقريبية ولا تقيس تطابق التخطيط بالكامل؛ راجع الملف قبل الاعتماد.");
     }else{
       toast("تم إنشاء Word. تعذر استخراج مؤشرات الجودة آليًا؛ راجع النص والتخطيط والجداول والصور قبل الاعتماد.");
     }
