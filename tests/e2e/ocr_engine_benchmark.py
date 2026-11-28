@@ -90,6 +90,27 @@ def post_ocr(image_bytes: bytes, language: str, engine: str) -> dict:
         data={"language": language, "engine": engine},
         timeout=240,
     )
+    # The production API applies a shared request limit. Retry 429 responses
+    # after the advertised cooldown instead of marking every remaining engine
+    # as failed in a single burst. Keep the benchmark sequential and fair.
+    for attempt in range(4):
+        if response.status_code != 429:
+            break
+        if attempt == 3:
+            break
+        retry_after = response.headers.get("Retry-After", "65")
+        try:
+            delay = max(60, min(90, int(float(retry_after))))
+        except ValueError:
+            delay = 65
+        print(f"Rate limited; waiting {delay}s before retry ({attempt + 1}/3)", flush=True)
+        time.sleep(delay)
+        response = SESSION.post(
+            BASE + "/api/ocr/image",
+            files={"file": (f"arabic-{engine}.png", image_bytes, "image/png")},
+            data={"language": language, "engine": engine},
+            timeout=240,
+        )
     if not response.ok:
         raise RuntimeError(f"HTTP {response.status_code}: {response.text[:240]}")
     return response.json()
