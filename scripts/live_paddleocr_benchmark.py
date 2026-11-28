@@ -199,9 +199,6 @@ def main():
                 report["error"] = f"{type(exc).__name__}: {str(exc)[:1800]}"
                 for name in cases:
                     report["tests"].append({"name": name, "status": "failed", "error": report["error"]})
-    Path("paddle-live-results.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(json.dumps(report, ensure_ascii=False, indent=2))
     comparable = [item for item in report["tests"] if item.get("cer_vs_embedded_pdf_text") is not None]
     report["comparison_summary"] = {}
     for engine in sorted({item["engine"] for item in comparable}):
@@ -213,6 +210,7 @@ def main():
         }
     Path("paddle-live-results.json").write_text(
         json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(report, ensure_ascii=False, indent=2))
     if not report["tests"] or any(item.get("status") != "passed" for item in report["tests"]):
         raise SystemExit("One or more real-file OCR engine tests failed; report saved")
 
