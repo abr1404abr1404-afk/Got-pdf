@@ -15,6 +15,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pymupdf
 from docx import Document
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from fastapi.testclient import TestClient
 
 from document_export import create_docx
@@ -140,11 +144,27 @@ def docx_structure_metrics(data: bytes, reference: str) -> dict:
     """Measure editable structure and reading sequence, not only text presence."""
     document = Document(io.BytesIO(data))
     paragraphs = [p for p in document.paragraphs if p.text.strip()]
-    ordered_text = "\n".join(p.text for p in paragraphs)
+    ordered_blocks = []
+    all_paragraphs = []
+    for child in document.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            paragraph = Paragraph(child, document)
+            if paragraph.text.strip():
+                ordered_blocks.append(paragraph.text)
+                all_paragraphs.append(paragraph)
+        elif isinstance(child, CT_Tbl):
+            table = Table(child, document)
+            for row in table.rows:
+                for cell in row.cells:
+                    for paragraph in cell.paragraphs:
+                        if paragraph.text.strip():
+                            ordered_blocks.append(paragraph.text)
+                            all_paragraphs.append(paragraph)
+    ordered_text = "\n".join(ordered_blocks)
     rtl_paragraphs = 0
     rtl_runs = 0
     font_sizes = []
-    for paragraph in paragraphs:
+    for paragraph in all_paragraphs:
         p_pr = paragraph._p.pPr
         bidi = p_pr.find("{http://schemas.openxmlformats.org/wordprocessingml/2006/main}bidi") if p_pr is not None else None
         if bidi is not None:
@@ -163,6 +183,7 @@ def docx_structure_metrics(data: bytes, reference: str) -> dict:
     sequence_error = cer(reference, ordered_text)
     return {
         "nonempty_paragraphs": len(paragraphs),
+        "ordered_content_blocks": len(ordered_blocks),
         "tables": tables,
         "table_count": len(tables),
         "inline_images": len(document.inline_shapes),
