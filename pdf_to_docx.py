@@ -226,7 +226,7 @@ def _docx_text_parts(document) -> list[str]:
     return parts
 
 
-def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
+def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes, source_text_override: str | None = None) -> dict:
     """Return bounded, approximate text and structure indicators for a PDF/DOCX pair."""
     import io
     import re
@@ -242,6 +242,7 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
         "text_coverage_percent": None,
         "text_precision_percent": None,
         "source_extractable": False,
+        "source_text_basis": "native-pdf",
         "output_paragraph_count": 0,
         "output_table_count": 0,
         "output_image_count": 0,
@@ -279,8 +280,16 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes) -> dict:
             normalized = unicodedata.normalize("NFKC", value).casefold()
             return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
-        source_tokens = tokens("\n".join(source_parts))
-        output_tokens = tokens("\n".join(output_parts))
+        native_source_text = "\\n".join(source_parts)
+        if isinstance(source_text_override, str) and source_text_override.strip():
+            # Compare against the exact OCR text stream used to reconstruct scanned
+            # pages. This measures DOCX text retention, not OCR accuracy vs ground truth.
+            source_text = source_text_override[:1_500_000]
+            report["source_text_basis"] = "ocr-reconstruction"
+        else:
+            source_text = native_source_text
+        source_tokens = tokens(source_text)
+        output_tokens = tokens("\\n".join(output_parts))
         report["source_word_count"] = len(source_tokens)
         report["output_word_count"] = len(output_tokens)
         if not source_tokens:
