@@ -234,6 +234,8 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
                 "dpi": OCR_DPI,
                 "page_width_pt": float(page.rect.width),
                 "page_height_pt": float(page.rect.height),
+                "image_width": int(result.get("image_width") or 0),
+                "image_height": int(result.get("image_height") or 0),
                 "direction": (result.get("layout") or {}).get("direction", "rtl"),
                 "lines": result.get("lines") or [],
             })
@@ -255,6 +257,8 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
                         "dpi": OCR_DPI,
                         "page_width_pt": float(page.rect.width),
                         "page_height_pt": float(page.rect.height),
+                        "image_width": int(result.get("image_width") or 0),
+                        "image_height": int(result.get("image_height") or 0),
                         "direction": (result.get("layout") or {}).get("direction", "rtl"),
                         "lines": _merge_native_pdf_lines(result.get("lines") or []),
                     })
