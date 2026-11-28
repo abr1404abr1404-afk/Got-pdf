@@ -199,6 +199,7 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
         pages_for_docx = []
         needs_ocr = False
         total_rendered_pixels = 0
+        total_embedded_image_bytes = 0
         for index in range(source.page_count):
             page = source.load_page(index)
             result = _native_pdf_page_result(page, scale)
@@ -229,6 +230,48 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
                 result["tables"] = _detect_tables(image, result["lines"])
                 result = attach_table_regions(result, result["tables"])
 
+            page_images = []
+            # Preserve meaningful embedded illustrations/logos on OCR-rebuilt pages.
+            # Full-page scan images are intentionally omitted because editable OCR
+            # text is rebuilt on top and would otherwise appear twice.
+            try:
+                seen_xrefs = set()
+                for image_info in page.get_images(full=True):
+                    xref = int(image_info[0]) if image_info else 0
+                    if xref <= 0 or xref in seen_xrefs or len(page_images) >= 12:
+                        continue
+                    seen_xrefs.add(xref)
+                    extracted = source.extract_image(xref)
+                    image_bytes = extracted.get("image", b"") if isinstance(extracted, dict) else b""
+                    if not image_bytes or len(image_bytes) > 8 * 1024 * 1024:
+                        continue
+                    if total_embedded_image_bytes + len(image_bytes) > 15 * 1024 * 1024:
+                        continue
+                    for rect in page.get_image_rects(xref):
+                        x0, y0, x1, y1 = (float(value) for value in rect)
+                        if x1 <= x0 or y1 <= y0:
+                            continue
+                        area_ratio = ((x1 - x0) * (y1 - y0)) / max(1.0, page.rect.width * page.rect.height)
+                        full_page_background = (
+                            area_ratio >= 0.90
+                            and x0 <= page.rect.width * 0.03
+                            and y0 <= page.rect.height * 0.03
+                            and x1 >= page.rect.width * 0.97
+                            and y1 >= page.rect.height * 0.97
+                        )
+                        if full_page_background or area_ratio < 0.002:
+                            continue
+                        page_images.append({
+                            "data": image_bytes,
+                            "bbox": [round(x0 * scale), round(y0 * scale),
+                                     round(x1 * scale), round(y1 * scale)],
+                        })
+                        total_embedded_image_bytes += len(image_bytes)
+                        break
+            except Exception:
+                # A malformed/unsupported image must not fail the text conversion.
+                page_images = []
+
             pages_for_docx.append({
                 "page": index + 1,
                 "dpi": OCR_DPI,
@@ -239,6 +282,7 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
                 "direction": (result.get("layout") or {}).get("direction", "rtl"),
                 "lines": result.get("lines") or [],
                 "tables": result.get("tables") or [],
+                "images": page_images,
             })
 
         if not needs_ocr:
