@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: got-pdf-live-ocr-smoke
+  cancel-in-progress: true
+
 jobs:
   live-ocr:
     runs-on: ubuntu-latest
