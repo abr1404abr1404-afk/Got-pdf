@@ -86,6 +86,28 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertFalse(report["source_extractable"])
 
 
+    def test_quality_report_uses_ocr_source_text_for_scanned_pdf(self):
+        source_doc = pymupdf.open()
+        source_doc.new_page()
+        source = source_doc.tobytes()
+        source_doc.close()
+
+        output_doc = Document()
+        output_doc.add_paragraph("المجلس نص قابل للتحرير")
+        buffer = io.BytesIO()
+        output_doc.save(buffer)
+
+        report = analyze_pdf_docx_quality(
+            source, buffer.getvalue(), source_text_override="المجلس نص قابل للتحرير"
+        )
+
+        self.assertEqual(report["analysis_status"], "ok")
+        self.assertEqual(report["source_text_basis"], "ocr-reconstruction")
+        self.assertTrue(report["source_extractable"])
+        self.assertEqual(report["text_coverage_percent"], 100.0)
+        self.assertEqual(report["text_precision_percent"], 100.0)
+
+
     def test_arabic_paragraphs_get_word_rtl_metadata(self):
         from docx.oxml.ns import qn
 
