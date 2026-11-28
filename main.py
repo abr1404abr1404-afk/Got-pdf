@@ -266,7 +266,7 @@ def _convert_pdf_to_docx_adaptive(data: bytes, password: str = "", include_quali
             output = convert_pdf_to_docx(data, password)
             return (output, "pdf2docx", "") if include_quality_text else (output, "pdf2docx")
         output = create_ocr_docx(pages_for_docx)
-        source_text = "\\n".join(
+        source_text = "\n".join(
             str(line.get("text", "")).strip()
             for page_data in pages_for_docx
             for line in (page_data.get("lines") or [])
