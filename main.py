@@ -1141,7 +1141,11 @@ def _hybrid(image: np.ndarray, language: str, engine_override: str | None = None
             if tess_rows else 0.0
         )
         scale = min(1.5, 2000.0 / max(1, height, width))
-        if not timed_out and scale >= 1.12 and (len(tess_rows) <= 4 or final_confidence < 68.0):
+        # Do not spend another OCR pass merely because a page contains few lines:
+        # a short page can be perfectly recognized. Upscale only when the recognized
+        # result is present but still weak; sparse headings remain eligible when
+        # their confidence is low. This keeps recovery bounded on low-CPU hosts.
+        if not timed_out and tess_rows and scale >= 1.12 and final_confidence < 68.0:
             enlarged = cv2.resize(prepared, None, fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
             enlarged_rows, enlarged_error = _tesseract(enlarged, language, 11, timeout_override=10)
             if enlarged_rows:
