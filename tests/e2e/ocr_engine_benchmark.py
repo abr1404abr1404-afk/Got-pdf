@@ -95,6 +95,19 @@ def post_ocr(image_bytes: bytes, language: str, engine: str) -> dict:
     return response.json()
 
 
+
+def post_paddle_vl(image_bytes: bytes) -> dict:
+    response = SESSION.post(
+        BASE + "/api/document/parse",
+        files={"file": ("arabic-document.png", image_bytes, "image/png")},
+        data={"export_docx": "false"},
+        timeout=300,
+    )
+    if not response.ok:
+        raise RuntimeError(f"HTTP {response.status_code}: {response.text[:240]}")
+    return response.json()
+
+
 def main() -> None:
     health_response = SESSION.get(BASE + "/api/health", timeout=40)
     health_response.raise_for_status()
@@ -111,6 +124,8 @@ def main() -> None:
     candidates = ["tesseract"]
     if health.get("paddleocr_enabled"):
         candidates.extend(["paddleocr", "hybrid"])
+    if health.get("paddleocr_vl_available"):
+        candidates.append("paddleocr_vl")
     report = {
         "source": "Live Got-pdf backend; identical generated Arabic fixtures per engine",
         "health": {
@@ -134,7 +149,7 @@ def main() -> None:
                 lines = payload.get("lines") or []
                 text = "\n".join(str(line.get("text", "")) for line in lines)
                 item.update({
-                    "status": "passed" if lines else "empty",
+                    "status": "passed" if (lines or text.strip()) else "empty",
                     "latency_seconds": round(time.perf_counter() - started, 3),
                     "line_count": len(lines),
                     "metrics": metrics(fixture["text"], text),
