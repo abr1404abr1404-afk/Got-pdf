@@ -138,6 +138,8 @@ app.add_middleware(
 
 _paddle_lock = threading.Lock()
 _paddle_instances: dict[str, Any] = {}
+_paddle_remote_retry_after = 0.0
+_paddle_remote_state_lock = threading.Lock()
 _request_limiter = SlidingWindowRateLimiter(max_keys=4096)
 _ocr_semaphore = asyncio.Semaphore(OCR_CONCURRENCY)
 _cpu_semaphore = asyncio.Semaphore(1)
@@ -1103,15 +1105,23 @@ def _detect_tables(image: np.ndarray, lines: list[dict]) -> list[dict]:
 
 
 def _paddle_remote(image: np.ndarray, language: str) -> tuple[list[dict], str | None]:
-    """Call a separately hosted PaddleOCR worker without exposing its secret to browsers."""
+    """Call the remote Paddle worker with a short circuit-breaker after upstream failures."""
+    global _paddle_remote_retry_after
     if not PADDLEOCR_REMOTE_URL:
         return [], "remote PaddleOCR URL is not configured"
+    now = time.monotonic()
+    with _paddle_remote_state_lock:
+        if now < _paddle_remote_retry_after:
+            remaining = max(1, int(_paddle_remote_retry_after - now))
+            return [], f"remote PaddleOCR temporarily paused after upstream failure ({remaining}s)"
     try:
         ok, encoded = cv2.imencode(".png", image)
         if not ok:
             return [], "could not encode image for remote PaddleOCR"
         headers = {"Authorization": "Bearer " + PADDLEOCR_REMOTE_API_KEY} if PADDLEOCR_REMOTE_API_KEY else {}
-        with httpx.Client(timeout=httpx.Timeout(150.0, connect=15.0)) as client:
+        # Render cold starts can take longer than ordinary inference. Keep a generous
+        # read timeout, but do not let every page hammer a known-failing worker.
+        with httpx.Client(timeout=httpx.Timeout(150.0, connect=30.0)) as client:
             response = client.post(
                 PADDLEOCR_REMOTE_URL + "/api/ocr/image",
                 files={"file": ("page.png", encoded.tobytes(), "image/png")},
@@ -1138,8 +1148,12 @@ def _paddle_remote(image: np.ndarray, language: str) -> tuple[list[dict], str | 
                 continue
             rows.append({"text": text, "confidence": confidence, "bbox": bbox,
                          "engine": "paddleocr-remote"})
+        with _paddle_remote_state_lock:
+            _paddle_remote_retry_after = 0.0
         return rows, None if rows else "remote PaddleOCR returned no text"
     except (httpx.HTTPError, ValueError, TypeError) as exc:
+        with _paddle_remote_state_lock:
+            _paddle_remote_retry_after = time.monotonic() + 60.0
         return [], "remote PaddleOCR unavailable: " + str(exc)[:300]
 
 
