@@ -83,6 +83,20 @@ def _append_ocr_word_table(document, table_data: dict, direction: str):
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
     table_pr = table._tbl.tblPr
+    # Explicit borders render consistently across Word, Pages and LibreOffice.
+    borders = table_pr.find(qn("w:tblBorders"))
+    if borders is None:
+        borders = OxmlElement("w:tblBorders")
+        table_pr.append(borders)
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        element = borders.find(qn(f"w:{edge}"))
+        if element is None:
+            element = OxmlElement(f"w:{edge}")
+            borders.append(element)
+        element.set(qn("w:val"), "single")
+        element.set(qn("w:sz"), "4")
+        element.set(qn("w:space"), "0")
+        element.set(qn("w:color"), "808080")
     bidi = table_pr.find(qn("w:bidiVisual"))
     if bidi is None:
         bidi = OxmlElement("w:bidiVisual")
@@ -264,7 +278,7 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 bidi = OxmlElement("w:bidi")
                 bidi.set(qn("w:val"), "1")
                 p_pr.append(bidi)
-            paragraph_positions.append((y0, paragraph))
+            paragraph_positions.append((y0, y1, paragraph))
             run = paragraph.add_run(text)
             run.font.name = "Arial"
             run.font.size = Pt(height_pt)
@@ -290,7 +304,7 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
             table = _append_ocr_word_table(document, table_data, table_data.get("direction", direction))
             if table is None:
                 continue
-            anchor = next((paragraph for line_y, paragraph in paragraph_positions if line_y > y0), None)
+            anchor = next((paragraph for line_y, _line_bottom, paragraph in paragraph_positions if line_y > y0), None)
             if anchor is not None:
                 prior = inserted_before.get(anchor._p)
                 if prior is None:
@@ -306,7 +320,14 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 width_pt = max(8.0, min(float(section.page_width.pt) * 0.90,
                                         (ix1 - ix0) * points_per_pixel_x))
                 image_paragraph = document.add_paragraph()
-                image_paragraph.paragraph_format.space_before = Pt(0)
+                # Retain the vertical whitespace before an illustration.
+                previous_line_bottom = max(
+                    (line_bottom for _line_top, line_bottom, _paragraph in paragraph_positions
+                     if line_bottom <= iy0),
+                    default=0.0,
+                )
+                vertical_gap_pt = max(0.0, min(120.0, (iy0 - previous_line_bottom) * points_per_pixel_y))
+                image_paragraph.paragraph_format.space_before = Pt(vertical_gap_pt)
                 image_paragraph.paragraph_format.space_after = Pt(2)
                 image_paragraph.add_run().add_picture(io.BytesIO(image_bytes), width=Pt(width_pt))
                 left_pt = max(0.0, min(float(section.page_width.pt) - width_pt,
@@ -314,7 +335,7 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 right_pt = max(0.0, float(section.page_width.pt) - left_pt - width_pt)
                 image_paragraph.paragraph_format.left_indent = Pt(left_pt)
                 image_paragraph.paragraph_format.right_indent = Pt(right_pt)
-                anchor = next((paragraph for line_y, paragraph in paragraph_positions if line_y > iy0), None)
+                anchor = next((paragraph for line_y, _line_bottom, paragraph in paragraph_positions if line_y > iy0), None)
                 if anchor is not None:
                     prior = inserted_before.get(anchor._p)
                     if prior is None:
