@@ -155,19 +155,20 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
             paragraph.paragraph_format.line_spacing = 1.0
             # Preserve horizontal placement as paragraph indents. This is more
             # stable in Word/LibreOffice than relying on right alignment alone.
-            try:
-                page_width_pt = float(section.page_width.pt)
-                x0, x1 = float(box[0]), float(box[2])
-                left_gap = max(0.0, min(page_width_pt, x0 * points_per_pixel_x))
-                right_gap = max(0.0, min(page_width_pt, page_width_pt - x1 * points_per_pixel_x))
-                if left_gap + right_gap > page_width_pt - 8:
-                    factor = max(0.0, (page_width_pt - 8) / max(1.0, left_gap + right_gap))
-                    left_gap *= factor
-                    right_gap *= factor
-                paragraph.paragraph_format.left_indent = Pt(left_gap)
-                paragraph.paragraph_format.right_indent = Pt(right_gap)
-            except (TypeError, ValueError, IndexError):
-                pass
+            if page.get("preserve_positioning", True):
+                try:
+                    page_width_pt = float(section.page_width.pt)
+                    x0, x1 = float(box[0]), float(box[2])
+                    left_gap = max(0.0, min(page_width_pt, x0 * points_per_pixel_x))
+                    right_gap = max(0.0, min(page_width_pt, page_width_pt - x1 * points_per_pixel_x))
+                    if left_gap + right_gap > page_width_pt - 8:
+                        factor = max(0.0, (page_width_pt - 8) / max(1.0, left_gap + right_gap))
+                        left_gap *= factor
+                        right_gap *= factor
+                    paragraph.paragraph_format.left_indent = Pt(left_gap)
+                    paragraph.paragraph_format.right_indent = Pt(right_gap)
+                except (TypeError, ValueError, IndexError):
+                    pass
             if direction == "rtl":
                 p_pr = paragraph._p.get_or_add_pPr()
                 bidi = OxmlElement("w:bidi")
