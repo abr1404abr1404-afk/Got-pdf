@@ -280,7 +280,7 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes, source_text_ov
             normalized = unicodedata.normalize("NFKC", value).casefold()
             return re.findall(r"\w+", normalized, flags=re.UNICODE)
 
-        native_source_text = "\\n".join(source_parts)
+        native_source_text = "\n".join(source_parts)
         if isinstance(source_text_override, str) and source_text_override.strip():
             # Compare against the exact OCR text stream used to reconstruct scanned
             # pages. This measures DOCX text retention, not OCR accuracy vs ground truth.
@@ -289,7 +289,7 @@ def analyze_pdf_docx_quality(pdf_bytes: bytes, docx_bytes: bytes, source_text_ov
         else:
             source_text = native_source_text
         source_tokens = tokens(source_text)
-        output_tokens = tokens("\\n".join(output_parts))
+        output_tokens = tokens("\n".join(output_parts))
         report["source_word_count"] = len(source_tokens)
         report["output_word_count"] = len(output_tokens)
         if not source_tokens:
