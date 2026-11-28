@@ -8,6 +8,7 @@ import io
 import json
 import re
 import unittest
+from unittest.mock import patch
 
 import httpx
 import pymupdf
