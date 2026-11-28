@@ -12,6 +12,7 @@ from pathlib import Path
 
 import requests
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+import pymupdf
 
 BASE = os.environ.get("BACKEND_URL", "https://got-pdf.onrender.com").rstrip("/")
 OUT = Path("ocr-engine-benchmark.json")
@@ -83,6 +84,39 @@ def render_fixture(text: str, size: int, mixed: bool = False, degraded: bool = F
     return result.getvalue()
 
 
+def real_pdf_page_fixture() -> dict:
+    """Rasterize page one of a public Arabic government PDF for identical engine tests."""
+    url = (
+        "https://dlp.dubai.gov.ae/Legislation%20Ar%20Reference/2025/"
+        "%D9%82%D8%A7%D9%86%D9%88%D9%86%20%D8%B1%D9%82%D9%85%20(7)%20"
+        "%D9%84%D8%B3%D9%86%D8%A9%202025%20%D8%A8%D8%B4%D8%A3%D9%86%20"
+        "%D8%AA%D9%86%D8%B8%D9%8A%D9%85%20%D9%85%D8%B2%D8%A7%D9%88%D9%84%D8%A9%20"
+        "%D8%A3%D9%86%D8%B4%D8%B7%D8%A9%20%D8%A7%D9%84%D9%85%D9%82%D8%A7%D9%88%D9%84%D8%A7%D8%AA.pdf"
+    )
+    response = SESSION.get(url, timeout=(20, 180), headers={"User-Agent": "GotPDF-OCR-benchmark/1.0"})
+    response.raise_for_status()
+    document = pymupdf.open(stream=response.content, filetype="pdf")
+    try:
+        page = document[0]
+        reference = page.get_text("text") or ""
+        if len(normalize(reference)) < 100:
+            raise RuntimeError("Public Arabic PDF page one has insufficient reference text")
+        pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2.0, 2.0), alpha=False)
+        image_bytes = pixmap.tobytes("png")
+        return {
+            "id": "real_dubai_law_pdf_page1",
+            "text": reference,
+            "language": "ara+eng",
+            "bytes": image_bytes,
+            "source_url": url,
+            "source_page": 1,
+            "image_width": pixmap.width,
+            "image_height": pixmap.height,
+        }
+    finally:
+        document.close()
+
+
 def post_ocr(image_bytes: bytes, language: str, engine: str) -> dict:
     response = SESSION.post(
         BASE + "/api/ocr/image",
@@ -140,6 +174,7 @@ def main() -> None:
         {"id": "mixed_arabic_latin_digits", "text": "ALFAQI PDF 2026 OCR 12345 الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", "language": "ara+eng", "bytes": render_fixture("الفلقي PDF تحويل المستندات العربية بدقة ١٢٣٤٥", 118, mixed=True)},
         {"id": "small_arabic", "text": "هذا اختبار لقراءة النص العربي الصغير بدقة", "language": "ara", "bytes": render_fixture("هذا اختبار لقراءة النص العربي الصغير بدقة", 76)},
         {"id": "degraded_arabic", "text": "المجلس العربي للوثائق والتحول الرقمي", "language": "ara", "bytes": render_fixture("المجلس العربي للوثائق والتحول الرقمي", 108, degraded=True)},
+        real_pdf_page_fixture(),
     ]
 
     candidates = ["tesseract"]
@@ -148,7 +183,7 @@ def main() -> None:
     if health.get("paddleocr_vl_available"):
         candidates.append("paddleocr_vl")
     report = {
-        "source": "Live Got-pdf backend; identical generated Arabic fixtures per engine",
+        "source": "Live Got-pdf backend; identical generated and public-PDF raster fixtures per engine",
         "health": {
             "mode": health.get("mode"),
             "arabic_ocr_ready": health.get("arabic_ocr_ready"),
@@ -158,6 +193,7 @@ def main() -> None:
             "paddleocr_vl_status": health.get("paddleocr_vl_status"),
         },
         "candidate_engines": candidates,
+        "real_pdf_fixture_source": next((f.get("source_url") for f in fixtures if f["id"] == "real_dubai_law_pdf_page1"), None),
         "results": [],
     }
 
