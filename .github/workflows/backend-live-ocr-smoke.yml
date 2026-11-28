@@ -22,6 +22,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends fonts-noto-core
           python -m pip install --upgrade pip pillow requests
+      - name: Benchmark available Arabic OCR engines on identical fixtures
+        env:
+          BACKEND_URL: https://got-pdf.onrender.com
+        run: python tests/e2e/ocr_engine_benchmark.py
       - name: Wait for backend and verify live image/PDF OCR
         env:
           BACKEND_URL: https://got-pdf.onrender.com
@@ -172,3 +176,10 @@ jobs:
           print("PDF_OCR_TEXT=" + pdf_text[:500])
           print("BACKEND_LIVE_OCR_SMOKE=PASS")
           PY
+      - name: Upload live OCR engine benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-arabic-ocr-engine-benchmark
+          path: ocr-engine-benchmark.json
+          if-no-files-found: ignore
