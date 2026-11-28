@@ -100,7 +100,18 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
         except (TypeError, ValueError, OverflowError):
             pass
         dpi = max(72, int(page.get("dpi", 180)))
-        points_per_pixel = 72.0 / dpi
+        # OCR preprocessing may resize pages to a bounded working canvas. Use
+        # the actual analyzed image dimensions when available; DPI alone would
+        # shift every line on resized scans.
+        try:
+            image_width = float(page.get("image_width", 0) or 0)
+            image_height = float(page.get("image_height", 0) or 0)
+            page_width_pt = float(section.page_width.pt)
+            page_height_pt = float(section.page_height.pt)
+            points_per_pixel_x = page_width_pt / image_width if image_width > 0 else 72.0 / dpi
+            points_per_pixel_y = page_height_pt / image_height if image_height > 0 else 72.0 / dpi
+        except (TypeError, ValueError, ZeroDivisionError):
+            points_per_pixel_x = points_per_pixel_y = 72.0 / dpi
         direction = page.get("direction", "rtl")
         lines = [line for line in (page.get("lines") or []) if str(line.get("text", "")).strip()]
         # Layout analysis assigns columns in reading order; within each column,
@@ -135,13 +146,28 @@ def create_ocr_docx(pages: list[dict]) -> bytes:
                 y0, y1 = float(box[1]), float(box[3])
             except (TypeError, ValueError, IndexError):
                 y0, y1 = previous_bottom, previous_bottom + 16
-            gap_pt = max(0.0, min(18.0, (y0 - previous_bottom) * points_per_pixel * 0.45))
-            height_pt = max(7.0, min(24.0, (y1 - y0) * points_per_pixel * 0.82))
+            gap_pt = max(0.0, min(36.0, (y0 - previous_bottom) * points_per_pixel_y * 0.45))
+            height_pt = max(6.0, min(48.0, (y1 - y0) * points_per_pixel_y * 0.82))
             paragraph = document.add_paragraph()
             paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT if direction == "rtl" else WD_ALIGN_PARAGRAPH.LEFT
             paragraph.paragraph_format.space_before = Pt(gap_pt)
             paragraph.paragraph_format.space_after = Pt(1.5)
             paragraph.paragraph_format.line_spacing = 1.0
+            # Preserve horizontal placement as paragraph indents. This is more
+            # stable in Word/LibreOffice than relying on right alignment alone.
+            try:
+                page_width_pt = float(section.page_width.pt)
+                x0, x1 = float(box[0]), float(box[2])
+                left_gap = max(0.0, min(page_width_pt, x0 * points_per_pixel_x))
+                right_gap = max(0.0, min(page_width_pt, page_width_pt - x1 * points_per_pixel_x))
+                if left_gap + right_gap > page_width_pt - 8:
+                    factor = max(0.0, (page_width_pt - 8) / max(1.0, left_gap + right_gap))
+                    left_gap *= factor
+                    right_gap *= factor
+                paragraph.paragraph_format.left_indent = Pt(left_gap)
+                paragraph.paragraph_format.right_indent = Pt(right_gap)
+            except (TypeError, ValueError, IndexError):
+                pass
             if direction == "rtl":
                 p_pr = paragraph._p.get_or_add_pPr()
                 bidi = OxmlElement("w:bidi")
