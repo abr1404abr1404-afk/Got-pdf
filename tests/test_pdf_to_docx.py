@@ -272,6 +272,32 @@ class PdfToDocxTests(unittest.TestCase):
         self.assertIn("عنوان قبل الجدول", all_text)
         self.assertIn("عنوان بعد الجدول", all_text)
 
+    def test_ocr_docx_embeds_non_background_source_images(self):
+        from PIL import Image
+        from pdf_to_docx import create_ocr_docx
+
+        image_buffer = io.BytesIO()
+        Image.new("RGB", (80, 40), "white").save(image_buffer, format="PNG")
+        converted = Document(io.BytesIO(create_ocr_docx([{
+            "direction": "rtl",
+            "page_width_pt": 420,
+            "page_height_pt": 595,
+            "image_width": 420,
+            "image_height": 595,
+            "lines": [{
+                "text": "نص قبل الصورة",
+                "bbox": [20, 20, 180, 40],
+                "reading_order": 1,
+            }],
+            "images": [{
+                "data": image_buffer.getvalue(),
+                "bbox": [40, 100, 160, 160],
+            }],
+        }])))
+
+        self.assertEqual(len(converted.inline_shapes), 1)
+        self.assertIn("نص قبل الصورة", "\n".join(p.text for p in converted.paragraphs))
+
     def test_ocr_docx_preserves_horizontal_line_geometry(self):
         from pdf_to_docx import create_ocr_docx
 
