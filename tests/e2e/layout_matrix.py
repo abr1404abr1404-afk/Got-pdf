@@ -65,18 +65,32 @@ def make_fixture(kind: str) -> bytes:
         page.insert_textbox((322, 115, 540, 650),
                             "RIGHT COLUMN\n\n" + ("Right column paragraph with distinct content. " * 14),
                             fontsize=10, lineheight=1.35)
-    elif kind == "image":
-        page.insert_text((72, 80), "Image and Caption", fontsize=18)
-        image = Image.new("RGB", (320, 160), "white")
-        # Deterministic simple graphic; avoids external image dependencies.
+    elif kind in {"image", "ocr-mixed"}:
+        page.insert_text((72, 80), "Image and Caption" if kind == "image" else "OCR mixed layout", fontsize=18)
+        image = Image.new("RGB", (160, 90), "white")
         from PIL import ImageDraw
         draw = ImageDraw.Draw(image)
-        draw.rectangle((12, 12, 308, 148), outline="black", width=4)
-        draw.line((20, 130, 100, 50, 180, 100, 280, 25), fill="black", width=5)
+        draw.rectangle((6, 6, 154, 84), outline="black", width=3)
+        draw.line((10, 75, 50, 20, 90, 60, 145, 15), fill="black", width=4)
         buf = io.BytesIO()
         image.save(buf, format="PNG")
-        page.insert_image(pymupdf.Rect(100, 130, 500, 330), stream=buf.getvalue())
-        page.insert_text((100, 355), "Figure 1. Deterministic test graphic.", fontsize=10)
+        if kind == "image":
+            page.insert_image(pymupdf.Rect(100, 130, 500, 330), stream=buf.getvalue())
+            page.insert_text((100, 355), "Figure 1. Deterministic test graphic.", fontsize=10)
+        else:
+            page.insert_image(pymupdf.Rect(400, 360, 520, 440), stream=buf.getvalue())
+            x0, y0, x1, y1 = 72, 140, 540, 300
+            for rr in range(3):
+                y = y0 + (y1-y0)*rr/2
+                page.draw_line((x0, y), (x1, y), color=(0, 0, 0), width=0.8)
+            for cc in range(3):
+                x = x0 + (x1-x0)*cc/2
+                page.draw_line((x, y0), (x, y1), color=(0, 0, 0), width=0.8)
+            page.insert_text((95, 185), "Name", fontsize=10)
+            page.insert_text((330, 185), "Value", fontsize=10)
+            page.insert_text((95, 265), "Total", fontsize=10)
+            page.insert_text((330, 265), "125", fontsize=10)
+            page.insert_text((72, 500), "Figure 1. OCR layout image.", fontsize=10)
     else:
         raise ValueError(kind)
     data = doc.tobytes()
@@ -140,14 +154,39 @@ def run():
     # Disable only the in-process request guard in this test process so the four
     # fixtures (plus the preceding real-PDF checks) cannot trip production quotas.
     main._guard_expensive_request = lambda *args, **kwargs: None
-    for kind in ("text-only", "table", "two-column", "image"):
+    for kind in ("text-only", "table", "two-column", "image", "ocr-mixed"):
         pdf = make_fixture(kind)
-        # Isolate fixtures by synthetic client IP; production limits stay enabled.
         with TestClient(main.app, client=(f"layout-matrix-{kind}", 50000)) as client:
-            response = client.post(
-                "/api/convert/pdf-to-docx",
-                files={"file": (f"{kind}.pdf", pdf, "application/pdf")},
-            )
+            if kind == "ocr-mixed":
+                from unittest.mock import patch
+                fake_ocr = {
+                    "engine": "tesseract", "image_width": 2040, "image_height": 2640,
+                    "lines": [
+                        {"text": "OCR mixed layout", "bbox": [240, 200, 1500, 320], "confidence": 99},
+                        {"text": "Name", "bbox": [300, 500, 520, 570], "confidence": 99},
+                        {"text": "Value", "bbox": [1050, 500, 1300, 570], "confidence": 99},
+                        {"text": "Total", "bbox": [300, 850, 520, 920], "confidence": 99},
+                        {"text": "125", "bbox": [1050, 850, 1300, 920], "confidence": 99},
+                        {"text": "Figure 1. OCR layout image.", "bbox": [240, 1570, 1500, 1640], "confidence": 99},
+                    ],
+                    "layout": {"direction": "ltr", "column_count": 1},
+                }
+                fake_table = [{
+                    "bbox": [220, 450, 1800, 1050], "direction": "ltr",
+                    "rows": [["Name", "Value"], ["Total", "125"]],
+                }]
+                with patch.object(main, "_native_pdf_page_result", return_value=None), \\
+                     patch.object(main, "_hybrid", return_value=fake_ocr), \\
+                     patch.object(main, "_detect_tables", return_value=fake_table):
+                    response = client.post(
+                        "/api/convert/pdf-to-docx",
+                        files={"file": (f"{kind}.pdf", pdf, "application/pdf")},
+                    )
+            else:
+                response = client.post(
+                    "/api/convert/pdf-to-docx",
+                    files={"file": (f"{kind}.pdf", pdf, "application/pdf")},
+                )
             if response.status_code != 200 or not response.content.startswith(b"PK"):
                 raise RuntimeError(f"{kind}: conversion failed ({response.status_code}) {response.text[:500]}")
             document = Document(io.BytesIO(response.content))
